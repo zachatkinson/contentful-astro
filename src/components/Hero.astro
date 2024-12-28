@@ -1,0 +1,143 @@
+---
+import type { ComponentHero } from "../lib/componentHero";
+import { contentfulClient } from "../lib/contentful";
+import HeroGlitchAnimationLayers from "./HeroGlitchAnimationLayers.astro";
+import HeroShakeAnimationLayers from "./HeroShakeAnimationLayers.astro";
+import HeroWarholAnimationLayers from "./HeroWarholAnimationLayers.astro";
+
+const { title, sfx } = Astro.props;
+let asset;
+try {
+    asset = await contentfulClient.getEntry<ComponentHero>({
+        title: title,
+
+    });
+} catch (error) {
+    console.error("Failed to fetch entry:", error);
+    asset = null;
+}
+
+const desktopBackgroundUrl = asset?.fields?.desktopBackground?.fields?.file?.url
+    ? `https:${asset.fields.desktopBackground.fields.file.url}`
+    : 'default-background.jpg';
+
+const mobileBackgroundUrl = asset?.fields?.mobileBackground?.fields?.file?.url
+    ? `https:${asset.fields.mobileBackground.fields.file.url}`
+    : 'default-background.jpg';
+---
+
+<!-- #hero-home has a defined height via Tailwind -->
+
+<div
+        id="hero-home"
+        class="
+    bg-hero
+    aspect-hero-mobile       /* e.g., aspect ratio for mobile */
+    sm:aspect-hero-desktop   /* e.g., aspect ratio for desktop */
+    w-full
+    relative                 /* if you need positioned elements inside */
+    overflow-hidden
+  "
+        data-desktop-bg={desktopBackgroundUrl}
+        data-mobile-bg={mobileBackgroundUrl}
+        data-sfx={sfx}
+>
+    <!-- animation layers -->
+    {sfx === "glitch" ? <HeroGlitchAnimationLayers />: null}
+    {sfx === "shake" ? <HeroShakeAnimationLayers />: null}
+    {sfx === "warhol" ? <HeroWarholAnimationLayers />: null}
+
+
+
+
+
+    <!-- Hero content above or below the glitch container -->
+    <!--<div class="p-4 container mx-auto relative z-[2]">-->
+    <!--    <h2 class="content-title z-[3]">Conjuring</h2>-->
+    <!--</div>-->
+</div>
+
+<script>
+    // Grab the hero element */
+    import glitchAnimation from "../animations/glitch";
+    import shakeAnimation from "../animations/shake";
+    import warholAnimation from "../animations/warhol";
+    const heroElement = document.getElementById('hero-home');
+
+
+    const backgroundStyles:string = `
+    .content-title,
+.content-text {
+    animation-name: glitch-anim-text;
+    animation-duration: 4s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+.content-title {
+    font-size: 12vw;
+    margin: 35vh 0 0 0;
+    position: relative;
+    font-family: 'Playfair Display', serif;
+    animation-delay: calc(2s + 4s * 0.2);
+}
+
+.content-text {
+    font-family: 'IM Fell English', serif;
+    position: absolute;
+    font-size: 1.5em;
+    top: 4em;
+    right: 10vw;
+    max-width: 500px;
+    text-align: right;
+    font-weight: 400;
+    animation-delay: calc(2s + 4s * 0.25);
+}
+
+@media screen and (max-width: 55em) {
+    .content-text {
+        position: relative;
+        right: auto;
+        top: auto;
+        font-size: 1.25em;
+        padding: 0 1em;
+        text-align: center;
+    }
+}
+    .bg-hero {
+      background-image: url("${heroElement.dataset.mobileBg}");
+      background-size: cover;
+      background-position: center;
+    }
+     @media (min-width: 640px) {
+     .bg-hero{
+        background-image: url("${heroElement.dataset.desktopBg}") !important
+      }
+     }
+    `
+    let styles = backgroundStyles;
+    if(heroElement.dataset.sfx === "glitch"){
+        styles += glitchAnimation()
+    }
+    else if(heroElement.dataset.sfx === "shake"){
+        styles += shakeAnimation()
+    }
+    else if (heroElement.dataset.sfx === "warhol"){
+        styles += warholAnimation()
+    }
+
+
+
+
+
+
+
+    // Dynamic CSS
+
+
+    // Inject the style into the page
+    const styleSheet = document.createElement('style');
+    styleSheet.type = 'text/css';
+    styleSheet.textContent = styles
+    document.head.appendChild(styleSheet);
+</script>
