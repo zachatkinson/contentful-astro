@@ -43,18 +43,20 @@ const mobileBackgroundUrl = asset?.fields?.mobileBackground?.fields?.file?.url
         data-sfx={sfx}
 >
     <!-- animation layers -->
-    {sfx === "glitch" ? <HeroGlitchAnimationLayers />: null}
-    {sfx === "shake" ? <HeroShakeAnimationLayers />: null}
-    {sfx === "warhol" ? <HeroWarholAnimationLayers />: null}
+    <div class="absolute inset-0 z-0">
+        {sfx === "glitch" ? <HeroGlitchAnimationLayers />: null}
+        {sfx === "shake" ? <HeroShakeAnimationLayers />: null}
+        {sfx === "warhol" ? <HeroWarholAnimationLayers />: null}
+    </div>
 
 
 
 
 
-    <!-- Hero content above or below the glitch container -->
-    <!--<div class="p-4 container mx-auto relative z-[2]">-->
-    <!--    <h2 class="content-title z-[3]">Conjuring</h2>-->
-    <!--</div>-->
+     <!--Hero content above or below the glitch container-->
+    <div class="content h-full w-full p-4 container mx-auto grid relative">
+        <h2 class="content-title relative text-6xl/loose row-start-1 row-end-1">Conjuring</h2>
+    </div>
 </div>
 
 <script>
@@ -75,15 +77,10 @@ const mobileBackgroundUrl = asset?.fields?.mobileBackground?.fields?.file?.url
 }
 
 .content-title {
-    font-size: 12vw;
-    margin: 35vh 0 0 0;
-    position: relative;
-    font-family: 'Playfair Display', serif;
     animation-delay: calc(2s + 4s * 0.2);
 }
 
 .content-text {
-    font-family: 'IM Fell English', serif;
     position: absolute;
     font-size: 1.5em;
     top: 4em;
