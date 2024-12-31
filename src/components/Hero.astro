@@ -4,6 +4,10 @@ import { contentfulClient } from "../lib/contentful";
 import HeroGlitchAnimationLayers from "./HeroGlitchAnimationLayers.astro";
 import HeroShakeAnimationLayers from "./HeroShakeAnimationLayers.astro";
 import HeroWarholAnimationLayers from "./HeroWarholAnimationLayers.astro";
+import Svg from "./Svg.astro";
+import test from "../img/cat-logo.svg";
+
+import { Image } from 'astro:assets';
 
 const { title, sfx } = Astro.props;
 let asset;
@@ -24,6 +28,8 @@ const desktopBackgroundUrl = asset?.fields?.desktopBackground?.fields?.file?.url
 const mobileBackgroundUrl = asset?.fields?.mobileBackground?.fields?.file?.url
     ? `https:${asset.fields.mobileBackground.fields.file.url}`
     : 'default-background.jpg';
+
+console.log(test.src)
 ---
 
 <!-- #hero-home has a defined height via Tailwind -->
@@ -53,9 +59,25 @@ const mobileBackgroundUrl = asset?.fields?.mobileBackground?.fields?.file?.url
 
 
 
-     <!--Hero content above or below the glitch container-->
-    <div class="content h-full w-full p-4 container mx-auto grid relative">
-        <h2 class="content-title relative text-6xl/loose row-start-1 row-end-1">Conjuring</h2>
+     <!--Hero content wrapper-->
+    <div id="hero-content-grid" class="content h-full w-full p-4 container mx-auto grid sm:grid-cols-2 relative">
+        <div class=" order-2 sm:order-1"></div>
+        <div class="order-1 sm:order-2 h-100">
+            <div class="bg-primary bg-opacity-85 p-4">
+            <!--<Svg name="cat-logo" class="mx-auto  sm:h-1/4 lg:h-32" />-->
+                <Image
+                    class="max-h-32 sm:max-h-11 md:max-h-14 mx-auto"
+                    src={test}
+                    alt="Cat Logo"
+                    inferSize={true}
+                />
+            <h1 class="text-center text-xl sm:text-lg">Contentful | Astro | Typescript</h1>
+                <p class="text-center mb-2 text-xs">Get started creating powerful Contentful themes with Astro and TypeScript.</p>
+                <button type="button" class="text-white hover:text-primary border border-white hover:bg-white focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2 dark:focus:ring-blue-800 w-full">View on GitHub</button>
+            </div>
+        </div>
+
+
     </div>
 </div>
 
@@ -91,22 +113,12 @@ const mobileBackgroundUrl = asset?.fields?.mobileBackground?.fields?.file?.url
     animation-delay: calc(2s + 4s * 0.25);
 }
 
-@media screen and (max-width: 55em) {
-    .content-text {
-        position: relative;
-        right: auto;
-        top: auto;
-        font-size: 1.25em;
-        padding: 0 1em;
-        text-align: center;
-    }
-}
     .bg-hero {
       background-image: url("${heroElement.dataset.mobileBg}");
       background-size: cover;
       background-position: center;
     }
-     @media (min-width: 640px) {
+     @media (min-width: 740px) {
      .bg-hero{
         background-image: url("${heroElement.dataset.desktopBg}") !important
       }

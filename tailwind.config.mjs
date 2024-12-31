@@ -3,60 +3,76 @@ export default {
 	content: ['./src/**/*.{astro,html,js,jsx,md,mdx,svelte,ts,tsx,vue}'],
 	theme: {
 		extend: {
+			screens: {
+				'sm': '740px',
+				// => @media (min-width: 640px) { ... }
+
+				'md': '768px',
+				// => @media (min-width: 768px) { ... }
+
+				'lg': '1024px',
+				// => @media (min-width: 1024px) { ... }
+
+				'xl': '1280px',
+				// => @media (min-width: 1280px) { ... }
+
+				'2xl': '1536px',
+				// => @media (min-width: 1536px) { ... }
+			},
 			aspectRatio: {
 				"hero-desktop": '16 / 5',
 				"hero-mobile": '1 / 2',
 			},
 			colors: {
-				"base": "rgba(33, 33, 33, 1)",
+				"base": 			"rgb(033 033 033 / <alpha-value>)",
 				"coolBlue": {
-					DEFAULT: "rgba(32, 84, 147, 1)",
-					"light": "rgba(71, 115, 170, 1)",
-					"lighter": "rgba(139, 166, 202, 1)",
-					"lightest": "rgba(220, 228, 239, 1)",
+					DEFAULT: 		"rgb(032 084 147 / <alpha-value>)",
+					"light": 		"rgb(071 115 170 / <alpha-value>)",
+					"lighter": 		"rgb(139 166 202 / <alpha-value>)",
+					"lightest": 	"rgb(220 228 239 / <alpha-value>)",
 				},
-				"focus": "rgba(174, 176, 181, 1)",
+				"focus": 			"rgb(174 176 181 / <alpha-value>)",
 				"gold": {
-					DEFAULT: "rgba(255, 157, 30, 1)",
-					"light": "rgba(249, 170, 67, 1)",
-					"lighter": "rgba(255, 195, 117, 1)",
-					"lightest": "rgba(255, 235, 209, 1)",
+					DEFAULT: 		"rgb(255 157 030 / <alpha-value>)",
+					"light": 		"rgb(249 170 067 / <alpha-value>)",
+					"lighter": 		"rgb(255 195 117 / <alpha-value>)",
+					"lightest": 	"rgb(255 235 209 / <alpha-value>)",
 				},
 				"gray": {
-					DEFAULT: "rgba(91, 97, 107, 1)",
-					"dark": "rgba(50, 58, 69, 1)",
-					"light": "rgba(174, 176, 181, 1)",
-					"lighter": "rgba(214, 215, 217, 1)",
-					"lightest": "rgba(241, 241, 241, 1)",
-					"warmDark": "rgba(73, 68, 64, 1)",
-					"warmLight": "rgba(228, 226, 224, 1)",
-					"coolLight": "rgba(220, 228, 239, 1)",
+					DEFAULT: 		"rgb(091 097 107 / <alpha-value>)",
+					"dark": 		"rgb(050 058 069 / <alpha-value>)",
+					"light": 		"rgb(174 176 181 / <alpha-value>)",
+					"lighter": 		"rgb(214 215 217 / <alpha-value>)",
+				"lightest": 		"rgb(241 241 241 / <alpha-value>)",
+					"warmDark": 	"rgb(073 068 064 / <alpha-value>)",
+					"warmLight": 	"rgb(228 226 224 / <alpha-value>)",
+					"coolLight": 	"rgb(220 228 239 / <alpha-value>)",
 				},
 				"green":{
-					DEFAULT: "rgba(46, 133, 64, 1)",
-					"light": "rgba(74, 165, 100, 1)",
-					"lighter": "rgba(148, 191, 162, 1)",
-					"lightest": "rgba(231, 244, 228, 1)",
+					DEFAULT: 		"rgb(046 133 064 / <alpha-value>)",
+					"light": 		"rgb(074 165 100 / <alpha-value>)",
+					"lighter": 		"rgb(148 191 162 / <alpha-value>)",
+				"lightest": 		"rgb(231 244 228 / <alpha-value>)",
 				},
 				primary: {
-					DEFAULT: "rgba(16, 91, 216, 1)",
-					"darker": "rgba(11, 61, 145, 1)",
-					"darkest": "rgba(6, 31, 74, 1)",
-					"alt": "rgba(2, 191, 231, 1)",
-					"altDark": "rgba(0, 166, 210, 1)",
-					"altDarkest": "rgba(4, 107, 153, 1)",
-					"altLight": "rgba(155, 218, 241, 1)",
-					"altLightest": "rgba(225, 243, 248, 1)",
+					DEFAULT: 		"rgb(016 091 216 / <alpha-value>)",
+					"darker": 		"rgb(011 061 145 / <alpha-value>)",
+					"darkest": 		"rgb(006 031 074 / <alpha-value>)",
+					"alt": 			"rgb(002 191 231 / <alpha-value>)",
+					"altDark": 		"rgb(000 166 210 / <alpha-value>)",
+					"altDarkest": 	"rgb(004 107 153 / <alpha-value>)",
+					"altLight": 	"rgb(155 218 241 / <alpha-value>)",
+					"altLightest": 	"rgb(225 243 248 / <alpha-value>)",
 				},
 				secondary: {
-					DEFAULT: "rgba(221, 54, 28, 1)",
-					"dark": "rgba(198, 45, 31, 1)",
-					"darkest": "rgba(153, 35, 27, 1)",
-					"light": "rgba(229, 152, 146, 1)",
-					"lightest": "rgba(249, 224, 222, 1)",
+					DEFAULT: 		"rgb(221 054 028 / <alpha-value>)",
+					"dark": 		"rgb(198 045 031 / <alpha-value>)",
+					"darkest": 		"rgb(153 035 027 / <alpha-value>)",
+					"light": 		"rgb(229 152 146 / <alpha-value>)",
+				"lightest": 		"rgb(249 224 222 / <alpha-value>)",
 
 				},
-				"visited": "rgba(76, 44, 146, 1)",
+				"visited": 			"rgb(076 044 146 / <alpha-value>)",
 			},
 		},
 	},
