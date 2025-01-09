@@ -8,15 +8,14 @@ export async function getStaticPaths() {
     const entries = await contentfulClient.getEntries<BlogPost>({
         content_type: "blogPost",
     });
-    const pages = entries.items.map((entry) => ({
+    return entries.items.map((entry) => ({
         params: {slug: entry.fields.slug},
         props: {
             title: entry.fields.title,
             date: new Date(entry.fields.date).toLocaleDateString(),
             content: documentToHtmlString(entry.fields.content),
         }
-    }))
-    return pages;
+    }));
 }
 const { content, title, date } = Astro.props;
 

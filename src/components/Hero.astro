@@ -1,35 +1,51 @@
 ---
 import type { ComponentHero } from "../lib/componentHero";
 import { contentfulClient } from "../lib/contentful";
+import type {Asset} from "contentful";
+import type {Entry} from "contentful";
+import {documentToHtmlString} from "@contentful/rich-text-html-renderer";
+
 import HeroGlitchAnimationLayers from "./HeroGlitchAnimationLayers.astro";
 import HeroShakeAnimationLayers from "./HeroShakeAnimationLayers.astro";
 import HeroWarholAnimationLayers from "./HeroWarholAnimationLayers.astro";
-import Svg from "./Svg.astro";
-import test from "../img/cat-logo.svg";
+import logo from "../img/cat_logo.svg";
 
-import { Image } from 'astro:assets';
+const { slug, sfx } = Astro.props;
+//set variables for hero content
+let desktopBackgroundUrl = '../img/default_desktop_background.jpg';
+let mobileBackgroundUrl = '../img/default_mobile_background.jpg';
 
-const { title, sfx } = Astro.props;
-let asset;
-try {
-    asset = await contentfulClient.getEntry<ComponentHero>({
-        title: title,
+//request hero content from contentful with slug passed to props. Store in ComponentHero interface
+const hero =
+    await contentfulClient.getEntries<ComponentHero>({
+        content_type: 'componentHero',
+        'fields.slug': slug
+    }).then((response) => {
+        return response.items[0];
+    }).catch((error) => {
+        console.error("Failed to fetch entry:", error);
+        return null;
+});
 
-    });
-} catch (error) {
-    console.error("Failed to fetch entry:", error);
-    asset = null;
+//error out if no hero content is found
+if(!hero){console.log("No entry found for hero component. Ensure your slug is correct!")}
+else{
+
+    if(hero.fields.desktopBackground){
+        const desktopBackgroundAsset = hero.fields.desktopBackground as Asset;
+        desktopBackgroundUrl = `https:${desktopBackgroundAsset.fields.file?.url}`;
+    }
+    if(hero.fields.mobileBackground){
+        const mobileBackgroundAsset = hero.fields.mobileBackground as Asset;
+        mobileBackgroundUrl = `https:${mobileBackgroundAsset.fields.file?.url}`;
+    }
 }
+console.log(JSON.stringify(hero?.fields.content))
+const heroTitle = hero?.fields.title;
+const heroContent = documentToHtmlString(hero?.fields.content);
+const heroButtonText = hero?.fields.buttonText;
+const heroButtonUrl = hero?.fields.buttonUrl as string || "#";
 
-const desktopBackgroundUrl = asset?.fields?.desktopBackground?.fields?.file?.url
-    ? `https:${asset.fields.desktopBackground.fields.file.url}`
-    : 'default-background.jpg';
-
-const mobileBackgroundUrl = asset?.fields?.mobileBackground?.fields?.file?.url
-    ? `https:${asset.fields.mobileBackground.fields.file.url}`
-    : 'default-background.jpg';
-
-console.log(test.src)
 ---
 
 <!-- #hero-home has a defined height via Tailwind -->
@@ -65,15 +81,15 @@ console.log(test.src)
         <div class="order-1 sm:order-2 h-100">
             <div class="bg-primary bg-opacity-85 p-4">
             <!--<Svg name="cat-logo" class="mx-auto  sm:h-1/4 lg:h-32" />-->
-                <Image
+                <img
                     class="max-h-32 sm:max-h-11 md:max-h-14 mx-auto"
-                    src={test}
+                    src={logo.src}
                     alt="Cat Logo"
-                    inferSize={true}
                 />
-            <h1 class="text-center text-xl sm:text-lg">Contentful | Astro | Typescript</h1>
-                <p class="text-center mb-2 text-xs">Get started creating powerful Contentful themes with Astro and TypeScript.</p>
-                <button type="button" class="text-white hover:text-primary border border-white hover:bg-white focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2 dark:focus:ring-blue-800 w-full">View on GitHub</button>
+                {heroTitle && <h1 class="text-center text-xl sm:text-lg">{heroTitle}</h1>}
+                {heroContent &&   <div class="text-center mb-2 text-xs" set:html={heroContent} ></div>}
+
+                <a href={heroButtonUrl} class="block text-white hover:text-primary border border-white hover:bg-white focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2 dark:focus:ring-blue-800 w-full">{heroButtonText}</a>
             </div>
         </div>
 
@@ -81,7 +97,12 @@ console.log(test.src)
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/contentful@7.0.5/dist/contentful.browser.min.js" charset="utf-8" />
+<script src="https://cdn.jsdelivr.net/npm/@contentful/rich-text-html-renderer@12.0.0/dist/rich-text-html-renderer.es5.min.js"
+charset="utf-8" />
+
 <script>
+    let exports = {};
     // Grab the hero element */
     import glitchAnimation from "../animations/glitch";
     import shakeAnimation from "../animations/shake";
@@ -114,24 +135,24 @@ console.log(test.src)
 }
 
     .bg-hero {
-      background-image: url("${heroElement.dataset.mobileBg}");
+      background-image: url("${heroElement?.dataset.mobileBg}");
       background-size: cover;
       background-position: center;
     }
      @media (min-width: 740px) {
      .bg-hero{
-        background-image: url("${heroElement.dataset.desktopBg}") !important
+        background-image: url("${heroElement?.dataset.desktopBg}") !important
       }
      }
     `
     let styles = backgroundStyles;
-    if(heroElement.dataset.sfx === "glitch"){
+    if(heroElement?.dataset.sfx === "glitch"){
         styles += glitchAnimation()
     }
-    else if(heroElement.dataset.sfx === "shake"){
+    else if(heroElement?.dataset.sfx === "shake"){
         styles += shakeAnimation()
     }
-    else if (heroElement.dataset.sfx === "warhol"){
+    else if (heroElement?.dataset.sfx === "warhol"){
         styles += warholAnimation()
     }
 
