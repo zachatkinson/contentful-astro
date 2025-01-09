@@ -2,7 +2,6 @@
 import type { ComponentHero } from "../lib/componentHero";
 import { contentfulClient } from "../lib/contentful";
 import type {Asset} from "contentful";
-import type {Entry} from "contentful";
 import {documentToHtmlString} from "@contentful/rich-text-html-renderer";
 
 import HeroGlitchAnimationLayers from "./HeroGlitchAnimationLayers.astro";
@@ -15,19 +14,26 @@ const { slug, sfx } = Astro.props;
 let desktopBackgroundUrl = '../img/default_desktop_background.jpg';
 let mobileBackgroundUrl = '../img/default_mobile_background.jpg';
 
+let heroTitle;
+let heroContent;
+let heroButtonText;
+let heroButtonUrl;
+
 //request hero content from contentful with slug passed to props. Store in ComponentHero interface
 const hero =
     await contentfulClient.getEntries<ComponentHero>({
         content_type: 'componentHero',
-        'fields.slug': slug
+        'fields.slug': slug,
     }).then((response) => {
+        //return the selected entry
         return response.items[0];
     }).catch((error) => {
+        //fail if no entry is found
         console.error("Failed to fetch entry:", error);
         return null;
 });
 
-//error out if no hero content is found
+// error out if no hero content is found
 if(!hero){console.log("No entry found for hero component. Ensure your slug is correct!")}
 else{
 
@@ -39,12 +45,14 @@ else{
         const mobileBackgroundAsset = hero.fields.mobileBackground as Asset;
         mobileBackgroundUrl = `https:${mobileBackgroundAsset.fields.file?.url}`;
     }
+
+    heroTitle = hero.fields.title;
+    heroContent = documentToHtmlString(hero.fields.content);
+    heroButtonText = hero.fields.buttonText;
+    heroButtonUrl = hero.fields.buttonUrl as string || "#";
 }
-console.log(JSON.stringify(hero?.fields.content))
-const heroTitle = hero?.fields.title;
-const heroContent = documentToHtmlString(hero?.fields.content);
-const heroButtonText = hero?.fields.buttonText;
-const heroButtonUrl = hero?.fields.buttonUrl as string || "#";
+
+
 
 ---
 
