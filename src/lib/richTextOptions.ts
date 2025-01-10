@@ -11,7 +11,7 @@ export const richTextOptions:Options = {
     // For styling headings, paragraphs, and links, etc.
     renderNode: {
         [BLOCKS.PARAGRAPH]: (node, children) => {
-            return `<p class="mb-4 text-sm leading-6 text-black">${children(node.content)}</p>`;
+            return `<p class="mb-4 leading-6">${children(node.content)}</p>`;
         },
         [BLOCKS.HEADING_1]: (node, children) => {
             return `<h1 class="text-2xl font-bold my-4">${children(node.content)}</h1>`;

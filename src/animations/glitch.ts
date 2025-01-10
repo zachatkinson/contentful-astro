@@ -1,6 +1,7 @@
 export default function glitchAnimation() {
     const heroElement = document.getElementById('hero-home');
-    const styles = `
+    if(heroElement) {
+        const styles = `
     @media (min-width: 740px) {
       .glitch-img {
         background-image: url("${heroElement.dataset.desktopBg}") !important
@@ -236,6 +237,7 @@ export default function glitchAnimation() {
     transform: translate3d(0, 0, 0);
   }
 }`
-    return styles;
+        return styles;
+    }
 }
 
