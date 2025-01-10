@@ -8,6 +8,7 @@ import HeroGlitchAnimationLayers from "./HeroGlitchAnimationLayers.astro";
 import HeroShakeAnimationLayers from "./HeroShakeAnimationLayers.astro";
 import HeroWarholAnimationLayers from "./HeroWarholAnimationLayers.astro";
 import logo from "../img/cat_logo.svg";
+import {richTextOptions} from "../lib/richTextOptions";
 
 const { slug, sfx } = Astro.props;
 //set variables for hero content
@@ -47,13 +48,13 @@ else{
     }
 
     heroTitle = hero.fields.title;
-    heroContent = documentToHtmlString(hero.fields.content);
+    heroContent = documentToHtmlString(hero.fields.content, richTextOptions);
     heroButtonText = hero.fields.buttonText;
     heroButtonUrl = hero.fields.buttonUrl as string || "#";
 }
 
 
-
+console.log("Rendered HTML:", heroContent);
 ---
 
 <!-- #hero-home has a defined height via Tailwind -->
@@ -95,7 +96,7 @@ else{
                     alt="Cat Logo"
                 />
                 {heroTitle && <h1 class="text-center text-xl sm:text-lg">{heroTitle}</h1>}
-                {heroContent &&   <div class="text-center mb-2 text-xs" set:html={heroContent} ></div>}
+                {heroContent &&   <div set:html={heroContent} ></div>}
 
                 <a href={heroButtonUrl} class="block text-white hover:text-primary border border-white hover:bg-white focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2 dark:focus:ring-blue-800 w-full">{heroButtonText}</a>
             </div>
@@ -105,12 +106,7 @@ else{
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/contentful@7.0.5/dist/contentful.browser.min.js" charset="utf-8" />
-<script src="https://cdn.jsdelivr.net/npm/@contentful/rich-text-html-renderer@12.0.0/dist/rich-text-html-renderer.es5.min.js"
-charset="utf-8" />
-
 <script>
-    let exports = {};
     // Grab the hero element */
     import glitchAnimation from "../animations/glitch";
     import shakeAnimation from "../animations/shake";
