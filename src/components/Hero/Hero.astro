@@ -1,14 +1,14 @@
 ---
-import type { ComponentHero } from "../lib/componentHero";
-import { contentfulClient } from "../lib/contentful";
+import type { ComponentHero } from "../../lib/componentHero";
+import { contentfulClient } from "../../lib/contentful";
 import type {Asset} from "contentful";
 import {documentToHtmlString} from "@contentful/rich-text-html-renderer";
 
 import HeroGlitchAnimationLayers from "./HeroGlitchAnimationLayers.astro";
 import HeroShakeAnimationLayers from "./HeroShakeAnimationLayers.astro";
 import HeroWarholAnimationLayers from "./HeroWarholAnimationLayers.astro";
-import logo from "../img/cat_logo.svg";
-import {richTextOptions} from "../lib/richTextOptions";
+import logo from "../../img/cat_logo.svg";
+import {richTextOptions} from "../../lib/richTextOptions";
 
 const { slug, sfx } = Astro.props;
 //set variables for hero content
@@ -85,7 +85,13 @@ else{
     <div id="hero-content-grid" class="content h-full w-full p-4 container mx-auto grid sm:grid-cols-2 relative">
         <div class=" order-2 sm:order-1"></div>
         <div class="order-1 sm:order-2 h-100">
-            <div class="bg-primary bg-opacity-85 p-4">
+            <div class="bg-tertiary bg-opacity-85 p-4 align-middle" style="clip-path: polygon(
+  calc(100% - 40px) 0%,  /* Start from 100% width but subtract 40px */
+  100% 40px,             /* Move down a fixed 40px */
+  100% 100%,             /* Bottom-right corner */
+  0 100%,                /* Bottom-left corner */
+  0 0                    /* Top-left corner */
+);">
             <!--<Svg name="cat-logo" class="mx-auto  sm:h-1/4 lg:h-32" />-->
                 <img
                     class="max-h-32 sm:max-h-11 md:max-h-14 mx-auto"
@@ -105,9 +111,9 @@ else{
 
 <script>
     // Grab the hero element */
-    import glitchAnimation from "../animations/glitch";
-    import shakeAnimation from "../animations/shake";
-    import warholAnimation from "../animations/warhol";
+    import glitchAnimation from "../../animations/glitch";
+    import shakeAnimation from "../../animations/shake";
+    import warholAnimation from "../../animations/warhol";
     const heroElement = document.getElementById('hero-home');
 
 

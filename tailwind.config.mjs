@@ -70,7 +70,9 @@ export default {
 					"darkest": 		"rgb(153 035 027 / <alpha-value>)",
 					"light": 		"rgb(229 152 146 / <alpha-value>)",
 				"lightest": 		"rgb(249 224 222 / <alpha-value>)",
-
+				},
+				tertiary: {
+					DEFAULT: "rgb(113 201 215 / <alpha-value>)",
 				},
 				"visited": 			"rgb(076 044 146 / <alpha-value>)",
 			},

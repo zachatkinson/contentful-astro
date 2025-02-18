@@ -1,0 +1,24 @@
+---
+---
+<!-- #annimated-call-to-action has a defined height via Tailwind -->
+<div id="animated-call-to-action w-100">
+    <div class="box"></div>
+    <script>
+        import {gsap} from "gsap";
+        window.addEventListener('load', function () {
+            let timeline = gsap.timeline();
+            timeline.to(".box", {duration: 1, x: 100});
+            timeline.to(".box", {duration: 1, x: 0});
+            timeline.to(".box", {duration: 1, x: -100});
+            timeline.to(".box", {duration: 1, x: 0});
+            timeline.play();
+        })
+    </script>
+    <style>
+        .box {
+            width: 100px;
+            height: 100px;
+            background-color: red;
+        }
+    </style>
+</div>

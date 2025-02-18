@@ -2,11 +2,29 @@
 import Layout from '../layouts/Layout.astro';
 import {contentfulClient} from "../lib/contentful";
 import type {BlogPost} from "../lib/blogPost";
-import Hero from '../components/Hero.astro';
+import Hero from '../components/Hero/Hero.astro';
+import AnimatedCallToAction from "../components/AnimatedCallToAction/AnimatedCallToAction.astro";
+import KineticSlider from "../components/KineticSlider/KineticSlider";
+const images = [
+    "/images/slides/1.jpg",
+    "/images/slides/2.jpg",
+    "/images/slides/3.jpg",
+    "/images/slides/4.jpg",
+    "/images/slides/5.jpg",
+];
+
 
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
 })
+
+const texts = [
+    ["Earth", "Surface gravity‎: ‎9.807 m/s²"],
+    ["Mars", "Surface gravity‎: ‎3.711 m/s²"],
+    ["Venus", "Surface gravity‎: ‎8.87 m/s²"],
+    ["Mars", "Surface gravity‎: ‎3.711 m/s²"],
+    ["Venus", "Surface gravity‎: ‎8.87 m/s²"]
+];
 
 const posts = entries.items.map((entry) => {
     return {
@@ -20,6 +38,8 @@ const posts = entries.items.map((entry) => {
 
 <Layout>
     <Hero slug="landing-page-hero" sfx="glitch" id="home-hero"/>
+    <AnimatedCallToAction />
+    <KineticSlider images={images} texts={texts} client:load />
     <div class="p-4 container mx-auto">
         <h2>Latest Posts</h2>
         <ul>
