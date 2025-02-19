@@ -408,4 +408,5 @@ const KineticSlider = ({
     );
 };
 
+
 export default KineticSlider;
