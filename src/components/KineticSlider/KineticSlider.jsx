@@ -27,7 +27,7 @@ const KineticSlider = ({
                            // Toggle & intensity for image RGB effect
                            imagesRgbEffect = false,
                            imagesRgbIntensity = 5,
-                           // (Optional) text styling props if you want to control them dynamically
+                           // Text styling props
                            textTitleColor = "white",
                            textTitleSize = 64,
                            textTitleLetterspacing = 2,
@@ -35,6 +35,8 @@ const KineticSlider = ({
                            textSubTitleSize = 24,
                            textSubTitleLetterspacing = 1,
                            textSubTitleOffsetTop = 70,
+                           // New prop: maximum overall shift fraction (default 10% of container dimensions)
+                           maxContainerShiftFraction = 0.1,
                        }) => {
     // Dynamically import PixiPlugin on the client
     useEffect(() => {
@@ -56,13 +58,15 @@ const KineticSlider = ({
     const sliderRef = useRef(null);
     const appRef = useRef(null);
     const currentIndex = useRef(0);
+
     // References for slide sprites and text containers
     const slidesRef = useRef([]);
     const textContainersRef = useRef([]);
+
     // Displacement sprite references
     const backgroundDisplacementSpriteRef = useRef(null);
     const cursorDisplacementSpriteRef = useRef(null);
-    // For text transition displacement filters (we store them in refs)
+    // Store displacement filters (used only for images)
     const bgDispFilterRef = useRef(null);
     const cursorDispFilterRef = useRef(null);
 
@@ -79,12 +83,14 @@ const KineticSlider = ({
         if (typeof window === "undefined") return;
         const initPixi = async () => {
             if (!sliderRef.current) return;
+
             // Load images + displacement maps
             await Assets.load([
                 ...images,
                 backgroundDisplacementSpriteLocation,
                 cursorDisplacementSpriteLocation,
             ]);
+
             const app = new Application();
             await app.init({
                 width: sliderRef.current.clientWidth,
@@ -92,6 +98,7 @@ const KineticSlider = ({
                 backgroundAlpha: 0,
                 resizeTo: sliderRef.current,
             });
+
             sliderRef.current.appendChild(app.canvas);
             appRef.current = app;
             const stage = new Container();
@@ -117,7 +124,7 @@ const KineticSlider = ({
             cursorDisplacementSprite.scale.set(cursorScaleIntensity);
             cursorDisplacementSpriteRef.current = cursorDisplacementSprite;
 
-            // Create displacement filters and store them in refs
+            // Create displacement filters and store in refs (for images only)
             const backgroundDisplacementFilter = new DisplacementFilter(
                 backgroundDisplacementSprite
             );
@@ -149,9 +156,9 @@ const KineticSlider = ({
                 stage.addChild(sprite);
 
                 // Build filters for image sprite
-                const filtersArray = [backgroundDisplacementFilter];
+                const filtersArray = [bgDispFilterRef.current];
                 if (cursorImgEffect) {
-                    filtersArray.push(cursorDisplacementFilter);
+                    filtersArray.push(cursorDispFilterRef.current);
                 }
                 if (imagesRgbEffect) {
                     const rgbFilter = new RGBSplitFilter({
@@ -180,7 +187,8 @@ const KineticSlider = ({
                     text: title,
                     style: titleStyle,
                 });
-                titleText.anchor.set(0.5, 0.5);
+                // Anchor title at top-center
+                titleText.anchor.set(0.5, 0);
                 titleText.y = 0;
                 const subtitleStyle = new TextStyle({
                     fill: textSubTitleColor,
@@ -192,9 +200,12 @@ const KineticSlider = ({
                     text: subtitle,
                     style: subtitleStyle,
                 });
-                subText.anchor.set(0.5, 0.5);
-                subText.y = textSubTitleOffsetTop;
+                // Anchor subtitle at top-center and position it below title with a gap
+                subText.anchor.set(0.5, 0);
+                subText.y = titleText.height + 10; // 10px gap
                 textContainer.addChild(titleText, subText);
+                // Center the container vertically by setting its pivot to half its height
+                textContainer.pivot.y = textContainer.height / 2;
                 textContainer.alpha = 0;
                 stage.addChild(textContainer);
                 textContainersRef.current.push(textContainer);
@@ -206,6 +217,7 @@ const KineticSlider = ({
             // Add displacement sprites last
             stage.addChild(backgroundDisplacementSprite, cursorDisplacementSprite);
         };
+
         initPixi();
     }, [
         images,
@@ -225,6 +237,7 @@ const KineticSlider = ({
         textSubTitleSize,
         textSubTitleLetterspacing,
         textSubTitleOffsetTop,
+        maxContainerShiftFraction,
     ]);
 
     // On resize, reposition images & text
@@ -289,14 +302,9 @@ const KineticSlider = ({
         return () => window.removeEventListener("mousemove", updateCursorEffect);
     }, [cursorImgEffect, cursorMomentum]);
 
-    // Slide transition logic (crossfade with easing out displacement on text)
+    // Slide transition logic (crossfade without text distortion)
     const slideTransition = (nextIndex) => {
-        const tl = gsap.timeline({
-            onComplete: () => {
-                // After transition, remove displacement filters from text so text appears normal.
-                textContainersRef.current[nextIndex].filters = [];
-            },
-        });
+        const tl = gsap.timeline();
         const currentSlide = slidesRef.current[currentIndex.current];
         const currentTextContainer = textContainersRef.current[currentIndex.current];
         const nextSlide = slidesRef.current[nextIndex];
@@ -305,12 +313,6 @@ const KineticSlider = ({
         // Reset next slide/text alpha
         nextSlide.alpha = 0;
         nextTextContainer.alpha = 0;
-
-        // If cursorTextEffect is enabled, temporarily apply displacement filters to text
-        if (cursorTextEffect && bgDispFilterRef.current && cursorDispFilterRef.current) {
-            currentTextContainer.filters = [bgDispFilterRef.current, cursorDispFilterRef.current];
-            nextTextContainer.filters = [bgDispFilterRef.current, cursorDispFilterRef.current];
-        }
 
         // Crossfade concurrently
         tl.to([currentSlide, currentTextContainer], {
@@ -322,18 +324,7 @@ const KineticSlider = ({
                 alpha: 1,
                 duration: 1,
                 ease: "power2.out",
-            }, 0)
-            // Ease out the text displacement effect near the end of transition
-            .to(
-                cursorDispFilterRef.current.scale,
-                {
-                    x: 0,
-                    y: 0,
-                    duration: 0.3,
-                    ease: "power2.out",
-                },
-                0.7
-            );
+            }, 0);
 
         currentIndex.current = nextIndex;
     };
@@ -416,6 +407,57 @@ const KineticSlider = ({
             slider.removeEventListener("mouseleave", handleMouseLeave);
         };
     }, []);
+
+    // New: Text tilt effect with the entire active text container clamped to move at most 10% off-center,
+    // and the title and subtitle moving along the x-axis at different intensities.
+    useEffect(() => {
+        if (!cursorTextEffect || typeof window === "undefined") return;
+        const handleTextTilt = (e) => {
+            const containerWidth = sliderRef.current.clientWidth;
+            const containerHeight = sliderRef.current.clientHeight;
+            const centerX = containerWidth / 2;
+            const centerY = containerHeight / 2;
+            // Calculate the raw offset (difference between center and cursor)
+            const offsetX = centerX - e.clientX;
+            const offsetY = centerY - e.clientY;
+            // Compute the raw container shift (10% of the raw offset)
+            const rawContainerShiftX = offsetX * 0.1;
+            const rawContainerShiftY = offsetY * 0.1;
+            // Clamp the container shift so it doesn't exceed 10% of container dimensions
+            const maxShiftX = containerWidth * maxContainerShiftFraction;
+            const maxShiftY = containerHeight * maxContainerShiftFraction;
+            const containerShiftX = Math.max(Math.min(rawContainerShiftX, maxShiftX), -maxShiftX);
+            const containerShiftY = Math.max(Math.min(rawContainerShiftY, maxShiftY), -maxShiftY);
+            const activeTextContainer = textContainersRef.current[currentIndex.current];
+            if (activeTextContainer && activeTextContainer.children.length >= 2) {
+                // Animate the entire container with clamped shift
+                gsap.to(activeTextContainer, {
+                    x: centerX + containerShiftX,
+                    y: centerY + containerShiftY,
+                    duration: 0.5,
+                    ease: "expo.out",
+                });
+                // Animate title (first child) to move along x-axis at 50% of raw offset, then clamp
+                const titleRawShiftX = offsetX * 0.5;
+                const titleShiftX = Math.max(Math.min(titleRawShiftX, maxShiftX), -maxShiftX);
+                gsap.to(activeTextContainer.children[0], {
+                    x: titleShiftX,
+                    duration: 0.5,
+                    ease: "expo.out",
+                });
+                // Animate subtitle (second child) to move along x-axis at 30% of raw offset, then clamp
+                const subtitleRawShiftX = offsetX * 0.3;
+                const subtitleShiftX = Math.max(Math.min(subtitleRawShiftX, maxShiftX), -maxShiftX);
+                gsap.to(activeTextContainer.children[1], {
+                    x: subtitleShiftX,
+                    duration: 0.5,
+                    ease: "expo.out",
+                });
+            }
+        };
+        window.addEventListener("mousemove", handleTextTilt);
+        return () => window.removeEventListener("mousemove", handleTextTilt);
+    }, [cursorTextEffect, maxContainerShiftFraction]);
 
     return (
         <div className={styles.kineticSlider} ref={sliderRef}>
