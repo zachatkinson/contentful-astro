@@ -9,7 +9,8 @@ import {
     Text,
     TextStyle,
 } from "pixi.js";
-import PixiPlugin from "gsap/PixiPlugin";
+import PixiPlugin from "gsap/PixiPlugin/dist/PixiPlugin.js";
+
 import { gsap } from "gsap";
 import styles from "./KineticSlider.module.css";
 import { RGBSplitFilter } from "pixi-filters";
