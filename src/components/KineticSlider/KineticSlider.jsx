@@ -9,23 +9,9 @@ import {
     Text,
     TextStyle,
 } from "pixi.js";
-import PixiPlugin from "gsap/PixiPlugin/dist/PixiPlugin.js";
-
 import { gsap } from "gsap";
 import styles from "./KineticSlider.module.css";
 import { RGBSplitFilter } from "pixi-filters";
-
-// Register GSAP PixiPlugin
-gsap.registerPlugin(PixiPlugin);
-PixiPlugin.registerPIXI({
-    Application,
-    Sprite,
-    Texture,
-    DisplacementFilter,
-    Assets,
-    Container,
-    Text,
-});
 
 const KineticSlider = ({
                            // images and content sources
@@ -41,7 +27,7 @@ const KineticSlider = ({
                            // Toggle & intensity for image RGB effect
                            imagesRgbEffect = false,
                            imagesRgbIntensity = 5,
-                           // (Optional) text styling props
+                           // (Optional) text styling props if you want to control them dynamically
                            textTitleColor = "white",
                            textTitleSize = 64,
                            textTitleLetterspacing = 2,
@@ -50,17 +36,33 @@ const KineticSlider = ({
                            textSubTitleLetterspacing = 1,
                            textSubTitleOffsetTop = 70,
                        }) => {
+    // Dynamically import PixiPlugin on the client
+    useEffect(() => {
+        (async () => {
+            const { default: PixiPlugin } = await import("gsap/PixiPlugin");
+            gsap.registerPlugin(PixiPlugin);
+            PixiPlugin.registerPIXI({
+                Application,
+                Sprite,
+                Texture,
+                DisplacementFilter,
+                Assets,
+                Container,
+                Text,
+            });
+        })();
+    }, []);
+
     const sliderRef = useRef(null);
     const appRef = useRef(null);
     const currentIndex = useRef(0);
-    // References to each slide's SPRITE
+    // References for slide sprites and text containers
     const slidesRef = useRef([]);
-    // References to each slide's TEXT CONTAINER
     const textContainersRef = useRef([]);
     // Displacement sprite references
     const backgroundDisplacementSpriteRef = useRef(null);
     const cursorDisplacementSpriteRef = useRef(null);
-    // NEW: Store the displacement filters in refs so we can apply them to text during transitions
+    // For text transition displacement filters (we store them in refs)
     const bgDispFilterRef = useRef(null);
     const cursorDispFilterRef = useRef(null);
 
@@ -94,6 +96,7 @@ const KineticSlider = ({
             appRef.current = app;
             const stage = new Container();
             app.stage.addChild(stage);
+
             // 1) Background displacement sprite
             const backgroundDisplacementSprite = new Sprite(
                 Texture.from(backgroundDisplacementSpriteLocation)
@@ -103,6 +106,7 @@ const KineticSlider = ({
             backgroundDisplacementSprite.y = app.screen.height / 2;
             backgroundDisplacementSprite.scale.set(2);
             backgroundDisplacementSpriteRef.current = backgroundDisplacementSprite;
+
             // 2) Cursor displacement sprite
             const cursorDisplacementSprite = new Sprite(
                 Texture.from(cursorDisplacementSpriteLocation)
@@ -112,7 +116,8 @@ const KineticSlider = ({
             cursorDisplacementSprite.y = app.screen.height / 2;
             cursorDisplacementSprite.scale.set(cursorScaleIntensity);
             cursorDisplacementSpriteRef.current = cursorDisplacementSprite;
-            // Create displacement filters and store in refs for reuse
+
+            // Create displacement filters and store them in refs
             const backgroundDisplacementFilter = new DisplacementFilter(
                 backgroundDisplacementSprite
             );
@@ -121,11 +126,12 @@ const KineticSlider = ({
             );
             bgDispFilterRef.current = backgroundDisplacementFilter;
             cursorDispFilterRef.current = cursorDisplacementFilter;
-            // Build slides
+
+            // Build slides and text containers
             slidesRef.current = [];
             textContainersRef.current = [];
             images.forEach((image, i) => {
-                // Slide image sprite
+                // Create sprite for the slide's image
                 const sprite = new Sprite(Texture.from(image));
                 sprite.anchor.set(0.5);
                 sprite.x = app.screen.width / 2;
@@ -141,7 +147,8 @@ const KineticSlider = ({
                 }
                 sprite.alpha = 0;
                 stage.addChild(sprite);
-                // Build filters array for the image
+
+                // Build filters for image sprite
                 const filtersArray = [backgroundDisplacementFilter];
                 if (cursorImgEffect) {
                     filtersArray.push(cursorDisplacementFilter);
@@ -156,6 +163,7 @@ const KineticSlider = ({
                 }
                 sprite.filters = filtersArray;
                 slidesRef.current.push(sprite);
+
                 // Create text container for title/subtitle
                 const textContainer = new Container();
                 textContainer.x = app.screen.width / 2;
@@ -191,7 +199,8 @@ const KineticSlider = ({
                 stage.addChild(textContainer);
                 textContainersRef.current.push(textContainer);
             });
-            // Show first slide & text
+
+            // Show the first slide & text
             slidesRef.current[0].alpha = 1;
             textContainersRef.current[0].alpha = 1;
             // Add displacement sprites last
@@ -280,11 +289,11 @@ const KineticSlider = ({
         return () => window.removeEventListener("mousemove", updateCursorEffect);
     }, [cursorImgEffect, cursorMomentum]);
 
-    // Slide transition logic (crossfade)
+    // Slide transition logic (crossfade with easing out displacement on text)
     const slideTransition = (nextIndex) => {
         const tl = gsap.timeline({
             onComplete: () => {
-                // After transition completes, remove displacement filters from text containers so they appear normal.
+                // After transition, remove displacement filters from text so text appears normal.
                 textContainersRef.current[nextIndex].filters = [];
             },
         });
@@ -297,7 +306,7 @@ const KineticSlider = ({
         nextSlide.alpha = 0;
         nextTextContainer.alpha = 0;
 
-        // If cursorTextEffect is enabled, temporarily apply both displacement filters to the text containers during transition.
+        // If cursorTextEffect is enabled, temporarily apply displacement filters to text
         if (cursorTextEffect && bgDispFilterRef.current && cursorDispFilterRef.current) {
             currentTextContainer.filters = [bgDispFilterRef.current, cursorDispFilterRef.current];
             nextTextContainer.filters = [bgDispFilterRef.current, cursorDispFilterRef.current];
@@ -313,7 +322,18 @@ const KineticSlider = ({
                 alpha: 1,
                 duration: 1,
                 ease: "power2.out",
-            }, 0);
+            }, 0)
+            // Ease out the text displacement effect near the end of transition
+            .to(
+                cursorDispFilterRef.current.scale,
+                {
+                    x: 0,
+                    y: 0,
+                    duration: 0.3,
+                    ease: "power2.out",
+                },
+                0.7
+            );
 
         currentIndex.current = nextIndex;
     };
@@ -325,7 +345,9 @@ const KineticSlider = ({
     };
 
     const handlePrev = () => {
-        const prevIndex = (currentIndex.current - 1 + slidesRef.current.length) % slidesRef.current.length;
+        const prevIndex =
+            (currentIndex.current - 1 + slidesRef.current.length) %
+            slidesRef.current.length;
         slideTransition(prevIndex);
     };
 
@@ -408,6 +430,5 @@ const KineticSlider = ({
         </div>
     );
 };
-
 
 export default KineticSlider;
