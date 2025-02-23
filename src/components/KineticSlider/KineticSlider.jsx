@@ -25,7 +25,7 @@ const KineticSlider = ({
                            cursorScaleIntensity = 0.65,
                            cursorMomentum = 0.14,
                            // Toggle & intensity for image RGB effect
-                           imagesRgbEffect = false,
+                           imagesRgbEffect = true,
                            imagesRgbIntensity = 5,
                            // Text styling props
                            textTitleColor = "white",
@@ -43,7 +43,7 @@ const KineticSlider = ({
                            transitionScaleIntensity = 30,
                            // Enable external navigation (if true, the component expects external nav elements)
                            externalNav = false,
-                           // NEW: Custom navigation element selectors (object with prev and next selectors)
+                           // Custom navigation element selectors (object with prev and next selectors)
                            navElement = { prev: ".main-nav.prev", next: ".main-nav.next" },
                        }) => {
     // Define default filter scales for when the mouse is active
@@ -179,11 +179,12 @@ const KineticSlider = ({
                 if (cursorImgEffect) {
                     filtersArray.push(cursorDispFilterRef.current);
                 }
+                // Updated RGB filter parameters for imagesRgbEffect using proper formatting
                 if (imagesRgbEffect) {
                     const rgbFilter = new RGBSplitFilter({
-                        red: [-imagesRgbIntensity, 0],
-                        green: [0, 0],
-                        blue: [imagesRgbIntensity, 0],
+                        red: { x: imagesRgbIntensity, y: 0 },
+                        green: { x: 0, y: 0 },
+                        blue: { x: imagesRgbIntensity, y: 0 },
                     });
                     filtersArray.push(rgbFilter);
                 }
