@@ -7,11 +7,14 @@ import {
     Assets,
     Container,
     Text,
-    TextStyle,
+    TextStyle, uid,
 } from "pixi.js";
 import { gsap } from "gsap";
 import styles from "./KineticSlider.module.css";
 import { RGBSplitFilter } from "pixi-filters";
+
+
+
 
 const KineticSlider = ({
                            // images and content sources
@@ -55,6 +58,7 @@ const KineticSlider = ({
     const defaultBgFilterScale = 20;
     const defaultCursorFilterScale = 10;
 
+
     // Ref to track whether the cursor is within the canvas.
     const cursorActive = useRef(false);
     // Idle timer ref.
@@ -73,7 +77,14 @@ const KineticSlider = ({
                 Assets,
                 Container,
                 Text,
-            });
+            })
+            // Add font files to the bundle
+            Assets.addBundle('fonts', [
+                { alias: 'Vamos', src: '/public/fonts/Vamos.woff2' },
+            ]);
+
+            await Assets.loadBundle('fonts');
+            ;
         })();
     }, []);
 
@@ -200,6 +211,8 @@ const KineticSlider = ({
                     letterSpacing: textTitleLetterspacing,
                     fontWeight: "bold",
                     align: "center",
+                    fontFamily: "Vamos"
+
                 });
                 const titleText = new Text({ text: title, style: titleStyle });
                 titleText.anchor.set(0.5, 0);
