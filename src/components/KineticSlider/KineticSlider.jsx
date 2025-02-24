@@ -78,12 +78,8 @@ const KineticSlider = ({
                 Container,
                 Text,
             })
-            const fontPath =
-                import.meta.env.MODE === "development"
-                    ? "/public/fonts/Vamos.woff2"
-                    : "/fonts/Vamos.woff2";
 
-            Assets.addBundle("fonts", [{ alias: "Vamos", src: fontPath }]);
+            Assets.addBundle("fonts", [{ alias: "Vamos", src: "/fonts/Vamos.woff2" }]);
             // Add font files to the bundle
             Assets.addBundle('fonts', [
                 { alias: 'Vamos', src: '/fonts/Vamos.woff2' },
