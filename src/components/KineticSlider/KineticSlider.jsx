@@ -26,7 +26,7 @@ const KineticSlider = ({
                            cursorMomentum = 0.14,
                            // Toggle & intensity for image RGB effect
                            imagesRgbEffect = true,
-                           imagesRgbIntensity = 5,
+                           imagesRgbIntensity = 15,
                            // Toggle & intensity for text RGB effect
                            textsRgbEffect = true,
                            textsRgbIntensity = 5,
@@ -48,15 +48,19 @@ const KineticSlider = ({
                            externalNav = false,
                            // Custom navigation element selectors (object with prev and next selectors)
                            navElement = { prev: ".main-nav.prev", next: ".main-nav.next" },
+                           // Navigation text RGB intensity (separate option for nav text)
+                           navTextsRgbIntensity = 3,
                        }) => {
-    // Define default filter scales for when the mouse is active.
-    const defaultBgFilterScale = 20; // adjust as needed
-    const defaultCursorFilterScale = 10; // adjust as needed
+    // Define default filter scales.
+    const defaultBgFilterScale = 20;
+    const defaultCursorFilterScale = 10;
 
     // Ref to track whether the cursor is within the canvas.
     const cursorActive = useRef(false);
+    // Idle timer ref.
+    const idleTimerRef = useRef(null);
 
-    // Dynamically import PixiPlugin on the client.
+    // Dynamically import PixiPlugin.
     useEffect(() => {
         (async () => {
             const { default: PixiPlugin } = await import("gsap/PixiPlugin");
@@ -84,7 +88,6 @@ const KineticSlider = ({
     // Displacement sprite references.
     const backgroundDisplacementSpriteRef = useRef(null);
     const cursorDisplacementSpriteRef = useRef(null);
-    // Store displacement filters (used only on images).
     const bgDispFilterRef = useRef(null);
     const cursorDispFilterRef = useRef(null);
 
@@ -101,7 +104,6 @@ const KineticSlider = ({
         if (typeof window === "undefined") return;
         const initPixi = async () => {
             if (!sliderRef.current) return;
-            // Load images + displacement maps.
             await Assets.load([
                 ...images,
                 backgroundDisplacementSpriteLocation,
@@ -120,7 +122,7 @@ const KineticSlider = ({
             const stage = new Container();
             app.stage.addChild(stage);
 
-            // 1) Background displacement sprite.
+            // Background displacement sprite.
             const backgroundDisplacementSprite = new Sprite(
                 Texture.from(backgroundDisplacementSpriteLocation)
             );
@@ -128,11 +130,10 @@ const KineticSlider = ({
             backgroundDisplacementSprite.x = app.screen.width / 2;
             backgroundDisplacementSprite.y = app.screen.height / 2;
             backgroundDisplacementSprite.scale.set(2);
-            // Hide initially.
             backgroundDisplacementSprite.alpha = 0;
             backgroundDisplacementSpriteRef.current = backgroundDisplacementSprite;
 
-            // 2) Cursor displacement sprite.
+            // Cursor displacement sprite.
             const cursorDisplacementSprite = new Sprite(
                 Texture.from(cursorDisplacementSpriteLocation)
             );
@@ -140,11 +141,10 @@ const KineticSlider = ({
             cursorDisplacementSprite.x = app.screen.width / 2;
             cursorDisplacementSprite.y = app.screen.height / 2;
             cursorDisplacementSprite.scale.set(cursorScaleIntensity);
-            // Hide initially.
             cursorDisplacementSprite.alpha = 0;
             cursorDisplacementSpriteRef.current = cursorDisplacementSprite;
 
-            // Create displacement filters and store in refs (for images only).
+            // Create displacement filters.
             const backgroundDisplacementFilter = new DisplacementFilter(
                 backgroundDisplacementSprite
             );
@@ -153,7 +153,6 @@ const KineticSlider = ({
             );
             bgDispFilterRef.current = backgroundDisplacementFilter;
             cursorDispFilterRef.current = cursorDisplacementFilter;
-            // Hide displacement effects on load by setting filter scales to 0.
             bgDispFilterRef.current.scale.set(0);
             cursorDispFilterRef.current.scale.set(0);
 
@@ -161,7 +160,6 @@ const KineticSlider = ({
             slidesRef.current = [];
             textContainersRef.current = [];
             images.forEach((image, i) => {
-                // Create sprite for the slide's image.
                 const sprite = new Sprite(Texture.from(image));
                 sprite.anchor.set(0.5);
                 sprite.x = app.screen.width / 2;
@@ -175,17 +173,12 @@ const KineticSlider = ({
                 } else {
                     sprite.scale.set(containerWidth / sprite.texture.width);
                 }
-                // Store base scale for swipe scaling adjustments.
                 sprite.baseScale = sprite.scale.x;
                 sprite.alpha = 0;
                 stage.addChild(sprite);
 
-                // Build filters for image sprite.
                 const filtersArray = [bgDispFilterRef.current];
-                if (cursorImgEffect) {
-                    filtersArray.push(cursorDispFilterRef.current);
-                }
-                // Create the RGB split filter with zero offsets by default.
+                if (cursorImgEffect) filtersArray.push(cursorDispFilterRef.current);
                 if (imagesRgbEffect) {
                     const rgbFilter = new RGBSplitFilter({
                         red: { x: 0, y: 0 },
@@ -197,7 +190,6 @@ const KineticSlider = ({
                 sprite.filters = filtersArray;
                 slidesRef.current.push(sprite);
 
-                // Create text container for title/subtitle.
                 const textContainer = new Container();
                 textContainer.x = app.screen.width / 2;
                 textContainer.y = app.screen.height / 2;
@@ -209,11 +201,7 @@ const KineticSlider = ({
                     fontWeight: "bold",
                     align: "center",
                 });
-                const titleText = new Text({
-                    text: title,
-                    style: titleStyle,
-                });
-                // Anchor title at top-center.
+                const titleText = new Text({ text: title, style: titleStyle });
                 titleText.anchor.set(0.5, 0);
                 titleText.y = 0;
                 const subtitleStyle = new TextStyle({
@@ -222,18 +210,12 @@ const KineticSlider = ({
                     letterSpacing: textSubTitleLetterspacing,
                     align: "center",
                 });
-                const subText = new Text({
-                    text: subtitle,
-                    style: subtitleStyle,
-                });
-                // Anchor subtitle at top-center and position it below title with a gap.
+                const subText = new Text({ text: subtitle, style: subtitleStyle });
                 subText.anchor.set(0.5, 0);
                 subText.y = titleText.height + 10;
                 textContainer.addChild(titleText, subText);
-                // Center the container vertically by setting its pivot to half its height.
                 textContainer.pivot.y = textContainer.height / 2;
                 textContainer.alpha = 0;
-                // If textsRgbEffect is enabled, add an RGB split filter to the text container.
                 if (textsRgbEffect) {
                     const textRgbFilter = new RGBSplitFilter({
                         red: { x: 0, y: 0 },
@@ -246,10 +228,8 @@ const KineticSlider = ({
                 textContainersRef.current.push(textContainer);
             });
 
-            // Show the first slide & text.
             slidesRef.current[0].alpha = 1;
             textContainersRef.current[0].alpha = 1;
-            // Add displacement sprites last.
             stage.addChild(backgroundDisplacementSprite, cursorDisplacementSprite);
         };
 
@@ -275,7 +255,7 @@ const KineticSlider = ({
         maxContainerShiftFraction,
     ]);
 
-    // On resize, reposition images & text.
+    // On resize.
     useEffect(() => {
         const handleResize = () => {
             if (!appRef.current || !sliderRef.current) return;
@@ -292,7 +272,6 @@ const KineticSlider = ({
                 } else {
                     sprite.scale.set(containerWidth / sprite.texture.width);
                 }
-                // Reset base scale.
                 sprite.baseScale = sprite.scale.x;
                 sprite.x = containerWidth / 2;
                 sprite.y = containerHeight / 2;
@@ -314,7 +293,7 @@ const KineticSlider = ({
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
-    // Mouse tracking for displacement sprites (attached only to the slider).
+    // Mouse tracking.
     useEffect(() => {
         if (typeof window === "undefined" || !sliderRef.current) return;
         const node = sliderRef.current;
@@ -340,11 +319,12 @@ const KineticSlider = ({
         return () => node.removeEventListener("mousemove", updateCursorEffect);
     }, [cursorImgEffect, cursorMomentum]);
 
-    // Update cursorActive flag on mouse enter/leave and update RGB effects on slide and text.
+    // Mouse enter/leave for RGB effects.
     useEffect(() => {
         if (typeof window === "undefined" || !sliderRef.current) return;
         const node = sliderRef.current;
         const handleMouseEnter = () => {
+            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
             cursorActive.current = true;
             if (backgroundDisplacementSpriteRef.current) {
                 gsap.to(backgroundDisplacementSpriteRef.current, {
@@ -376,24 +356,40 @@ const KineticSlider = ({
                     ease: "power2.out",
                 });
             }
-            // Update RGB effect on current slide.
+            // Update image RGB effect.
             if (imagesRgbEffect) {
                 const currentSlide = slidesRef.current[currentIndex.current];
                 currentSlide.filters.forEach((filter) => {
                     if (filter instanceof RGBSplitFilter) {
+                        gsap.killTweensOf(filter.red);
+                        gsap.killTweensOf(filter.blue);
                         gsap.set(filter.red, { x: imagesRgbIntensity });
                         gsap.set(filter.blue, { x: imagesRgbIntensity });
                     }
                 });
             }
-            // Update RGB effect on current text container.
+            // Update text RGB effect.
             if (textsRgbEffect) {
                 const currentText = textContainersRef.current[currentIndex.current];
                 currentText.filters?.forEach((filter) => {
                     if (filter instanceof RGBSplitFilter) {
+                        gsap.killTweensOf(filter.red);
+                        gsap.killTweensOf(filter.blue);
                         gsap.set(filter.red, { x: textsRgbIntensity });
                         gsap.set(filter.blue, { x: textsRgbIntensity });
                     }
+                });
+            }
+            // Update nav buttons.
+            if (!externalNav) {
+                const navButtons = sliderRef.current.querySelectorAll("nav button");
+                navButtons.forEach((btn) => {
+                    gsap.killTweensOf(btn);
+                    gsap.to(btn, {
+                        textShadow: `${navTextsRgbIntensity}px 0 0 red, -${navTextsRgbIntensity}px 0 0 blue`,
+                        duration: 0.5,
+                        ease: "power2.out",
+                    });
                 });
             }
         };
@@ -430,7 +426,6 @@ const KineticSlider = ({
                         ease: "power2.out",
                     });
                 }
-                // Animate the RGB effect offsets on current slide and text to 0.
                 if (imagesRgbEffect) {
                     const currentSlide = slidesRef.current[currentIndex.current];
                     currentSlide.filters.forEach((filter) => {
@@ -449,6 +444,16 @@ const KineticSlider = ({
                         }
                     });
                 }
+                if (!externalNav) {
+                    const navButtons = sliderRef.current.querySelectorAll("nav button");
+                    navButtons.forEach((btn) => {
+                        gsap.to(btn, {
+                            textShadow: "none",
+                            duration: 0.5,
+                            ease: "power2.out",
+                        });
+                    });
+                }
             }, 300);
         };
         node.addEventListener("mouseenter", handleMouseEnter);
@@ -457,13 +462,13 @@ const KineticSlider = ({
             node.removeEventListener("mouseenter", handleMouseEnter);
             node.removeEventListener("mouseleave", handleMouseLeave);
         };
-    }, [cursorImgEffect, imagesRgbEffect, imagesRgbIntensity, textsRgbEffect, textsRgbIntensity]);
+    }, [cursorImgEffect, imagesRgbEffect, imagesRgbIntensity, textsRgbEffect, textsRgbIntensity, navTextsRgbIntensity, externalNav]);
 
-    // Fade out displacement filters if mouse stops moving, and restore them if mouse moves again.
+    // Idle timer for mouse move.
     useEffect(() => {
         if (typeof window === "undefined" || !sliderRef.current) return;
         const node = sliderRef.current;
-        let idleTimer;
+        let localIdleTimer;
         const handleMouseMoveIdle = (e) => {
             if (bgDispFilterRef.current) {
                 gsap.to(bgDispFilterRef.current.scale, {
@@ -481,8 +486,8 @@ const KineticSlider = ({
                     ease: "power2.out",
                 });
             }
-            if (idleTimer) clearTimeout(idleTimer);
-            idleTimer = setTimeout(() => {
+            if (localIdleTimer) clearTimeout(localIdleTimer);
+            localIdleTimer = setTimeout(() => {
                 if (bgDispFilterRef.current) {
                     gsap.to(bgDispFilterRef.current.scale, {
                         x: 0,
@@ -500,12 +505,13 @@ const KineticSlider = ({
                     });
                 }
             }, 300);
+            idleTimerRef.current = localIdleTimer;
         };
         node.addEventListener("mousemove", handleMouseMoveIdle);
         return () => node.removeEventListener("mousemove", handleMouseMoveIdle);
     }, [cursorImgEffect]);
 
-    // Slide transition logic (crossfade without text distortion, with added scaling effect).
+    // Slide transition logic.
     const slideTransition = (nextIndex) => {
         const tl = gsap.timeline();
         const currentSlide = slidesRef.current[currentIndex.current];
@@ -513,13 +519,9 @@ const KineticSlider = ({
         const nextSlide = slidesRef.current[nextIndex];
         const nextTextContainer = textContainersRef.current[nextIndex];
 
-        // Reset next slide/text alpha.
         nextSlide.alpha = 0;
         nextTextContainer.alpha = 0;
 
-        // In this version, the RGB split effect is controlled by mouse enter/leave.
-        // Add scaling effect: current slide scales up while fading out,
-        // next slide starts scaled up and then scales down to its base scale while fading in.
         tl.to(currentSlide.scale, {
             x: currentSlide.baseScale * (1 + transitionScaleIntensity / 100),
             y: currentSlide.baseScale * (1 + transitionScaleIntensity / 100),
@@ -535,14 +537,12 @@ const KineticSlider = ({
                 y: nextSlide.baseScale,
                 duration: 1,
                 ease: "power2.out",
-            }, 0);
-
-        // Crossfade concurrently (texts remain unchanged).
-        tl.to([currentSlide, currentTextContainer], {
-            alpha: 0,
-            duration: 1,
-            ease: "power2.out",
-        }, 0)
+            }, 0)
+            .to([currentSlide, currentTextContainer], {
+                alpha: 0,
+                duration: 1,
+                ease: "power2.out",
+            }, 0)
             .to([nextSlide, nextTextContainer], {
                 alpha: 1,
                 duration: 1,
@@ -551,20 +551,34 @@ const KineticSlider = ({
 
         currentIndex.current = nextIndex;
 
-        // After the transition, if the cursor is still active and textsRgbEffect is enabled,
-        // immediately apply the RGB effect to the new text container.
-        if (textsRgbEffect && cursorActive.current) {
-            const currentText = textContainersRef.current[currentIndex.current];
-            currentText.filters?.forEach((filter) => {
-                if (filter instanceof RGBSplitFilter) {
-                    gsap.set(filter.red, { x: textsRgbIntensity });
-                    gsap.set(filter.blue, { x: textsRgbIntensity });
-                }
-            });
+        // After transition, if the cursor is still active, update the new slide's image and text RGB effects.
+        if (cursorActive.current) {
+            if (imagesRgbEffect) {
+                const currentSlide = slidesRef.current[currentIndex.current];
+                currentSlide.filters.forEach((filter) => {
+                    if (filter instanceof RGBSplitFilter) {
+                        gsap.killTweensOf(filter.red);
+                        gsap.killTweensOf(filter.blue);
+                        gsap.set(filter.red, { x: imagesRgbIntensity });
+                        gsap.set(filter.blue, { x: imagesRgbIntensity });
+                    }
+                });
+            }
+            if (textsRgbEffect) {
+                const currentText = textContainersRef.current[currentIndex.current];
+                currentText.filters?.forEach((filter) => {
+                    if (filter instanceof RGBSplitFilter) {
+                        gsap.killTweensOf(filter.red);
+                        gsap.killTweensOf(filter.blue);
+                        gsap.set(filter.red, { x: textsRgbIntensity });
+                        gsap.set(filter.blue, { x: textsRgbIntensity });
+                    }
+                });
+            }
         }
     };
 
-    // Navigation (internal navigation buttons).
+    // Navigation.
     const handleNext = () => {
         const nextIndex = (currentIndex.current + 1) % slidesRef.current.length;
         slideTransition(nextIndex);
@@ -576,9 +590,9 @@ const KineticSlider = ({
         slideTransition(prevIndex);
     };
 
-    // External Navigation: Attach event listeners to external nav elements if "externalNav" prop is true.
+    // External Navigation.
     useEffect(() => {
-        if (!externalNav) return; // Only run if external navigation is enabled.
+        if (!externalNav) return;
         const prevNav = document.querySelector(navElement.prev);
         const nextNav = document.querySelector(navElement.next);
         const handlePrevClick = (e) => {
@@ -589,19 +603,11 @@ const KineticSlider = ({
             e.preventDefault();
             handleNext();
         };
-        if (prevNav) {
-            prevNav.addEventListener("click", handlePrevClick);
-        }
-        if (nextNav) {
-            nextNav.addEventListener("click", handleNextClick);
-        }
+        if (prevNav) prevNav.addEventListener("click", handlePrevClick);
+        if (nextNav) nextNav.addEventListener("click", handleNextClick);
         return () => {
-            if (prevNav) {
-                prevNav.removeEventListener("click", handlePrevClick);
-            }
-            if (nextNav) {
-                nextNav.removeEventListener("click", handleNextClick);
-            }
+            if (prevNav) prevNav.removeEventListener("click", handlePrevClick);
+            if (nextNav) nextNav.removeEventListener("click", handleNextClick);
         };
     }, [externalNav, navElement]);
 
@@ -701,7 +707,7 @@ const KineticSlider = ({
         };
     }, [swipeScaleIntensity]);
 
-    // Text tilt effect with two-stage recentering (attached to slider).
+    // Text tilt effect.
     useEffect(() => {
         if (!cursorTextEffect || typeof window === "undefined" || !sliderRef.current)
             return;
@@ -711,10 +717,8 @@ const KineticSlider = ({
             const containerHeight = sliderRef.current.clientHeight;
             const centerX = containerWidth / 2;
             const centerY = containerHeight / 2;
-            // Raw offset from center.
             const offsetX = centerX - e.clientX;
             const offsetY = centerY - e.clientY;
-            // Compute container shift: 5% of raw offset for x and 10% for y, clamped to maxContainerShiftFraction.
             const rawContainerShiftX = offsetX * 0.05;
             const rawContainerShiftY = offsetY * 0.1;
             const maxShiftX = containerWidth * maxContainerShiftFraction;
@@ -724,14 +728,12 @@ const KineticSlider = ({
 
             const activeTextContainer = textContainersRef.current[currentIndex.current];
             if (activeTextContainer && activeTextContainer.children.length >= 2) {
-                // Animate container shift over 0.5s.
                 gsap.to(activeTextContainer, {
                     x: centerX + containerShiftX,
                     y: centerY + containerShiftY,
                     duration: 0.5,
                     ease: "expo.out",
                 });
-                // Animate title: 80% of raw offset, clamped to 10% of container width, over 0.5s.
                 const maxTitleShift = containerWidth * 0.1;
                 const titleRawShiftX = offsetX * 0.8;
                 const titleShiftX = Math.max(Math.min(titleRawShiftX, maxTitleShift), -maxTitleShift);
@@ -740,7 +742,6 @@ const KineticSlider = ({
                     duration: 0.5,
                     ease: "expo.out",
                 });
-                // Animate subtitle: 100% of raw offset, clamped to 15% of container width, over 0.5s.
                 const maxSubtitleShift = containerWidth * 0.15;
                 const subtitleRawShiftX = offsetX * 1.0;
                 const subtitleShiftX = Math.max(Math.min(subtitleRawShiftX, maxSubtitleShift), -maxSubtitleShift);
@@ -753,7 +754,6 @@ const KineticSlider = ({
             if (tiltTimeout) clearTimeout(tiltTimeout);
             tiltTimeout = setTimeout(() => {
                 if (textContainersRef.current[currentIndex.current]) {
-                    // Animate container and its children concurrently to recenter over 1 second.
                     gsap.to(textContainersRef.current[currentIndex.current], {
                         x: centerX,
                         y: centerY,
@@ -770,7 +770,6 @@ const KineticSlider = ({
                         duration: 1,
                         ease: "expo.inOut",
                     });
-                    // Concurrently fade out displacement filters.
                     if (bgDispFilterRef.current) {
                         gsap.to(bgDispFilterRef.current.scale, {
                             x: 0,
@@ -791,7 +790,8 @@ const KineticSlider = ({
             }, 300);
         };
         sliderRef.current.addEventListener("mousemove", handleTextTilt);
-        return () => sliderRef.current.removeEventListener("mousemove", handleTextTilt);
+        return () =>
+            sliderRef.current.removeEventListener("mousemove", handleTextTilt);
     }, [cursorTextEffect, maxContainerShiftFraction]);
 
     return (
