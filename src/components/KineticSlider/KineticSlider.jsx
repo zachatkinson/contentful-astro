@@ -7,14 +7,12 @@ import {
     Assets,
     Container,
     Text,
-    TextStyle, uid,
+    TextStyle,
+    uid,
 } from "pixi.js";
 import { gsap } from "gsap";
 import styles from "./KineticSlider.module.css";
 import { RGBSplitFilter } from "pixi-filters";
-
-
-
 
 const KineticSlider = ({
                            // images and content sources
@@ -36,11 +34,14 @@ const KineticSlider = ({
                            // Text styling props
                            textTitleColor = "white",
                            textTitleSize = 64,
+                           mobileTextTitleSize = 40,
                            textTitleLetterspacing = 2,
                            textSubTitleColor = "white",
                            textSubTitleSize = 24,
+                           mobileTextSubTitleSize = 18,
                            textSubTitleLetterspacing = 1,
-                           textSubTitleOffsetTop = 70,
+                           textSubTitleOffsetTop = 10,
+                           mobileTextSubTitleOffsetTop = 5, // Mobile offset for subtitle.
                            // Outer text container movement clamped fraction (default 5% of container dimensions)
                            maxContainerShiftFraction = 0.05,
                            // Swipe scaling intensity during drag
@@ -53,18 +54,19 @@ const KineticSlider = ({
                            navElement = { prev: ".main-nav.prev", next: ".main-nav.next" },
                            // Navigation text RGB intensity (separate option for nav text)
                            navTextsRgbIntensity = 3,
+                           // Button mode - if true, text elements are interactive as buttons.
+                           buttonMode = false,
                        }) => {
     // Define default filter scales.
     const defaultBgFilterScale = 20;
     const defaultCursorFilterScale = 10;
-
 
     // Ref to track whether the cursor is within the canvas.
     const cursorActive = useRef(false);
     // Idle timer ref.
     const idleTimerRef = useRef(null);
 
-    // Dynamically import PixiPlugin.
+    // Dynamically import PixiPlugin and load fonts.
     useEffect(() => {
         (async () => {
             const { default: PixiPlugin } = await import("gsap/PixiPlugin");
@@ -77,16 +79,15 @@ const KineticSlider = ({
                 Assets,
                 Container,
                 Text,
-            })
+            });
             let fontPath;
             if (import.meta.env.DEV) {
                 fontPath = `/public/fonts/Vamos.woff2`;
-            } else{
+            } else {
                 fontPath = `/fonts/Vamos.woff2`;
             }
             Assets.addBundle("fonts", [{ alias: "Vamos", src: fontPath }]);
             await Assets.loadBundle("fonts");
-            ;
         })();
     }, []);
 
@@ -207,27 +208,30 @@ const KineticSlider = ({
                 textContainer.x = app.screen.width / 2;
                 textContainer.y = app.screen.height / 2;
                 const [title, subtitle] = texts[i] || ["", ""];
+                // Compute responsive title and subtitle sizes.
+                const computedTitleSize = window.innerWidth < 768 ? mobileTextTitleSize : textTitleSize;
+                const computedSubTitleSize = window.innerWidth < 768 ? mobileTextSubTitleSize : textSubTitleSize;
+                const computedSubTitleOffset = window.innerWidth < 768 ? mobileTextSubTitleOffsetTop : textSubTitleOffsetTop;
                 const titleStyle = new TextStyle({
                     fill: textTitleColor,
-                    fontSize: textTitleSize,
+                    fontSize: computedTitleSize,
                     letterSpacing: textTitleLetterspacing,
                     fontWeight: "bold",
                     align: "center",
-                    fontFamily: "Vamos"
-
+                    fontFamily: "Vamos",
                 });
                 const titleText = new Text({ text: title, style: titleStyle });
                 titleText.anchor.set(0.5, 0);
                 titleText.y = 0;
                 const subtitleStyle = new TextStyle({
                     fill: textSubTitleColor,
-                    fontSize: textSubTitleSize,
+                    fontSize: computedSubTitleSize,
                     letterSpacing: textSubTitleLetterspacing,
                     align: "center",
                 });
                 const subText = new Text({ text: subtitle, style: subtitleStyle });
                 subText.anchor.set(0.5, 0);
-                subText.y = titleText.height + 10;
+                subText.y = titleText.height + computedSubTitleOffset;
                 textContainer.addChild(titleText, subText);
                 textContainer.pivot.y = textContainer.height / 2;
                 textContainer.alpha = 0;
@@ -238,6 +242,20 @@ const KineticSlider = ({
                         blue: { x: 0, y: 0 },
                     });
                     textContainer.filters = [textRgbFilter];
+                }
+                // Enable button mode if specified.
+                if (buttonMode) {
+                    textContainer.interactive = true;
+                    textContainer.buttonMode = true;
+                    textContainer.on("pointerover", () =>
+                        gsap.to(titleText, { scale: 1.1, duration: 0.2 })
+                    );
+                    textContainer.on("pointerout", () =>
+                        gsap.to(titleText, { scale: 1, duration: 0.2 })
+                    );
+                    textContainer.on("pointerdown", () => {
+                        handleNext();
+                    });
                 }
                 stage.addChild(textContainer);
                 textContainersRef.current.push(textContainer);
@@ -262,11 +280,14 @@ const KineticSlider = ({
         imagesRgbIntensity,
         textTitleColor,
         textTitleSize,
+        mobileTextTitleSize,
         textTitleLetterspacing,
         textSubTitleColor,
         textSubTitleSize,
+        mobileTextSubTitleSize,
         textSubTitleLetterspacing,
         textSubTitleOffsetTop,
+        mobileTextSubTitleOffsetTop,
         maxContainerShiftFraction,
     ]);
 
@@ -294,6 +315,17 @@ const KineticSlider = ({
             textContainersRef.current.forEach((container) => {
                 container.x = containerWidth / 2;
                 container.y = containerHeight / 2;
+                const titleText = container.children[0];
+                const subText = container.children[1];
+                const computedTitleSize = window.innerWidth < 768 ? mobileTextTitleSize : textTitleSize;
+                const computedSubTitleSize = window.innerWidth < 768 ? mobileTextSubTitleSize : textSubTitleSize;
+                const computedSubTitleOffset = window.innerWidth < 768 ? mobileTextSubTitleOffsetTop : textSubTitleOffsetTop;
+                titleText.style.fontSize = computedTitleSize;
+                subText.style.fontSize = computedSubTitleSize;
+                // Force update measurements.
+                if (titleText.updateText) titleText.updateText();
+                if (subText.updateText) subText.updateText();
+                subText.y = titleText.height + computedSubTitleOffset;
             });
             if (backgroundDisplacementSpriteRef.current) {
                 backgroundDisplacementSpriteRef.current.x = containerWidth / 2;
@@ -566,7 +598,6 @@ const KineticSlider = ({
 
         currentIndex.current = nextIndex;
 
-        // After transition, if the cursor is still active, update the new slide's image and text RGB effects.
         if (cursorActive.current) {
             if (imagesRgbEffect) {
                 const currentSlide = slidesRef.current[currentIndex.current];
@@ -805,8 +836,7 @@ const KineticSlider = ({
             }, 300);
         };
         sliderRef.current.addEventListener("mousemove", handleTextTilt);
-        return () =>
-            sliderRef.current.removeEventListener("mousemove", handleTextTilt);
+        return () => sliderRef.current.removeEventListener("mousemove", handleTextTilt);
     }, [cursorTextEffect, maxContainerShiftFraction]);
 
     return (
