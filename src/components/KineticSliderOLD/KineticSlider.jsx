@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, {useEffect, useRef} from "react";
 import {
     Application,
     Sprite,
@@ -10,11 +10,11 @@ import {
     TextStyle,
     uid,
 } from "pixi.js";
-import { gsap } from "gsap";
+import {gsap} from "gsap";
 import styles from "./KineticSlider.module.css";
-import { RGBSplitFilter } from "pixi-filters";
+import {RGBSplitFilter} from "pixi-filters";
 
-const KineticSlider = ({
+const KineticSliderOld = ({
                            // images and content sources
                            images,
                            texts,
@@ -51,7 +51,7 @@ const KineticSlider = ({
                            // Enable external navigation (if true, the component expects external nav elements)
                            externalNav = false,
                            // Custom navigation element selectors (object with prev and next selectors)
-                           navElement = { prev: ".main-nav.prev", next: ".main-nav.next" },
+                           navElement = {prev: ".main-nav.prev", next: ".main-nav.next"},
                            // Navigation text RGB intensity (separate option for nav text)
                            navTextsRgbIntensity = 3,
                            // Button mode - if true, text elements are interactive as buttons.
@@ -69,7 +69,7 @@ const KineticSlider = ({
     // Dynamically import PixiPlugin and load fonts.
     useEffect(() => {
         (async () => {
-            const { default: PixiPlugin } = await import("gsap/PixiPlugin");
+            const {default: PixiPlugin} = await import("gsap/PixiPlugin");
             gsap.registerPlugin(PixiPlugin);
             PixiPlugin.registerPIXI({
                 Application,
@@ -86,7 +86,7 @@ const KineticSlider = ({
             } else {
                 fontPath = `/fonts/Vamos.woff2`;
             }
-            Assets.addBundle("fonts", [{ alias: "Vamos", src: fontPath }]);
+            Assets.addBundle("fonts", [{alias: "Vamos", src: fontPath}]);
             await Assets.loadBundle("fonts");
         })();
     }, []);
@@ -195,9 +195,9 @@ const KineticSlider = ({
                 if (cursorImgEffect) filtersArray.push(cursorDispFilterRef.current);
                 if (imagesRgbEffect) {
                     const rgbFilter = new RGBSplitFilter({
-                        red: { x: 0, y: 0 },
-                        green: { x: 0, y: 0 },
-                        blue: { x: 0, y: 0 },
+                        red: {x: 0, y: 0},
+                        green: {x: 0, y: 0},
+                        blue: {x: 0, y: 0},
                     });
                     filtersArray.push(rgbFilter);
                 }
@@ -220,7 +220,7 @@ const KineticSlider = ({
                     align: "center",
                     fontFamily: "Vamos",
                 });
-                const titleText = new Text({ text: title, style: titleStyle });
+                const titleText = new Text({text: title, style: titleStyle});
                 titleText.anchor.set(0.5, 0);
                 titleText.y = 0;
                 const subtitleStyle = new TextStyle({
@@ -229,7 +229,7 @@ const KineticSlider = ({
                     letterSpacing: textSubTitleLetterspacing,
                     align: "center",
                 });
-                const subText = new Text({ text: subtitle, style: subtitleStyle });
+                const subText = new Text({text: subtitle, style: subtitleStyle});
                 subText.anchor.set(0.5, 0);
                 subText.y = titleText.height + computedSubTitleOffset;
                 textContainer.addChild(titleText, subText);
@@ -237,9 +237,9 @@ const KineticSlider = ({
                 textContainer.alpha = 0;
                 if (textsRgbEffect) {
                     const textRgbFilter = new RGBSplitFilter({
-                        red: { x: 0, y: 0 },
-                        green: { x: 0, y: 0 },
-                        blue: { x: 0, y: 0 },
+                        red: {x: 0, y: 0},
+                        green: {x: 0, y: 0},
+                        blue: {x: 0, y: 0},
                     });
                     textContainer.filters = [textRgbFilter];
                 }
@@ -248,10 +248,10 @@ const KineticSlider = ({
                     textContainer.interactive = true;
                     textContainer.buttonMode = true;
                     textContainer.on("pointerover", () =>
-                        gsap.to(titleText, { scale: 1.1, duration: 0.2 })
+                        gsap.to(titleText, {scale: 1.1, duration: 0.2})
                     );
                     textContainer.on("pointerout", () =>
-                        gsap.to(titleText, { scale: 1, duration: 0.2 })
+                        gsap.to(titleText, {scale: 1, duration: 0.2})
                     );
                     textContainer.on("pointerdown", () => {
                         handleNext();
@@ -410,8 +410,8 @@ const KineticSlider = ({
                     if (filter instanceof RGBSplitFilter) {
                         gsap.killTweensOf(filter.red);
                         gsap.killTweensOf(filter.blue);
-                        gsap.set(filter.red, { x: imagesRgbIntensity });
-                        gsap.set(filter.blue, { x: imagesRgbIntensity });
+                        gsap.set(filter.red, {x: imagesRgbIntensity});
+                        gsap.set(filter.blue, {x: imagesRgbIntensity});
                     }
                 });
             }
@@ -422,8 +422,8 @@ const KineticSlider = ({
                     if (filter instanceof RGBSplitFilter) {
                         gsap.killTweensOf(filter.red);
                         gsap.killTweensOf(filter.blue);
-                        gsap.set(filter.red, { x: textsRgbIntensity });
-                        gsap.set(filter.blue, { x: textsRgbIntensity });
+                        gsap.set(filter.red, {x: textsRgbIntensity});
+                        gsap.set(filter.blue, {x: textsRgbIntensity});
                     }
                 });
             }
@@ -477,8 +477,8 @@ const KineticSlider = ({
                     const currentSlide = slidesRef.current[currentIndex.current];
                     currentSlide.filters.forEach((filter) => {
                         if (filter instanceof RGBSplitFilter) {
-                            gsap.to(filter.red, { x: 0, duration: 0.5, ease: "power2.out" });
-                            gsap.to(filter.blue, { x: 0, duration: 0.5, ease: "power2.out" });
+                            gsap.to(filter.red, {x: 0, duration: 0.5, ease: "power2.out"});
+                            gsap.to(filter.blue, {x: 0, duration: 0.5, ease: "power2.out"});
                         }
                     });
                 }
@@ -486,8 +486,8 @@ const KineticSlider = ({
                     const currentText = textContainersRef.current[currentIndex.current];
                     currentText.filters?.forEach((filter) => {
                         if (filter instanceof RGBSplitFilter) {
-                            gsap.to(filter.red, { x: 0, duration: 0.5, ease: "power2.out" });
-                            gsap.to(filter.blue, { x: 0, duration: 0.5, ease: "power2.out" });
+                            gsap.to(filter.red, {x: 0, duration: 0.5, ease: "power2.out"});
+                            gsap.to(filter.blue, {x: 0, duration: 0.5, ease: "power2.out"});
                         }
                     });
                 }
@@ -605,8 +605,8 @@ const KineticSlider = ({
                     if (filter instanceof RGBSplitFilter) {
                         gsap.killTweensOf(filter.red);
                         gsap.killTweensOf(filter.blue);
-                        gsap.set(filter.red, { x: imagesRgbIntensity });
-                        gsap.set(filter.blue, { x: imagesRgbIntensity });
+                        gsap.set(filter.red, {x: imagesRgbIntensity});
+                        gsap.set(filter.blue, {x: imagesRgbIntensity});
                     }
                 });
             }
@@ -616,8 +616,8 @@ const KineticSlider = ({
                     if (filter instanceof RGBSplitFilter) {
                         gsap.killTweensOf(filter.red);
                         gsap.killTweensOf(filter.blue);
-                        gsap.set(filter.red, { x: textsRgbIntensity });
-                        gsap.set(filter.blue, { x: textsRgbIntensity });
+                        gsap.set(filter.red, {x: textsRgbIntensity});
+                        gsap.set(filter.blue, {x: textsRgbIntensity});
                     }
                 });
             }
@@ -855,4 +855,4 @@ const KineticSlider = ({
     );
 };
 
-export default KineticSlider;
+export default KineticSliderOld;
