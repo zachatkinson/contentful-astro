@@ -50,12 +50,14 @@ export interface KineticSliderProps {
     textTitleSize?: number;
     mobileTextTitleSize?: number;
     textTitleLetterspacing?: number;
+    textTitleFontFamily?: string; // New prop for title font family
     textSubTitleColor?: string;
     textSubTitleSize?: number;
     mobileTextSubTitleSize?: number;
     textSubTitleLetterspacing?: number;
     textSubTitleOffsetTop?: number;
     mobileTextSubTitleOffsetTop?: number;
+    textSubTitleFontFamily?: string; // New prop for subtitle font family
 
     // Movement and animation settings
     maxContainerShiftFraction?: number;

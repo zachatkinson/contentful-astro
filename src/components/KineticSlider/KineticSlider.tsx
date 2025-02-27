@@ -47,12 +47,14 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
                                                          textTitleSize = 64,
                                                          mobileTextTitleSize = 40,
                                                          textTitleLetterspacing = 2,
+                                                         textTitleFontFamily,
                                                          textSubTitleColor = 'white',
                                                          textSubTitleSize = 24,
                                                          mobileTextSubTitleSize = 18,
                                                          textSubTitleLetterspacing = 1,
                                                          textSubTitleOffsetTop = 10,
                                                          mobileTextSubTitleOffsetTop = 5,
+                                                         textSubTitleFontFamily,
 
                                                          // Animation settings
                                                          maxContainerShiftFraction = 0.05,
@@ -211,12 +213,14 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         textTitleSize,
         mobileTextTitleSize,
         textTitleLetterspacing,
+        textTitleFontFamily,
         textSubTitleColor,
         textSubTitleSize,
         mobileTextSubTitleSize,
         textSubTitleLetterspacing,
         textSubTitleOffsetTop,
         mobileTextSubTitleOffsetTop,
+        textSubTitleFontFamily,
         maxContainerShiftFraction,
         swipeScaleIntensity,
         transitionScaleIntensity,
@@ -268,12 +272,14 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         textTitleSize,
         mobileTextTitleSize,
         textTitleLetterspacing,
+        textTitleFontFamily,
         textSubTitleColor,
         textSubTitleSize,
         mobileTextSubTitleSize,
         textSubTitleLetterspacing,
         textSubTitleOffsetTop,
-        mobileTextSubTitleOffsetTop
+        mobileTextSubTitleOffsetTop,
+        textSubTitleFontFamily
     });
 
     // Use mouse tracking

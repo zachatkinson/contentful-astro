@@ -4,6 +4,23 @@ import { type PixiRefs } from '../types';
 import { gsap } from 'gsap';
 
 /**
+ * Helper function to load fonts for the slider
+ * @param fontPath - Path to the font file
+ * @returns Promise that resolves when the font is loaded
+ */
+const loadFont = async (fontPath: string): Promise<boolean> => {
+    try {
+        // Try to load the font
+        await Assets.load(fontPath);
+        console.log(`Successfully loaded font from ${fontPath}`);
+        return true;
+    } catch (error) {
+        console.warn(`Failed to load font from ${fontPath}`, error);
+        return false;
+    }
+};
+
+/**
  * Custom hook to initialize and manage a Pixi Application
  *
  * @param sliderRef - Reference to the slider DOM element
@@ -58,7 +75,10 @@ export const usePixiApp = (
 
                 // Font loading with better error handling
                 try {
-                    // Determine font path - try multiple options for better compatibility
+                    // Try loading our default font
+                    const defaultFontPath = '/fonts/Vamos.woff2';
+
+                    // Determine font paths - try multiple options for better compatibility
                     const fontPaths = [
                         '/fonts/Vamos.woff2',      // Standard public path
                         '/public/fonts/Vamos.woff2', // Dev path
@@ -66,19 +86,15 @@ export const usePixiApp = (
                         'Vamos.woff2'              // Bare filename (use as last resort)
                     ];
 
-                    console.log("Attempting to load font Vamos.woff2...");
+                    console.log("Attempting to load default font Vamos.woff2...");
 
                     // Try to load the font using different paths
                     let fontLoaded = false;
                     for (const fontPath of fontPaths) {
-                        try {
-                            await Assets.load(fontPath);
-                            console.log(`Successfully loaded font from ${fontPath}`);
+                        const success = await loadFont(fontPath);
+                        if (success) {
                             fontLoaded = true;
                             break;
-                        } catch (fontError) {
-                            console.warn(`Failed to load font from ${fontPath}`, fontError);
-                            // Continue to next path
                         }
                     }
 

@@ -17,13 +17,19 @@ interface UseTextContainersProps {
     textTitleSize: number;
     mobileTextTitleSize: number;
     textTitleLetterspacing: number;
+    textTitleFontFamily?: string;
     textSubTitleColor: string;
     textSubTitleSize: number;
     mobileTextSubTitleSize: number;
     textSubTitleLetterspacing: number;
     textSubTitleOffsetTop: number;
     mobileTextSubTitleOffsetTop: number;
+    textSubTitleFontFamily?: string;
 }
+
+// Default font fallbacks
+const DEFAULT_TITLE_FONT = 'Georgia, Times, "Times New Roman", serif';
+const DEFAULT_SUBTITLE_FONT = 'Helvetica, Arial, sans-serif';
 
 /**
  * Hook to create and manage text containers for slide titles and subtitles
@@ -41,12 +47,14 @@ const useTextContainers = ({
                                textTitleSize,
                                mobileTextTitleSize,
                                textTitleLetterspacing,
+                               textTitleFontFamily,
                                textSubTitleColor,
                                textSubTitleSize,
                                mobileTextSubTitleSize,
                                textSubTitleLetterspacing,
                                textSubTitleOffsetTop,
-                               mobileTextSubTitleOffsetTop
+                               mobileTextSubTitleOffsetTop,
+                               textSubTitleFontFamily
                            }: UseTextContainersProps) => {
     // Create text containers
     useEffect(() => {
@@ -72,6 +80,10 @@ const useTextContainers = ({
         const computedSubTitleSize = isMobile ? mobileTextSubTitleSize : textSubTitleSize;
         const computedSubTitleOffset = isMobile ? mobileTextSubTitleOffsetTop : textSubTitleOffsetTop;
 
+        // Use provided fonts or fallbacks
+        const titleFontFamily = textTitleFontFamily || DEFAULT_TITLE_FONT;
+        const subtitleFontFamily = textSubTitleFontFamily || DEFAULT_SUBTITLE_FONT;
+
         // Create new text containers for each text pair
         texts.forEach((textPair, index) => {
             const [title, subtitle] = textPair;
@@ -86,7 +98,7 @@ const useTextContainers = ({
                 letterSpacing: textTitleLetterspacing,
                 fontWeight: 'bold',
                 align: 'center',
-                fontFamily: 'Vamos'
+                fontFamily: titleFontFamily
             });
             const titleText = new Text({ text: title, style: titleStyle });
             titleText.anchor.set(0.5, 0);
@@ -97,7 +109,8 @@ const useTextContainers = ({
                 fill: textSubTitleColor,
                 fontSize: computedSubTitleSize,
                 letterSpacing: textSubTitleLetterspacing,
-                align: 'center'
+                align: 'center',
+                fontFamily: subtitleFontFamily
             });
             const subText = new Text({text: subtitle, style: subtitleStyle});
             subText.anchor.set(0.5, 0);
@@ -164,12 +177,14 @@ const useTextContainers = ({
         textTitleSize,
         mobileTextTitleSize,
         textTitleLetterspacing,
+        textTitleFontFamily,
         textSubTitleColor,
         textSubTitleSize,
         mobileTextSubTitleSize,
         textSubTitleLetterspacing,
         textSubTitleOffsetTop,
         mobileTextSubTitleOffsetTop,
+        textSubTitleFontFamily,
         textsRgbEffect,
         buttonMode
     ]);
@@ -184,7 +199,6 @@ const useTextContainers = ({
         const handleResize = () => {
             if (!appRef.current || !textContainersRef.current.length) return;
 
-            const app = appRef.current;
             const containerWidth = sliderRef.current?.clientWidth || 0;
             const containerHeight = sliderRef.current?.clientHeight || 0;
             const isMobile = window.innerWidth < 768;
