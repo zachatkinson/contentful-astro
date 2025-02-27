@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import  { useEffect, useRef } from 'react';
 import { Application, Container, Assets } from 'pixi.js';
 import { type PixiRefs } from '../types';
 import { gsap } from 'gsap';
@@ -55,8 +55,8 @@ export const usePixiApp = (
                     fontPath = `/fonts/Vamos.woff2`;
                 }
 
-                Assets.addBundle('fonts', [{ alias: 'Vamos', src: fontPath }]);
-                await Assets.loadBundle('fonts');
+                // For Pixi v8, we need to use a single argument form
+                await Assets.load(fontPath);
 
                 // Mark as initialized to prevent duplicate initialization
                 isInitialized.current = true;
@@ -76,7 +76,9 @@ export const usePixiApp = (
         (async () => {
             try {
                 // Preload all required assets
-                await Assets.load([...images, ...displacementImages]);
+                for (const asset of [...images, ...displacementImages]) {
+                    await Assets.load(asset);
+                }
 
                 // Create and initialize the Pixi application
                 // We'll create a container div to handle the canvas
@@ -97,10 +99,9 @@ export const usePixiApp = (
                     resizeTo: sliderRef.current || undefined,
                 });
 
-                // We need to manually add the canvas to our container
-                // We'll use the fact that TypeScript allows the conversion via HTMLElement
-                const pixiView = app.renderer.view as unknown as HTMLElement;
-                containerDiv.appendChild(pixiView);
+                if (sliderRef.current && app.canvas instanceof HTMLCanvasElement) {
+                    sliderRef.current.appendChild(app.canvas);
+                }
 
                 appRef.current = app;
 
@@ -121,7 +122,8 @@ export const usePixiApp = (
                     sliderRef.current.removeChild(containerDiv);
                 }
 
-                appRef.current.destroy(true, { children: true });
+                // In Pixi v8, destroy() takes a single boolean parameter
+                appRef.current.destroy(true);
                 appRef.current = null;
             }
         };
