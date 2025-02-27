@@ -18,16 +18,7 @@ import { useTouchSwipe } from './hooks/';
 import { useMouseDrag } from './hooks/';
 import { useTextTilt } from './hooks/';
 import { useResizeHandler } from './hooks/';
-
-// Register GSAP plugins
-gsap.registerPlugin(PixiPlugin);
-PixiPlugin.registerPIXI({
-    Application,
-    Sprite,
-    Container,
-    Text,
-    DisplacementFilter
-});
+import { loadKineticSliderDependencies } from './ImportHelpers';
 
 /**
  * KineticSlider component - Creates an interactive image slider with various effects
@@ -83,6 +74,7 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
     const [isClient, setIsClient] = useState(false);
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [isInteracting, setIsInteracting] = useState(false);
+    const [isAppReady, setIsAppReady] = useState(false);
     const cursorActiveRef = useRef<boolean>(false);
 
     // Set up Pixi app
@@ -106,7 +98,15 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
 
         const initPixi = async () => {
             try {
-                console.log("Initializing Pixi.js application...");
+                console.log("Loading PixiJS dependencies...");
+                // Load all dependencies first
+                const { gsap, pixi } = await loadKineticSliderDependencies();
+
+                // Register GSAP plugins
+                gsap.registerPlugin(PixiPlugin);
+                PixiPlugin.registerPIXI(pixi);
+
+                console.log("Creating Pixi.js application...");
 
                 // Create Pixi application
                 const app = new Application();
@@ -129,6 +129,9 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
                 const stage = new Container();
                 app.stage.addChild(stage);
 
+                // Set app as ready
+                setIsAppReady(true);
+
                 console.log("Pixi.js application initialized");
             } catch (error) {
                 console.error("Failed to initialize Pixi.js application:", error);
@@ -148,6 +151,7 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
                 }
                 appRef.current.destroy(true);
                 appRef.current = null;
+                setIsAppReady(false);
             }
         };
     }, [sliderRef.current]);
@@ -195,14 +199,14 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         textFilters
     };
 
-    // Apply hooks only when appRef is available
+    // Apply hooks only when appRef is available and ready
     useEffect(() => {
         // Skip if app is not initialized
-        if (!appRef.current) return;
+        if (!appRef.current || !isAppReady) return;
 
         // Update current index ref when state changes
         currentIndexRef.current = currentSlideIndex;
-    }, [appRef.current, currentSlideIndex]);
+    }, [appRef.current, currentSlideIndex, isAppReady]);
 
     // Use displacement effects
     const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects({
@@ -269,14 +273,14 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
 
     // Navigation functions
     const handleNext = () => {
-        if (!appRef.current || slidesRef.current.length === 0) return;
+        if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
         const nextIndex = (currentSlideIndex + 1) % slidesRef.current.length;
         transitionToSlide(nextIndex);
         setCurrentSlideIndex(nextIndex);
     };
 
     const handlePrev = () => {
-        if (!appRef.current || slidesRef.current.length === 0) return;
+        if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
         const prevIndex = (currentSlideIndex - 1 + slidesRef.current.length) % slidesRef.current.length;
         transitionToSlide(prevIndex);
         setCurrentSlideIndex(prevIndex);
@@ -339,6 +343,7 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
 
     // Mouse enter handler
     const handleMouseEnter = () => {
+        if (!isAppReady) return;
         cursorActiveRef.current = true;
         showDisplacementEffects();
         updateFilterIntensities(true);
@@ -347,6 +352,7 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
 
     // Mouse leave handler
     const handleMouseLeave = () => {
+        if (!isAppReady) return;
         cursorActiveRef.current = false;
         hideDisplacementEffects();
         updateFilterIntensities(false);
@@ -361,6 +367,13 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >
+            {/* Placeholder while loading */}
+            {!isAppReady && (
+                <div className={styles.placeholder}>
+                    <div className={styles.placeholderImage}>Loading slider...</div>
+                </div>
+            )}
+
             {/* Navigation buttons - only render on client and if external nav is not enabled */}
             {!externalNav && isClient && (
                 <nav>

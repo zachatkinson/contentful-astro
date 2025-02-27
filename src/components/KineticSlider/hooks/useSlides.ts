@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { Sprite, Texture, Container } from 'pixi.js';
+import { Sprite, Texture, Container, Assets} from 'pixi.js';
 import { type EnhancedSprite, type HookParams } from '../types';
 import { calculateSpriteScale } from '../utils/calculateSpriteScale';
 import gsap from 'gsap';
@@ -10,64 +10,117 @@ import gsap from 'gsap';
 export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
     // Create slides for each image
     useEffect(() => {
-        if (!pixi.app.current || !pixi.app.current.stage || !props.images.length) {
-            console.warn("App, stage, or images not available for slides");
+        if (!pixi.app.current || !pixi.app.current.stage) {
+            console.log("App or stage not available for slides, deferring initialization");
+            return;
+        }
+
+        // Check if we have images to display
+        if (!props.images.length) {
+            console.warn("No images provided for slides");
             return;
         }
 
         console.log("Creating slides for", props.images.length, "images");
         const app = pixi.app.current;
-        const stage = app.stage.children[0] as Container || app.stage;
+
+        // Get the stage container - either the first child or the stage itself
+        const stage = app.stage.children[0] instanceof Container
+            ? app.stage.children[0] as Container
+            : app.stage;
 
         // Clear existing slides
         pixi.slides.current.forEach(sprite => {
-            if (sprite.parent) {
+            if (sprite && sprite.parent) {
                 sprite.parent.removeChild(sprite);
             }
         });
         pixi.slides.current = [];
 
         // Create new slides
-        props.images.forEach((image) => {
+        props.images.forEach((image, index) => {
             try {
-                const sprite = new Sprite(Texture.from(image)) as EnhancedSprite;
+                console.log(`Loading image: ${image}`);
+                const texture = Texture.from(image);
+
+                // Create the sprite
+                const sprite = new Sprite(texture) as EnhancedSprite;
                 sprite.anchor.set(0.5);
                 sprite.x = app.screen.width / 2;
                 sprite.y = app.screen.height / 2;
 
-                // Calculate appropriate scale based on container and image dimensions
-                const scale = calculateSpriteScale(
-                    sprite.texture.width,
-                    sprite.texture.height,
-                    app.screen.width,
-                    app.screen.height
-                );
+                // Set initial state
+                sprite.alpha = index === 0 ? 1 : 0; // Only show the first slide
 
-                // Apply the calculated scale
-                sprite.scale.set(scale.scale);
-                sprite.baseScale = scale.baseScale;
-                sprite.alpha = 0;
+                // Calculate scale once texture is loaded
+                const handleTextureLoaded = () => {
+                    // Calculate appropriate scale based on container and image dimensions
+                    const scaleResult = calculateSpriteScale(
+                        sprite.texture.width,
+                        sprite.texture.height,
+                        app.screen.width,
+                        app.screen.height
+                    );
+
+                    // Apply the calculated scale
+                    sprite.scale.set(scaleResult.scale);
+                    sprite.baseScale = scaleResult.baseScale;
+
+                    console.log(`Slide ${index} scaled: ${scaleResult.scale}`);
+                };
+
+
+// Load texture asynchronously
+                Assets.load(image)
+                    .then((texture) => {
+                        if (!texture) {
+                            console.error(`Failed to load texture for ${image}`);
+                            return;
+                        }
+
+                        // Create the sprite
+                        const sprite = new Sprite(texture) as EnhancedSprite;
+                        sprite.anchor.set(0.5);
+                        sprite.x = app.screen.width / 2;
+                        sprite.y = app.screen.height / 2;
+
+                        // Set initial state
+                        sprite.alpha = index === 0 ? 1 : 0; // Only show the first slide
+
+                        // Calculate scale
+                        const scaleResult = calculateSpriteScale(
+                            sprite.texture.width,
+                            sprite.texture.height,
+                            app.screen.width,
+                            app.screen.height
+                        );
+                        sprite.scale.set(scaleResult.scale);
+                        sprite.baseScale = scaleResult.baseScale;
+
+                        // Add to stage and store reference
+                        stage.addChild(sprite);
+                        pixi.slides.current.push(sprite);
+
+                        console.log(`Created slide ${index} for ${image}`);
+                    })
+                    .catch((error) => {
+                        console.error(`Error loading texture for ${image}:`, error);
+                    });
 
                 // Add to stage and store reference
                 stage.addChild(sprite);
                 pixi.slides.current.push(sprite);
 
-                console.log(`Created slide for ${image}`);
+                console.log(`Created slide ${index} for ${image}`);
             } catch (error) {
                 console.error(`Error creating slide for ${image}:`, error);
             }
         });
 
-        // Show the first slide
-        if (pixi.slides.current.length > 0) {
-            pixi.slides.current[0].alpha = 1;
-            console.log("First slide visible");
-        }
-
         return () => {
             // Cleanup
             pixi.slides.current.forEach(sprite => {
-                if (sprite.parent) {
+                if (sprite && sprite.parent) {
                     sprite.parent.removeChild(sprite);
                 }
             });
@@ -75,48 +128,16 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
         };
     }, [pixi.app.current, props.images]);
 
-    // Handle window resize for slides
-    useEffect(() => {
-        if (!pixi.app.current || !sliderRef.current) return;
-
-        const handleResize = () => {
-            const app = pixi.app.current;
-            if (!app) return;
-
-            const containerWidth = sliderRef.current?.clientWidth || 0;
-            const containerHeight = sliderRef.current?.clientHeight || 0;
-
-            // Resize each slide sprite
-            pixi.slides.current.forEach((sprite) => {
-                if (!sprite.texture) return;
-
-                // Recalculate scale based on new dimensions
-                const newScale = calculateSpriteScale(
-                    sprite.texture.width,
-                    sprite.texture.height,
-                    containerWidth,
-                    containerHeight
-                );
-
-                sprite.scale.set(newScale.scale);
-                sprite.baseScale = newScale.baseScale;
-                sprite.x = containerWidth / 2;
-                sprite.y = containerHeight / 2;
-            });
-        };
-
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, [sliderRef.current, pixi.app.current, pixi.slides.current]);
-
     /**
      * Transition to a specific slide
      * @param nextIndex - Index of the slide to transition to
      */
     const transitionToSlide = useCallback((nextIndex: number) => {
+        if (!pixi.slides.current.length) {
+            console.warn("No slides available for transition");
+            return;
+        }
+
         if (nextIndex < 0 || nextIndex >= pixi.slides.current.length) {
             console.warn(`Invalid slide index: ${nextIndex}`);
             return;
@@ -127,13 +148,23 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
         const tl = gsap.timeline();
         const currentIndex = pixi.currentIndex.current;
         const currentSlide = pixi.slides.current[currentIndex];
-        const currentTextContainer = pixi.textContainers.current[currentIndex];
         const nextSlide = pixi.slides.current[nextIndex];
+
+        // Handle text containers if available
+        const currentTextContainer = pixi.textContainers.current[currentIndex];
         const nextTextContainer = pixi.textContainers.current[nextIndex];
+
+        // Ensure next slide is loaded
+        if (!nextSlide || !nextSlide.texture || !nextSlide.texture.source) {
+            console.warn(`Slide ${nextIndex} is not ready for transition`);
+            return;
+        }
 
         // Ensure next elements start invisible
         nextSlide.alpha = 0;
-        nextTextContainer.alpha = 0;
+        if (nextTextContainer) {
+            nextTextContainer.alpha = 0;
+        }
 
         // Calculate scale based on transition intensity
         const scaleMultiplier = 1 + (props.transitionScaleIntensity || 30) / 100;
@@ -155,16 +186,30 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
                 duration: 1,
                 ease: 'power2.out',
             }, 0)
-            .to([currentSlide, currentTextContainer], {
+            .to(currentSlide, {
                 alpha: 0,
                 duration: 1,
                 ease: 'power2.out',
             }, 0)
-            .to([nextSlide, nextTextContainer], {
+            .to(nextSlide, {
                 alpha: 1,
                 duration: 1,
                 ease: 'power2.out',
             }, 0);
+
+        // Also animate text containers if available
+        if (currentTextContainer && nextTextContainer) {
+            tl.to(currentTextContainer, {
+                alpha: 0,
+                duration: 1,
+                ease: 'power2.out',
+            }, 0)
+                .to(nextTextContainer, {
+                    alpha: 1,
+                    duration: 1,
+                    ease: 'power2.out',
+                }, 0);
+        }
 
         // Update current index
         pixi.currentIndex.current = nextIndex;

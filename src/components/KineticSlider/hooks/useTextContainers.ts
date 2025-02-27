@@ -88,7 +88,7 @@ const useTextContainers = ({
                 align: 'center',
                 fontFamily: 'Vamos'
             });
-            const titleText = new Text(title, titleStyle);
+            const titleText = new Text({ text: title, style: titleStyle });
             titleText.anchor.set(0.5, 0);
             titleText.y = 0;
 
@@ -99,7 +99,7 @@ const useTextContainers = ({
                 letterSpacing: textSubTitleLetterspacing,
                 align: 'center'
             });
-            const subText = new Text(subtitle, subtitleStyle);
+            const subText = new Text({text: subtitle, style: subtitleStyle});
             subText.anchor.set(0.5, 0);
             subText.y = titleText.height + computedSubTitleOffset;
 

@@ -13,6 +13,12 @@ export const calculateSpriteScale = (
     containerWidth: number,
     containerHeight: number
 ): { scale: number; baseScale: number } => {
+    // Ensure dimensions are valid numbers
+    if (!imageWidth || !imageHeight || !containerWidth || !containerHeight) {
+        console.warn("Invalid dimensions for sprite scaling, using fallback scale 1");
+        return { scale: 1, baseScale: 1 };
+    }
+
     // Calculate aspect ratios
     const imageAspect = imageWidth / imageHeight;
     const containerAspect = containerWidth / containerHeight;
@@ -27,6 +33,14 @@ export const calculateSpriteScale = (
         // Image is taller relative to container, so width is the constraint
         scale = containerWidth / imageWidth;
     }
+
+    // Add padding to prevent edge cases
+    scale = scale * 0.95; // 5% padding
+
+    // Log scale calculation
+    console.log(
+        `Scale calculation: Image (${imageWidth}x${imageHeight}), Container (${containerWidth}x${containerHeight}), Scale: ${scale}`
+    );
 
     return {
         scale,
