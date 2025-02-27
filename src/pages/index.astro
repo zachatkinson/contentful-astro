@@ -5,6 +5,7 @@ import type {BlogPost} from "../lib/blogPost";
 import Hero from '../components/Hero/Hero.astro';
 import AnimatedCallToAction from "../components/AnimatedCallToAction/AnimatedCallToAction.astro";
 import KineticSlider from "../components/KineticSlider/KineticSlider";
+import {TextPair} from "../components/KineticSlider/types";
 const images = [
     "/images/slides/1.jpg",
     "/images/slides/2.jpg",
@@ -18,12 +19,12 @@ const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
 })
 
-const texts = [
-    ["Earth", "Surface gravity‎: ‎9.807 m/s²"],
-    ["Mars", "Surface gravity‎: ‎3.711 m/s²"],
-    ["Venus", "Surface gravity‎: ‎8.87 m/s²"],
-    ["Mars", "Surface gravity‎: ‎3.711 m/s²"],
-    ["Venus", "Surface gravity‎: ‎8.87 m/s²"]
+const texts:TextPair[] = [
+        ["Earth", "Surface gravity‎: ‎9.807 m/s²"],
+        ["Mars", "Surface gravity‎: ‎3.711 m/s²"],
+        ["Venus", "Surface gravity‎: ‎8.87 m/s²"],
+        ["Mars", "Surface gravity‎: ‎3.711 m/s²"],
+        ["Venus", "Surface gravity‎: ‎8.87 m/s²"]
 ];
 
 const posts = entries.items.map((entry) => {
