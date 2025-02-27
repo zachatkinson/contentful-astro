@@ -1,9 +1,33 @@
 import React, { useRef, useState, useEffect } from 'react';
 import styles from './KineticSlider.module.css';
 import { type KineticSliderProps } from './types';
+import { Application, Sprite, Container, Text, DisplacementFilter } from 'pixi.js';
+import { gsap } from 'gsap';
+import PixiPlugin from 'gsap/PixiPlugin';
 
-// Safely check if we're in a browser environment
-const isBrowser = typeof window !== 'undefined';
+// Import hooks directly
+import { useDisplacementEffects } from './hooks';
+import { useFilters } from './hooks';
+import { useSlides } from './hooks';
+import { useTextContainers } from './hooks/';
+import { useMouseTracking } from './hooks/';
+import { useIdleTimer } from './hooks/';
+import { useNavigation } from './hooks/';
+import { useExternalNav } from './hooks/';
+import { useTouchSwipe } from './hooks/';
+import { useMouseDrag } from './hooks/';
+import { useTextTilt } from './hooks/';
+import { useResizeHandler } from './hooks/';
+
+// Register GSAP plugins
+gsap.registerPlugin(PixiPlugin);
+PixiPlugin.registerPIXI({
+    Application,
+    Sprite,
+    Container,
+    Text,
+    DisplacementFilter
+});
 
 /**
  * KineticSlider component - Creates an interactive image slider with various effects
@@ -56,111 +80,277 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
                                                      }) => {
     // Core references
     const sliderRef = useRef<HTMLDivElement>(null);
-    const canvasContainerRef = useRef<HTMLDivElement>(null);
     const [isClient, setIsClient] = useState(false);
-    const [currentSlide, setCurrentSlide] = useState(0);
+    const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [isInteracting, setIsInteracting] = useState(false);
+    const cursorActiveRef = useRef<boolean>(false);
 
-    // Initialize on client-side only
+    // Set up Pixi app
+    const appRef = useRef<Application | null>(null);
+    const slidesRef = useRef<Sprite[]>([]);
+    const textContainersRef = useRef<Container[]>([]);
+    const backgroundDisplacementSpriteRef = useRef<Sprite | null>(null);
+    const cursorDisplacementSpriteRef = useRef<Sprite | null>(null);
+    const bgDispFilterRef = useRef<DisplacementFilter | null>(null);
+    const cursorDispFilterRef = useRef<DisplacementFilter | null>(null);
+    const currentIndexRef = useRef<number>(0);
+
+    // Client-side initialization
     useEffect(() => {
-        // Mark that we're now on the client
         setIsClient(true);
-
-        let gsap: any;
-        let pixiApp: any;
-        let pixiHooks: any;
-
-        // Dynamically import the libraries only on the client side
-        const loadLibraries = async () => {
-            if (!isBrowser) return;
-
-            // Import GSAP
-            const gsapModule = await import('gsap');
-            gsap = gsapModule.gsap;
-
-            // Import necessary hooks
-            const {
-                usePixiApp,
-                useDisplacementEffects,
-                useFilters,
-                useSlides,
-                useTextContainers,
-                useMouseTracking,
-                useIdleTimer,
-                useNavigation,
-                useExternalNav,
-                useTouchSwipe,
-                useMouseDrag,
-                useTextTilt,
-                useResizeHandler
-            } = await import('./hooks');
-
-            pixiHooks = {
-                usePixiApp,
-                useDisplacementEffects,
-                useFilters,
-                useSlides,
-                useTextContainers,
-                useMouseTracking,
-                useIdleTimer,
-                useNavigation,
-                useExternalNav,
-                useTouchSwipe,
-                useMouseDrag,
-                useTextTilt,
-                useResizeHandler
-            };
-
-            // Now that we have the libraries, initialize the slider
-            initializeSlider();
-        };
-
-        // Initialize the slider functionality
-        const initializeSlider = () => {
-            if (!sliderRef.current || !gsap || !pixiHooks) return;
-
-            // Initialize Pixi and setup the slider
-            // This would contain the logic previously in your hooks
-
-            // Here we'd use the hooks that we've imported dynamically
-            // This is a placeholder - in a full implementation, you'd adapt your
-            // hook system to work with this dynamic import approach
-        };
-
-        loadLibraries();
-
-        // Cleanup function
-        return () => {
-            // Cleanup here
-        };
     }, []);
 
-    // Basic navigation functions
+    // Initialize Pixi.js application
+    useEffect(() => {
+        if (typeof window === 'undefined' || !sliderRef.current || appRef.current) return;
+
+        const initPixi = async () => {
+            try {
+                console.log("Initializing Pixi.js application...");
+
+                // Create Pixi application
+                const app = new Application();
+                await app.init({
+                    width: sliderRef.current?.clientWidth || 800,
+                    height: sliderRef.current?.clientHeight || 600,
+                    backgroundAlpha: 0,
+                    resizeTo: sliderRef.current || undefined,
+                });
+
+                // Add canvas to DOM
+                if (sliderRef.current) {
+                    sliderRef.current.appendChild(app.canvas);
+                }
+
+                // Store reference
+                appRef.current = app;
+
+                // Create main container
+                const stage = new Container();
+                app.stage.addChild(stage);
+
+                console.log("Pixi.js application initialized");
+            } catch (error) {
+                console.error("Failed to initialize Pixi.js application:", error);
+            }
+        };
+
+        initPixi();
+
+        // Cleanup on unmount
+        return () => {
+            if (appRef.current) {
+                if (sliderRef.current) {
+                    const canvas = sliderRef.current.querySelector('canvas');
+                    if (canvas) {
+                        sliderRef.current.removeChild(canvas);
+                    }
+                }
+                appRef.current.destroy(true);
+                appRef.current = null;
+            }
+        };
+    }, [sliderRef.current]);
+
+    // Create a pixi refs object for hooks
+    const pixiRefs = {
+        app: appRef,
+        slides: slidesRef,
+        textContainers: textContainersRef,
+        backgroundDisplacementSprite: backgroundDisplacementSpriteRef,
+        cursorDisplacementSprite: cursorDisplacementSpriteRef,
+        bgDispFilter: bgDispFilterRef,
+        cursorDispFilter: cursorDispFilterRef,
+        currentIndex: currentIndexRef
+    };
+
+    // Props object for hooks
+    const hookProps = {
+        images,
+        texts,
+        backgroundDisplacementSpriteLocation,
+        cursorDisplacementSpriteLocation,
+        cursorImgEffect,
+        cursorTextEffect,
+        cursorScaleIntensity,
+        cursorMomentum,
+        imagesRgbEffect,
+        imagesRgbIntensity,
+        textsRgbEffect,
+        textsRgbIntensity,
+        textTitleColor,
+        textTitleSize,
+        mobileTextTitleSize,
+        textTitleLetterspacing,
+        textSubTitleColor,
+        textSubTitleSize,
+        mobileTextSubTitleSize,
+        textSubTitleLetterspacing,
+        textSubTitleOffsetTop,
+        mobileTextSubTitleOffsetTop,
+        maxContainerShiftFraction,
+        swipeScaleIntensity,
+        transitionScaleIntensity,
+        imageFilters,
+        textFilters
+    };
+
+    // Apply hooks only when appRef is available
+    useEffect(() => {
+        // Skip if app is not initialized
+        if (!appRef.current) return;
+
+        // Update current index ref when state changes
+        currentIndexRef.current = currentSlideIndex;
+    }, [appRef.current, currentSlideIndex]);
+
+    // Use displacement effects
+    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects({
+        sliderRef,
+        pixi: pixiRefs,
+        props: hookProps
+    });
+
+    // Use filters
+    const { updateFilterIntensities } = useFilters({
+        sliderRef,
+        pixi: pixiRefs,
+        props: hookProps
+    });
+
+    // Use slides and get transition function
+    const { transitionToSlide } = useSlides({
+        sliderRef,
+        pixi: pixiRefs,
+        props: hookProps
+    });
+
+    // Use text containers
+    useTextContainers({
+        sliderRef,
+        appRef,
+        slidesRef,
+        textContainersRef,
+        currentIndex: currentIndexRef,
+        buttonMode,
+        textsRgbEffect,
+        texts,
+        textTitleColor,
+        textTitleSize,
+        mobileTextTitleSize,
+        textTitleLetterspacing,
+        textSubTitleColor,
+        textSubTitleSize,
+        mobileTextSubTitleSize,
+        textSubTitleLetterspacing,
+        textSubTitleOffsetTop,
+        mobileTextSubTitleOffsetTop
+    });
+
+    // Use mouse tracking
+    useMouseTracking({
+        sliderRef,
+        backgroundDisplacementSpriteRef,
+        cursorDisplacementSpriteRef,
+        cursorImgEffect,
+        cursorMomentum
+    });
+
+    // Use idle timer
+    useIdleTimer({
+        sliderRef,
+        cursorActive: cursorActiveRef,
+        bgDispFilterRef,
+        cursorDispFilterRef,
+        cursorImgEffect,
+        defaultBgFilterScale: 20,
+        defaultCursorFilterScale: 10
+    });
+
+    // Navigation functions
     const handleNext = () => {
-        if (!isClient) return;
-        setCurrentSlide((prev) => (prev + 1) % images.length);
-        // In a full implementation, we would call the transition function from the hook
+        if (!appRef.current || slidesRef.current.length === 0) return;
+        const nextIndex = (currentSlideIndex + 1) % slidesRef.current.length;
+        transitionToSlide(nextIndex);
+        setCurrentSlideIndex(nextIndex);
     };
 
     const handlePrev = () => {
-        if (!isClient) return;
-        setCurrentSlide((prev) =>
-            (prev - 1 + images.length) % images.length
-        );
-        // In a full implementation, we would call the transition function from the hook
+        if (!appRef.current || slidesRef.current.length === 0) return;
+        const prevIndex = (currentSlideIndex - 1 + slidesRef.current.length) % slidesRef.current.length;
+        transitionToSlide(prevIndex);
+        setCurrentSlideIndex(prevIndex);
     };
 
-    // Mouse enter/leave handlers
+    // Use navigation
+    useNavigation({
+        onNext: handleNext,
+        onPrev: handlePrev,
+        enableKeyboardNav: true
+    });
+
+    // Use external navigation if enabled
+    useExternalNav({
+        externalNav,
+        navElement,
+        handleNext,
+        handlePrev
+    });
+
+    // Use touch swipe
+    useTouchSwipe({
+        sliderRef,
+        onSwipeLeft: handleNext,
+        onSwipeRight: handlePrev
+    });
+
+    // Use mouse drag
+    useMouseDrag({
+        sliderRef,
+        slidesRef,
+        currentIndex: currentIndexRef,
+        swipeScaleIntensity,
+        swipeDistance: typeof window !== 'undefined' ? window.innerWidth * 0.2 : 200,
+        onSwipeLeft: handleNext,
+        onSwipeRight: handlePrev
+    });
+
+    // Use text tilt
+    useTextTilt({
+        sliderRef,
+        textContainersRef,
+        currentIndex: currentIndexRef,
+        cursorTextEffect,
+        maxContainerShiftFraction,
+        bgDispFilterRef,
+        cursorDispFilterRef,
+        cursorImgEffect
+    });
+
+    // Use resize handler
+    useResizeHandler({
+        sliderRef,
+        appRef,
+        slidesRef,
+        textContainersRef,
+        backgroundDisplacementSpriteRef,
+        cursorDisplacementSpriteRef
+    });
+
+    // Mouse enter handler
     const handleMouseEnter = () => {
-        if (!isClient) return;
+        cursorActiveRef.current = true;
+        showDisplacementEffects();
+        updateFilterIntensities(true);
         setIsInteracting(true);
-        // In a full implementation, we would call the showDisplacementEffects
     };
 
+    // Mouse leave handler
     const handleMouseLeave = () => {
-        if (!isClient) return;
+        cursorActiveRef.current = false;
+        hideDisplacementEffects();
+        updateFilterIntensities(false);
         setIsInteracting(false);
-        // In a full implementation, we would call the hideDisplacementEffects
     };
 
     // Render component
@@ -171,9 +361,7 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >
-            {/* This div will contain the canvas element once Pixi initializes */}
-            <div ref={canvasContainerRef} className="kinetic-canvas-container"></div>
-
+            {/* Navigation buttons - only render on client and if external nav is not enabled */}
             {!externalNav && isClient && (
                 <nav>
                     <button onClick={handlePrev} className={styles.prev}>

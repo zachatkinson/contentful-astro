@@ -39,9 +39,18 @@ const posts = entries.items.map((entry) => {
 <Layout>
     <Hero slug="landing-page-hero" sfx="glitch" id="home-hero"/>
     <AnimatedCallToAction />
+
+
     <KineticSlider
+            client:load
             images={images}
             texts={texts}
+            backgroundDisplacementSpriteLocation="/images/background-displace.jpg"
+            cursorDisplacementSpriteLocation="/images/cursor-displace.png"
+            cursorImgEffect={true}
+            cursorTextEffect={true}
+            cursorScaleIntensity={0.65}
+            cursorMomentum={0.14}
             imageFilters={[
                 {
                     type: 'rgb-split',
@@ -63,6 +72,22 @@ const posts = entries.items.map((entry) => {
                     intensity: 5
                 }
             ]}
+            textTitleColor="white"
+            textTitleSize={64}
+            mobileTextTitleSize={40}
+            textTitleLetterspacing={2}
+            textSubTitleColor="white"
+            textSubTitleSize={24}
+            mobileTextSubTitleSize={18}
+            textSubTitleLetterspacing={1}
+            textSubTitleOffsetTop={10}
+            mobileTextSubTitleOffsetTop={5}
+            maxContainerShiftFraction={0.05}
+            swipeScaleIntensity={2}
+            transitionScaleIntensity={30}
+            externalNav={false}
+            buttonMode={false}
+            navTextsRgbIntensity={3}
     />
     <div class="p-4 container mx-auto">
         <h2>Latest Posts</h2>

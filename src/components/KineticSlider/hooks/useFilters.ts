@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Container, Sprite } from 'pixi.js';
 import { RGBSplitFilter } from 'pixi-filters';
 import { gsap } from 'gsap';
@@ -32,7 +32,12 @@ export const useFilters = (
 
     // Handle legacy RGB filter props for backward compatibility
     useEffect(() => {
-        if (!pixi.slides.current.length || !pixi.textContainers.current.length) return;
+        if (!pixi.slides.current.length || !pixi.textContainers.current.length) {
+            console.warn("Slides or text containers not available for filters");
+            return;
+        }
+
+        console.log("Setting up filters...");
 
         // Convert legacy props to filter configs
         const createLegacyImageFilters = (): FilterConfig[] => {
@@ -72,6 +77,8 @@ export const useFilters = (
             ? (Array.isArray(props.textFilters) ? props.textFilters : [props.textFilters])
             : createLegacyTextFilters();
 
+        console.log(`Applying ${imageFilters.length} image filters and ${textFilters.length} text filters`);
+
         // Apply filters to slides and text containers
         applyFiltersToObjects(pixi.slides.current, imageFilters as FilterConfig[], 'slide-');
         applyFiltersToObjects(pixi.textContainers.current, textFilters as FilterConfig[], 'text-');
@@ -83,6 +90,7 @@ export const useFilters = (
                 entry.target.filters = []; // Set to empty array instead of null
             });
             filterMapRef.current = {};
+            console.log("Filters cleaned up");
         };
     }, [
         pixi.slides.current,
@@ -96,13 +104,14 @@ export const useFilters = (
     ]);
 
     // Apply the configured filters to an array of objects
-    const applyFiltersToObjects = (
+    const applyFiltersToObjects = useCallback((
         objects: FilterableObject[],
         filterConfigs: FilterConfig[],
         idPrefix: string
     ) => {
         objects.forEach((object, index) => {
             const id = `${idPrefix}${index}`;
+            console.log(`Applying filters to ${id}`);
 
             // Create filter entries if they don't exist
             if (!filterMapRef.current[id]) {
@@ -151,11 +160,15 @@ export const useFilters = (
 
             // Set the combined filters on the object
             object.filters = [...baseFilters, ...customFilters];
+
+            console.log(`Applied ${customFilters.length} custom filters to ${id}`);
         });
-    };
+    }, [pixi, props.cursorImgEffect]);
 
     // Update filter intensities for hover effects
-    const updateFilterIntensities = (active: boolean) => {
+    const updateFilterIntensities = useCallback((active: boolean) => {
+        console.log(`${active ? 'Activating' : 'Deactivating'} filter intensities`);
+
         const currentSlideId = `slide-${pixi.currentIndex.current}`;
         const currentTextId = `text-${pixi.currentIndex.current}`;
 
@@ -166,8 +179,13 @@ export const useFilters = (
                         // For legacy support, directly modify RGB filter
                         gsap.killTweensOf(filter.instance.red);
                         gsap.killTweensOf(filter.instance.blue);
-                        gsap.set(filter.instance.red, { x: props.imagesRgbIntensity || 15 });
-                        gsap.set(filter.instance.blue, { x: -(props.imagesRgbIntensity || 15) });
+
+                        // For RGB split filter, set x value to positive intensity for red, negative for blue
+                        const intensity = props.imagesRgbIntensity || 15;
+                        gsap.set(filter.instance.red, { x: intensity });
+                        gsap.set(filter.instance.blue, { x: -intensity });
+
+                        console.log(`Set RGB split intensity to ${intensity} for slide`);
                     } else {
                         // For other filters use the update function
                         filter.updateIntensity(props.imagesRgbIntensity || 15);
@@ -191,8 +209,13 @@ export const useFilters = (
                         // Legacy RGB text support
                         gsap.killTweensOf(filter.instance.red);
                         gsap.killTweensOf(filter.instance.blue);
-                        gsap.set(filter.instance.red, { x: props.textsRgbIntensity || 5 });
-                        gsap.set(filter.instance.blue, { x: -(props.textsRgbIntensity || 5) });
+
+                        // For RGB split filter, set x value to positive intensity for red, negative for blue
+                        const intensity = props.textsRgbIntensity || 5;
+                        gsap.set(filter.instance.red, { x: intensity });
+                        gsap.set(filter.instance.blue, { x: -intensity });
+
+                        console.log(`Set RGB split intensity to ${intensity} for text`);
                     } else {
                         filter.updateIntensity(props.textsRgbIntensity || 5);
                     }
@@ -206,7 +229,7 @@ export const useFilters = (
                 }
             });
         }
-    };
+    }, [pixi.currentIndex, props.imagesRgbIntensity, props.textsRgbIntensity]);
 
     return {
         updateFilterIntensities

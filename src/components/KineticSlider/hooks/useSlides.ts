@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Sprite, Texture, Container } from 'pixi.js';
 import { type EnhancedSprite, type HookParams } from '../types';
 import { calculateSpriteScale } from '../utils/calculateSpriteScale';
@@ -10,8 +10,12 @@ import gsap from 'gsap';
 export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
     // Create slides for each image
     useEffect(() => {
-        if (!pixi.app.current || !pixi.app.current.stage || !props.images.length) return;
+        if (!pixi.app.current || !pixi.app.current.stage || !props.images.length) {
+            console.warn("App, stage, or images not available for slides");
+            return;
+        }
 
+        console.log("Creating slides for", props.images.length, "images");
         const app = pixi.app.current;
         const stage = app.stage.children[0] as Container || app.stage;
 
@@ -25,32 +29,39 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
 
         // Create new slides
         props.images.forEach((image) => {
-            const sprite = new Sprite(Texture.from(image)) as EnhancedSprite;
-            sprite.anchor.set(0.5);
-            sprite.x = app.screen.width / 2;
-            sprite.y = app.screen.height / 2;
+            try {
+                const sprite = new Sprite(Texture.from(image)) as EnhancedSprite;
+                sprite.anchor.set(0.5);
+                sprite.x = app.screen.width / 2;
+                sprite.y = app.screen.height / 2;
 
-            // Calculate appropriate scale based on container and image dimensions
-            const { scale, baseScale } = calculateSpriteScale(
-                sprite.texture.width,
-                sprite.texture.height,
-                app.screen.width,
-                app.screen.height
-            );
+                // Calculate appropriate scale based on container and image dimensions
+                const scale = calculateSpriteScale(
+                    sprite.texture.width,
+                    sprite.texture.height,
+                    app.screen.width,
+                    app.screen.height
+                );
 
-            // Apply the calculated scale
-            sprite.scale.set(scale);
-            sprite.baseScale = baseScale;
-            sprite.alpha = 0;
+                // Apply the calculated scale
+                sprite.scale.set(scale.scale);
+                sprite.baseScale = scale.baseScale;
+                sprite.alpha = 0;
 
-            // Add to stage and store reference
-            stage.addChild(sprite);
-            pixi.slides.current.push(sprite);
+                // Add to stage and store reference
+                stage.addChild(sprite);
+                pixi.slides.current.push(sprite);
+
+                console.log(`Created slide for ${image}`);
+            } catch (error) {
+                console.error(`Error creating slide for ${image}:`, error);
+            }
         });
 
         // Show the first slide
         if (pixi.slides.current.length > 0) {
             pixi.slides.current[0].alpha = 1;
+            console.log("First slide visible");
         }
 
         return () => {
@@ -80,15 +91,15 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
                 if (!sprite.texture) return;
 
                 // Recalculate scale based on new dimensions
-                const { scale, baseScale } = calculateSpriteScale(
+                const newScale = calculateSpriteScale(
                     sprite.texture.width,
                     sprite.texture.height,
                     containerWidth,
                     containerHeight
                 );
 
-                sprite.scale.set(scale);
-                sprite.baseScale = baseScale;
+                sprite.scale.set(newScale.scale);
+                sprite.baseScale = newScale.baseScale;
                 sprite.x = containerWidth / 2;
                 sprite.y = containerHeight / 2;
             });
@@ -105,15 +116,18 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
      * Transition to a specific slide
      * @param nextIndex - Index of the slide to transition to
      */
-    const transitionToSlide = (nextIndex: number) => {
+    const transitionToSlide = useCallback((nextIndex: number) => {
         if (nextIndex < 0 || nextIndex >= pixi.slides.current.length) {
             console.warn(`Invalid slide index: ${nextIndex}`);
             return;
         }
 
+        console.log(`Transitioning to slide ${nextIndex}`);
+
         const tl = gsap.timeline();
-        const currentSlide = pixi.slides.current[pixi.currentIndex.current];
-        const currentTextContainer = pixi.textContainers.current[pixi.currentIndex.current];
+        const currentIndex = pixi.currentIndex.current;
+        const currentSlide = pixi.slides.current[currentIndex];
+        const currentTextContainer = pixi.textContainers.current[currentIndex];
         const nextSlide = pixi.slides.current[nextIndex];
         const nextTextContainer = pixi.textContainers.current[nextIndex];
 
@@ -154,7 +168,11 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
 
         // Update current index
         pixi.currentIndex.current = nextIndex;
-    };
+
+        console.log(`Current slide is now ${nextIndex}`);
+
+        return tl;
+    }, [pixi.slides.current, pixi.textContainers.current, pixi.currentIndex, props.transitionScaleIntensity]);
 
     return {
         transitionToSlide

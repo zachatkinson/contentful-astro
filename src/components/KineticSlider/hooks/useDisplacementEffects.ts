@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Sprite, Texture, DisplacementFilter } from 'pixi.js';
 import { gsap } from 'gsap';
 import { type HookParams } from '../types';
@@ -15,8 +15,12 @@ const DEFAULT_CURSOR_FILTER_SCALE = 10;
 export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) => {
     // Set up displacement sprites and filters
     useEffect(() => {
-        if (!pixi.app.current || !pixi.app.current.stage) return;
+        if (!pixi.app.current || !pixi.app.current.stage) {
+            console.warn("App or stage not available for displacement effects");
+            return;
+        }
 
+        console.log("Setting up displacement effects...");
         const app = pixi.app.current;
 
         // Create background displacement sprite
@@ -54,6 +58,8 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
 
         // Add displacement sprites to the stage
         app.stage.addChild(backgroundDisplacementSprite, cursorDisplacementSprite);
+
+        console.log("Displacement sprites and filters created");
 
         return () => {
             // Cleanup
@@ -104,7 +110,9 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
     /**
      * Show displacement effects
      */
-    const showDisplacementEffects = () => {
+    const showDisplacementEffects = useCallback(() => {
+        console.log("Showing displacement effects");
+
         if (pixi.backgroundDisplacementSprite.current) {
             gsap.to(pixi.backgroundDisplacementSprite.current, {
                 alpha: 1,
@@ -138,12 +146,14 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
                 ease: 'power2.out',
             });
         }
-    };
+    }, [pixi, props.cursorImgEffect]);
 
     /**
      * Hide displacement effects
      */
-    const hideDisplacementEffects = () => {
+    const hideDisplacementEffects = useCallback(() => {
+        console.log("Hiding displacement effects");
+
         if (pixi.backgroundDisplacementSprite.current) {
             gsap.to(pixi.backgroundDisplacementSprite.current, {
                 alpha: 0,
@@ -177,7 +187,7 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
                 ease: 'power2.out',
             });
         }
-    };
+    }, [pixi, props.cursorImgEffect]);
 
     return {
         showDisplacementEffects,

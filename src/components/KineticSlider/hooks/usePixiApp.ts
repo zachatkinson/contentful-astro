@@ -1,4 +1,4 @@
-import  { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Application, Container, Assets } from 'pixi.js';
 import { type PixiRefs } from '../types';
 import { gsap } from 'gsap';
@@ -33,37 +33,73 @@ export const usePixiApp = (
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
 
-        (async () => {
-            // Skip if already initialized or if sliderRef is not available
-            if (isInitialized.current || !sliderRef.current) return;
-
+        const initPixi = async () => {
             try {
+                // Skip if already initialized
+                if (isInitialized.current) return;
+
+                // Skip if sliderRef is not available
+                if (!sliderRef.current) {
+                    console.warn("Slider element reference not available");
+                    return;
+                }
+
+                console.log("Initializing Pixi.js...");
+
                 // Dynamically import PixiPlugin and register it with GSAP
                 const { default: PixiPlugin } = await import('gsap/PixiPlugin');
                 gsap.registerPlugin(PixiPlugin);
+
                 PixiPlugin.registerPIXI({
                     Application,
                     Container,
-                    // Add other PIXI classes as needed
+                    // Add other PIXI classes as needed for GSAP animation
                 });
 
-                // Load fonts
-                let fontPath;
-                if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
-                    fontPath = `/public/fonts/Vamos.woff2`;
-                } else {
-                    fontPath = `/fonts/Vamos.woff2`;
+                // Font loading with better error handling
+                try {
+                    // Determine font path - try multiple options for better compatibility
+                    const fontPaths = [
+                        '/fonts/Vamos.woff2',      // Standard public path
+                        '/public/fonts/Vamos.woff2', // Dev path
+                        './fonts/Vamos.woff2',     // Relative path
+                        'Vamos.woff2'              // Bare filename (use as last resort)
+                    ];
+
+                    console.log("Attempting to load font Vamos.woff2...");
+
+                    // Try to load the font using different paths
+                    let fontLoaded = false;
+                    for (const fontPath of fontPaths) {
+                        try {
+                            await Assets.load(fontPath);
+                            console.log(`Successfully loaded font from ${fontPath}`);
+                            fontLoaded = true;
+                            break;
+                        } catch (fontError) {
+                            console.warn(`Failed to load font from ${fontPath}`, fontError);
+                            // Continue to next path
+                        }
+                    }
+
+                    if (!fontLoaded) {
+                        console.warn("Could not load Vamos font. Will use system fonts as fallback.");
+                    }
+                } catch (fontError) {
+                    console.warn("Font loading error:", fontError);
+                    // Continue without the font
                 }
 
-                // For Pixi v8, we need to use a single argument form
-                await Assets.load(fontPath);
-
-                // Mark as initialized to prevent duplicate initialization
+                // Mark as initialized
                 isInitialized.current = true;
+
+                console.log("Pixi.js initialization complete");
             } catch (error) {
-                console.error('Failed to initialize Pixi and GSAP:', error);
+                console.error("Error initializing Pixi.js:", error);
             }
-        })();
+        };
+
+        initPixi();
     }, [sliderRef]);
 
     // Create the Pixi application
@@ -71,26 +107,25 @@ export const usePixiApp = (
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
 
+        // Only proceed if initialized but app not yet created
         if (!isInitialized.current || !sliderRef.current || appRef.current) return;
 
-        (async () => {
+        const createPixiApp = async () => {
             try {
-                // Preload all required assets
-                for (const asset of [...images, ...displacementImages]) {
-                    await Assets.load(asset);
+                console.log("Creating Pixi application...");
+
+                // Preload all required assets with proper error handling
+                const assetsToLoad = [...images, ...displacementImages];
+                for (const asset of assetsToLoad) {
+                    try {
+                        await Assets.load(asset);
+                    } catch (assetError) {
+                        console.warn(`Failed to load asset: ${asset}`, assetError);
+                        // Continue with other assets
+                    }
                 }
 
                 // Create and initialize the Pixi application
-                // We'll create a container div to handle the canvas
-                const containerDiv = document.createElement('div');
-                containerDiv.style.width = '100%';
-                containerDiv.style.height = '100%';
-                containerDiv.style.position = 'absolute';
-                containerDiv.style.top = '0';
-                containerDiv.style.left = '0';
-                sliderRef.current?.appendChild(containerDiv);
-
-                // Create and initialize the Pixi application with the container as the target
                 const app = new Application();
                 await app.init({
                     width: sliderRef.current?.clientWidth || 800,
@@ -99,32 +134,45 @@ export const usePixiApp = (
                     resizeTo: sliderRef.current || undefined,
                 });
 
+                // Append the canvas to the slider element
                 if (sliderRef.current && app.canvas instanceof HTMLCanvasElement) {
                     sliderRef.current.appendChild(app.canvas);
+
+                    // Add a class to the canvas for potential styling
+                    app.canvas.classList.add('kinetic-slider-canvas');
                 }
 
+                // Store the app reference
                 appRef.current = app;
 
                 // Create the main stage container
                 const stage = new Container();
                 app.stage.addChild(stage);
-            } catch (error) {
-                console.error('Failed to create Pixi application:', error);
-            }
-        })();
 
-        // Cleanup function to remove the container and destroy the app
+                console.log("Pixi application created successfully");
+            } catch (error) {
+                console.error("Failed to create Pixi application:", error);
+            }
+        };
+
+        createPixiApp();
+
+        // Cleanup function to destroy the app
         return () => {
             if (appRef.current) {
-                // Find the container div we created
-                const containerDiv = sliderRef.current?.querySelector('div');
-                if (containerDiv && sliderRef.current) {
-                    sliderRef.current.removeChild(containerDiv);
+                // Find and remove the canvas element
+                if (sliderRef.current) {
+                    const canvas = sliderRef.current.querySelector('canvas');
+                    if (canvas) {
+                        sliderRef.current.removeChild(canvas);
+                    }
                 }
 
-                // In Pixi v8, destroy() takes a single boolean parameter
+                // Destroy the app
                 appRef.current.destroy(true);
                 appRef.current = null;
+
+                console.log("Pixi application destroyed");
             }
         };
     }, [sliderRef, images, displacementImages, isInitialized.current]);
