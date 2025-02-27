@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Sprite, Texture, Container } from 'pixi.js';
 import { type EnhancedSprite, type HookParams } from '../types';
 import { calculateSpriteScale } from '../utils/calculateSpriteScale';
+import gsap from 'gsap';
 
 /**
  * Hook to create and manage slide sprites

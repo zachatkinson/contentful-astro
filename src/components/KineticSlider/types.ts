@@ -23,7 +23,7 @@ export interface FilterConfig {
 export interface KineticSliderProps {
     // Content sources
     images: string[];
-    texts: TextPair[];
+    texts: string[][];
 
     // Displacement image sources
     backgroundDisplacementSpriteLocation?: string;

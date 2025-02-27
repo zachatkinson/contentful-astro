@@ -40,21 +40,19 @@ const posts = entries.items.map((entry) => {
     <Hero slug="landing-page-hero" sfx="glitch" id="home-hero"/>
     <AnimatedCallToAction />
     <KineticSlider
-            images={['/path/to/image1.jpg', '/path/to/image2.jpg']}
-            texts={[['Title 1', 'Subtitle 1'], ['Title 2', 'Subtitle 2']]}
+            images={images}
+            texts={texts}
             imageFilters={[
                 {
                     type: 'rgb-split',
                     enabled: true,
                     intensity: 15
                 },
-                // You can add more filters here
-    {
+                {
                     type: 'glow',
                     enabled: true,
                     intensity: 8,
-                    // Additional filter-specific options
-      outerStrength: 3,
+                    outerStrength: 3,
                     color: 0x00ffff
                 }
             ]}
