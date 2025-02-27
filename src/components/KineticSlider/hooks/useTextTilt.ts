@@ -24,8 +24,12 @@ const useTextTilt = ({
                          cursorImgEffect,
                      }: UseTextTiltProps) => {
     useEffect(() => {
-        if (!cursorTextEffect || typeof window === "undefined" || !sliderRef.current)
+        // Skip during server-side rendering
+        if (typeof window === 'undefined') return;
+
+        if (!cursorTextEffect || !sliderRef.current)
             return;
+
         const sliderElement = sliderRef.current;
         let tiltTimeout: ReturnType<typeof setTimeout>;
 
@@ -117,6 +121,7 @@ const useTextTilt = ({
         sliderElement.addEventListener("mousemove", handleTextTilt);
         return () => {
             sliderElement.removeEventListener("mousemove", handleTextTilt);
+            if (tiltTimeout) clearTimeout(tiltTimeout);
         };
     }, [
         sliderRef,

@@ -19,6 +19,9 @@ const useResizeHandler = ({
                               cursorDisplacementSpriteRef,
                           }: ResizeHandlerProps) => {
     useEffect(() => {
+        // Skip during server-side rendering
+        if (typeof window === 'undefined') return;
+
         const handleResize = () => {
             if (!appRef.current || !sliderRef.current) return;
             const app = appRef.current;
@@ -62,7 +65,7 @@ const useResizeHandler = ({
         };
 
         window.addEventListener("resize", handleResize);
-        // Optionally, call handleResize once to set initial values.
+        // Call handleResize once to set initial values.
         handleResize();
 
         return () => window.removeEventListener("resize", handleResize);

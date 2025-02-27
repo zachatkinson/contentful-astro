@@ -1,12 +1,27 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import styles from './KineticSlider.module.css';
 import { type KineticSliderProps } from './types';
+// Import gsap only on client side
+import { gsap } from 'gsap';
+// Import all hooks from index
 import {
     usePixiApp,
     useDisplacementEffects,
     useFilters,
-    useSlides
+    useSlides,
+    useTextContainers,
+    useMouseTracking,
+    useIdleTimer,
+    useNavigation,
+    useExternalNav,
+    useTouchSwipe,
+    useMouseDrag,
+    useTextTilt,
+    useResizeHandler
 } from './hooks';
+
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
 
 /**
  * KineticSlider component - Creates an interactive image slider with various effects
@@ -60,6 +75,7 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
     // Core references
     const sliderRef = useRef<HTMLDivElement>(null);
     const cursorActive = useRef<boolean>(false);
+    const [isInteracting, setIsInteracting] = useState<boolean>(false);
 
     // Initialize Pixi and load assets
     const { pixiRefs, isInitialized } = usePixiApp(
@@ -107,6 +123,28 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         }
     };
 
+    // Set up text containers with the provided properties
+    useTextContainers({
+        sliderRef,
+        appRef: pixiRefs.app,
+        slidesRef: pixiRefs.slides,
+        textContainersRef: pixiRefs.textContainers,
+        currentIndex: pixiRefs.currentIndex,
+        buttonMode,
+        textsRgbEffect,
+        texts,
+        textTitleColor,
+        textTitleSize,
+        mobileTextTitleSize,
+        textTitleLetterspacing,
+        textSubTitleColor,
+        textSubTitleSize,
+        mobileTextSubTitleSize,
+        textSubTitleLetterspacing,
+        textSubTitleOffsetTop,
+        mobileTextSubTitleOffsetTop
+    });
+
     // Set up displacement effects
     const {
         showDisplacementEffects,
@@ -119,7 +157,49 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
     // Set up slides and transitions
     const { transitionToSlide } = useSlides(hookParams);
 
-    // Navigation handlers
+    // Mouse tracking for cursor effects
+    useMouseTracking({
+        sliderRef,
+        backgroundDisplacementSpriteRef: pixiRefs.backgroundDisplacementSprite,
+        cursorDisplacementSpriteRef: pixiRefs.cursorDisplacementSprite,
+        cursorImgEffect,
+        cursorMomentum
+    });
+
+    // Idle timer for resetting effects
+    useIdleTimer({
+        sliderRef,
+        cursorActive,
+        bgDispFilterRef: pixiRefs.bgDispFilter,
+        cursorDispFilterRef: pixiRefs.cursorDispFilter,
+        cursorImgEffect,
+        defaultBgFilterScale: 20,
+        defaultCursorFilterScale: 10
+    });
+
+    // Handle window resize events
+    useResizeHandler({
+        sliderRef,
+        appRef: pixiRefs.app,
+        slidesRef: pixiRefs.slides,
+        textContainersRef: pixiRefs.textContainers,
+        backgroundDisplacementSpriteRef: pixiRefs.backgroundDisplacementSprite,
+        cursorDisplacementSpriteRef: pixiRefs.cursorDisplacementSprite
+    });
+
+    // Text tilt effect on mouse move
+    useTextTilt({
+        sliderRef,
+        textContainersRef: pixiRefs.textContainers,
+        currentIndex: pixiRefs.currentIndex,
+        cursorTextEffect,
+        maxContainerShiftFraction,
+        bgDispFilterRef: pixiRefs.bgDispFilter,
+        cursorDispFilterRef: pixiRefs.cursorDispFilter,
+        cursorImgEffect
+    });
+
+    // Basic navigation functions
     const handleNext = () => {
         const nextIndex = (pixiRefs.currentIndex.current + 1) % pixiRefs.slides.current.length;
         transitionToSlide(nextIndex);
@@ -132,9 +212,44 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         transitionToSlide(prevIndex);
     };
 
+    // Set up navigation with keyboard, swipe, and drag support
+    useNavigation({
+        onNext: handleNext,
+        onPrev: handlePrev
+    });
+
+    // Set up external navigation if enabled
+    useExternalNav({
+        externalNav,
+        navElement,
+        handleNext,
+        handlePrev
+    });
+
+    // Set up touch swipe support
+    useTouchSwipe({
+        sliderRef,
+        onSwipeLeft: handleNext,
+        onSwipeRight: handlePrev
+    });
+
+    // Set up mouse drag support
+    useMouseDrag({
+        sliderRef,
+        slidesRef: pixiRefs.slides,
+        currentIndex: pixiRefs.currentIndex,
+        swipeScaleIntensity,
+        swipeDistance: window?.innerWidth ? window.innerWidth * 0.2 : 200,
+        onSwipeLeft: handleNext,
+        onSwipeRight: handlePrev
+    });
+
     // Mouse enter/leave handlers
     const handleMouseEnter = () => {
+        if (!isBrowser) return;
+
         cursorActive.current = true;
+        setIsInteracting(true);
         showDisplacementEffects();
         updateFilterIntensities(true);
 
@@ -153,24 +268,47 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
     };
 
     const handleMouseLeave = () => {
-        cursorActive.current = false;
-        setTimeout(() => {
-            hideDisplacementEffects();
-            updateFilterIntensities(false);
+        if (!isBrowser) return;
 
-            // Reset nav buttons if using internal navigation
-            if (!externalNav && sliderRef.current) {
-                const navButtons = sliderRef.current.querySelectorAll('nav button');
-                navButtons.forEach((btn) => {
-                    gsap.to(btn, {
-                        textShadow: 'none',
-                        duration: 0.5,
-                        ease: 'power2.out',
+        cursorActive.current = false;
+        setIsInteracting(false);
+        setTimeout(() => {
+            if (!cursorActive.current) {
+                hideDisplacementEffects();
+                updateFilterIntensities(false);
+
+                // Reset nav buttons if using internal navigation
+                if (!externalNav && sliderRef.current) {
+                    const navButtons = sliderRef.current.querySelectorAll('nav button');
+                    navButtons.forEach((btn) => {
+                        gsap.to(btn, {
+                            textShadow: 'none',
+                            duration: 0.5,
+                            ease: 'power2.out',
+                        });
                     });
-                });
+                }
             }
         }, 300);
     };
+
+    // Only show first slide and container when everything is initialized
+    useEffect(() => {
+        // Skip during server-side rendering
+        if (!isBrowser) return;
+
+        if (isInitialized && pixiRefs.slides.current.length > 0 && pixiRefs.textContainers.current.length > 0) {
+            // Make sure the first slide and text are visible
+            pixiRefs.slides.current[0].alpha = 1;
+            pixiRefs.textContainers.current[0].alpha = 1;
+
+            // Hide all other slides and texts
+            for (let i = 1; i < pixiRefs.slides.current.length; i++) {
+                pixiRefs.slides.current[i].alpha = 0;
+                pixiRefs.textContainers.current[i].alpha = 0;
+            }
+        }
+    }, [isInitialized, pixiRefs.slides.current.length, pixiRefs.textContainers.current.length]);
 
     // Render component
     return (

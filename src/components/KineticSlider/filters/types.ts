@@ -129,8 +129,10 @@ export interface BevelFilterConfig extends BaseFilterConfig {
 // Bloom filter configuration
 export interface BloomFilterConfig extends BaseFilterConfig {
     type: 'bloom';
-    blur?: number;
-    quality?: number;
+    quality?: number;       // Controls the quality of the effect
+    strength?: number;      // Alternative to intensity for direct strength setting
+    strengthX?: number;     // For directional control on X axis
+    strengthY?: number;     // For directional control on Y axis
 }
 
 // Bulge Pinch filter configuration
@@ -362,6 +364,7 @@ export interface SimpleLightmapFilterConfig extends BaseFilterConfig {
     lightMap?: string;
     scale?: number;
     alpha?: number;
+    color?: string | number; // Add color property
 }
 
 // Simplex Noise filter configuration

@@ -30,6 +30,9 @@ export const usePixiApp = (
 
     // Initialize Pixi and GSAP
     useEffect(() => {
+        // Skip during server-side rendering
+        if (typeof window === 'undefined') return;
+
         (async () => {
             // Skip if already initialized or if sliderRef is not available
             if (isInitialized.current || !sliderRef.current) return;
@@ -46,7 +49,7 @@ export const usePixiApp = (
 
                 // Load fonts
                 let fontPath;
-                if (import.meta.env.DEV) {
+                if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
                     fontPath = `/public/fonts/Vamos.woff2`;
                 } else {
                     fontPath = `/fonts/Vamos.woff2`;
@@ -65,6 +68,9 @@ export const usePixiApp = (
 
     // Create the Pixi application
     useEffect(() => {
+        // Skip during server-side rendering
+        if (typeof window === 'undefined') return;
+
         if (!isInitialized.current || !sliderRef.current || appRef.current) return;
 
         (async () => {

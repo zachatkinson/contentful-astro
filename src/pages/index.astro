@@ -39,7 +39,33 @@ const posts = entries.items.map((entry) => {
 <Layout>
     <Hero slug="landing-page-hero" sfx="glitch" id="home-hero"/>
     <AnimatedCallToAction />
-    <KineticSlider images={images} texts={texts} client:load />
+    <KineticSlider
+            images={['/path/to/image1.jpg', '/path/to/image2.jpg']}
+            texts={[['Title 1', 'Subtitle 1'], ['Title 2', 'Subtitle 2']]}
+            imageFilters={[
+                {
+                    type: 'rgb-split',
+                    enabled: true,
+                    intensity: 15
+                },
+                // You can add more filters here
+    {
+                    type: 'glow',
+                    enabled: true,
+                    intensity: 8,
+                    // Additional filter-specific options
+      outerStrength: 3,
+                    color: 0x00ffff
+                }
+            ]}
+            textFilters={[
+                {
+                    type: 'rgb-split',
+                    enabled: true,
+                    intensity: 5
+                }
+            ]}
+    />
     <div class="p-4 container mx-auto">
         <h2>Latest Posts</h2>
         <ul>

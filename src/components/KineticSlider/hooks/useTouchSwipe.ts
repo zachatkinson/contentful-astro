@@ -14,6 +14,9 @@ const useTouchSwipe = ({
                            threshold,
                        }: UseTouchSwipeProps) => {
     useEffect(() => {
+        // Skip during server-side rendering
+        if (typeof window === 'undefined') return;
+
         const slider = sliderRef.current;
         if (!slider) return;
 
