@@ -1,4 +1,4 @@
-import { Application, Sprite, Container, DisplacementFilter, Text, Filter } from 'pixi.js';
+import { Application, Sprite, Container, DisplacementFilter, Filter } from 'pixi.js';
 
 export type NavElement = {
     prev: string;
@@ -106,4 +106,8 @@ export interface HookParams {
     sliderRef: React.RefObject<HTMLDivElement | null>;
     pixi: PixiRefs;
     props: KineticSliderProps;
+}
+
+export interface LoadingIndicatorProps {
+    message?: string;
 }

@@ -1,8 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import styles from './KineticSlider.module.css';
 import { type KineticSliderProps } from './types';
-import { Application, Sprite, Container, Text, DisplacementFilter } from 'pixi.js';
-import { gsap } from 'gsap';
+import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
 import PixiPlugin from 'gsap/PixiPlugin';
 
 // Import hooks directly
@@ -19,6 +18,7 @@ import { useMouseDrag } from './hooks/';
 import { useTextTilt } from './hooks/';
 import { useResizeHandler } from './hooks/';
 import { loadKineticSliderDependencies } from './ImportHelpers';
+import { preloadKineticSliderAssets } from './utils/AssetPreload.ts';
 
 /**
  * KineticSlider component - Creates an interactive image slider with various effects
@@ -75,6 +75,7 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [isInteracting, setIsInteracting] = useState(false);
     const [isAppReady, setIsAppReady] = useState(false);
+    const [assetsLoaded, setAssetsLoaded] = useState(false);
     const cursorActiveRef = useRef<boolean>(false);
 
     // Set up Pixi app
@@ -92,9 +93,33 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         setIsClient(true);
     }, []);
 
+    // Preload assets
+    useEffect(() => {
+        if (typeof window === 'undefined' || !isClient) return;
+
+        const loadAssets = async () => {
+            try {
+                console.log("Preloading assets...");
+                await preloadKineticSliderAssets(
+                    images,
+                    backgroundDisplacementSpriteLocation,
+                    cursorDisplacementSpriteLocation
+                );
+                setAssetsLoaded(true);
+                console.log("Assets preloaded successfully");
+            } catch (error) {
+                console.error("Failed to preload assets:", error);
+                // Continue anyway so the component doesn't totally fail
+                setAssetsLoaded(true);
+            }
+        };
+
+        loadAssets();
+    }, [isClient, images, backgroundDisplacementSpriteLocation, cursorDisplacementSpriteLocation]);
+
     // Initialize Pixi.js application
     useEffect(() => {
-        if (typeof window === 'undefined' || !sliderRef.current || appRef.current) return;
+        if (typeof window === 'undefined' || !sliderRef.current || appRef.current || !assetsLoaded) return;
 
         const initPixi = async () => {
             try {
@@ -154,7 +179,7 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
                 setIsAppReady(false);
             }
         };
-    }, [sliderRef.current]);
+    }, [sliderRef.current, assetsLoaded]);
 
     // Create a pixi refs object for hooks
     const pixiRefs = {
@@ -368,7 +393,7 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
             onMouseLeave={handleMouseLeave}
         >
             {/* Placeholder while loading */}
-            {!isAppReady && (
+            {(!isAppReady || !assetsLoaded) && (
                 <div className={styles.placeholder}>
                     <div className={styles.placeholderImage}>Loading slider...</div>
                 </div>

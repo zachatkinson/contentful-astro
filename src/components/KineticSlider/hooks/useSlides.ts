@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { Sprite, Texture, Container, Assets} from 'pixi.js';
+import { Sprite, Container, Assets } from 'pixi.js';
 import { type EnhancedSprite, type HookParams } from '../types';
 import { calculateSpriteScale } from '../utils/calculateSpriteScale';
 import gsap from 'gsap';
@@ -37,46 +37,25 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
         });
         pixi.slides.current = [];
 
-        // Create new slides
-        props.images.forEach((image, index) => {
+        // Preload all images using Assets manager
+        const loadSlides = async () => {
             try {
-                console.log(`Loading image: ${image}`);
-                const texture = Texture.from(image);
+                // First, check if images are already in cache
+                const imagesToLoad = props.images.filter(image => !Assets.cache.has(image));
 
-                // Create the sprite
-                const sprite = new Sprite(texture) as EnhancedSprite;
-                sprite.anchor.set(0.5);
-                sprite.x = app.screen.width / 2;
-                sprite.y = app.screen.height / 2;
+                // Load any images not in cache
+                if (imagesToLoad.length > 0) {
+                    console.log(`Loading ${imagesToLoad.length} uncached images...`);
+                    await Assets.load(imagesToLoad);
+                }
 
-                // Set initial state
-                sprite.alpha = index === 0 ? 1 : 0; // Only show the first slide
+                // Create slides for each image
+                props.images.forEach((image, index) => {
+                    try {
+                        console.log(`Creating slide from image: ${image}`);
 
-                // Calculate scale once texture is loaded
-                const handleTextureLoaded = () => {
-                    // Calculate appropriate scale based on container and image dimensions
-                    const scaleResult = calculateSpriteScale(
-                        sprite.texture.width,
-                        sprite.texture.height,
-                        app.screen.width,
-                        app.screen.height
-                    );
-
-                    // Apply the calculated scale
-                    sprite.scale.set(scaleResult.scale);
-                    sprite.baseScale = scaleResult.baseScale;
-
-                    console.log(`Slide ${index} scaled: ${scaleResult.scale}`);
-                };
-
-
-// Load texture asynchronously
-                Assets.load(image)
-                    .then((texture) => {
-                        if (!texture) {
-                            console.error(`Failed to load texture for ${image}`);
-                            return;
-                        }
+                        // Get texture from cache
+                        const texture = Assets.get(image);
 
                         // Create the sprite
                         const sprite = new Sprite(texture) as EnhancedSprite;
@@ -89,33 +68,37 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
 
                         // Calculate scale
                         const scaleResult = calculateSpriteScale(
-                            sprite.texture.width,
-                            sprite.texture.height,
+                            texture.width,
+                            texture.height,
                             app.screen.width,
                             app.screen.height
                         );
-                        sprite.scale.set(scaleResult.scale);
-                        sprite.baseScale = scaleResult.baseScale;
+
+                        // Apply the calculated scale
+                        // Handle both old and new return types of calculateSpriteScale
+                        if (typeof scaleResult === 'number') {
+                            sprite.scale.set(scaleResult);
+                            sprite.baseScale = scaleResult;
+                        } else {
+                            sprite.scale.set(scaleResult.scale);
+                            sprite.baseScale = scaleResult.baseScale;
+                        }
 
                         // Add to stage and store reference
                         stage.addChild(sprite);
                         pixi.slides.current.push(sprite);
 
                         console.log(`Created slide ${index} for ${image}`);
-                    })
-                    .catch((error) => {
-                        console.error(`Error loading texture for ${image}:`, error);
-                    });
-
-                // Add to stage and store reference
-                stage.addChild(sprite);
-                pixi.slides.current.push(sprite);
-
-                console.log(`Created slide ${index} for ${image}`);
+                    } catch (error) {
+                        console.error(`Error creating slide for ${image}:`, error);
+                    }
+                });
             } catch (error) {
-                console.error(`Error creating slide for ${image}:`, error);
+                console.error("Error loading slide images:", error);
             }
-        });
+        };
+
+        loadSlides();
 
         return () => {
             // Cleanup
@@ -155,7 +138,7 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
         const nextTextContainer = pixi.textContainers.current[nextIndex];
 
         // Ensure next slide is loaded
-        if (!nextSlide || !nextSlide.texture || !nextSlide.texture.source) {
+        if (!nextSlide || !nextSlide.texture) {
             console.warn(`Slide ${nextIndex} is not ready for transition`);
             return;
         }

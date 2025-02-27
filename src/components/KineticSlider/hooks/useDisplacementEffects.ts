@@ -1,5 +1,10 @@
+/**
+ * Update the useDisplacementEffects.ts hook to use Assets properly
+ */
+
+// In useDisplacementEffects.ts - update the effect creation:
 import { useEffect, useCallback } from 'react';
-import { Sprite, Texture, DisplacementFilter } from 'pixi.js';
+import { Sprite, DisplacementFilter, Assets } from 'pixi.js';
 import { gsap } from 'gsap';
 import { type HookParams } from '../types';
 
@@ -23,52 +28,81 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
         console.log("Setting up displacement effects...");
         const app = pixi.app.current;
 
-        // Create background displacement sprite
-        const backgroundDisplacementSprite = new Sprite(
-            Texture.from(props.backgroundDisplacementSpriteLocation || '/images/background-displace.jpg')
-        );
-        backgroundDisplacementSprite.anchor.set(0.5);
-        backgroundDisplacementSprite.x = app.screen.width / 2;
-        backgroundDisplacementSprite.y = app.screen.height / 2;
-        backgroundDisplacementSprite.scale.set(2);
-        backgroundDisplacementSprite.alpha = 0;
-        pixi.backgroundDisplacementSprite.current = backgroundDisplacementSprite;
+        // Load displacement textures using Assets API
+        const setupDisplacementSprites = async () => {
+            try {
+                // Load background displacement texture
+                const bgDisplacementUrl = props.backgroundDisplacementSpriteLocation || '/images/background-displace.jpg';
+                let bgTexture;
 
-        // Create cursor displacement sprite
-        const cursorDisplacementSprite = new Sprite(
-            Texture.from(props.cursorDisplacementSpriteLocation || '/images/cursor-displace.png')
-        );
-        cursorDisplacementSprite.anchor.set(0.5);
-        cursorDisplacementSprite.x = app.screen.width / 2;
-        cursorDisplacementSprite.y = app.screen.height / 2;
-        cursorDisplacementSprite.scale.set(props.cursorScaleIntensity || 0.65);
-        cursorDisplacementSprite.alpha = 0;
-        pixi.cursorDisplacementSprite.current = cursorDisplacementSprite;
+                try {
+                    // Try to get from cache first
+                    bgTexture = Assets.get(bgDisplacementUrl);
+                } catch (e) {
+                    // If not in cache, load it
+                    bgTexture = await Assets.load(bgDisplacementUrl);
+                }
 
-        // Create displacement filters
-        const backgroundDisplacementFilter = new DisplacementFilter(backgroundDisplacementSprite);
-        const cursorDisplacementFilter = new DisplacementFilter(cursorDisplacementSprite);
+                // Create background displacement sprite
+                const backgroundDisplacementSprite = new Sprite(bgTexture);
+                backgroundDisplacementSprite.anchor.set(0.5);
+                backgroundDisplacementSprite.x = app.screen.width / 2;
+                backgroundDisplacementSprite.y = app.screen.height / 2;
+                backgroundDisplacementSprite.scale.set(2);
+                backgroundDisplacementSprite.alpha = 0;
+                pixi.backgroundDisplacementSprite.current = backgroundDisplacementSprite;
 
-        pixi.bgDispFilter.current = backgroundDisplacementFilter;
-        pixi.cursorDispFilter.current = cursorDisplacementFilter;
+                // Load cursor displacement texture
+                const cursorDisplacementUrl = props.cursorDisplacementSpriteLocation || '/images/cursor-displace.png';
+                let cursorTexture;
 
-        // Initialize filter scales to 0
-        backgroundDisplacementFilter.scale.set(0);
-        cursorDisplacementFilter.scale.set(0);
+                try {
+                    // Try to get from cache first
+                    cursorTexture = Assets.get(cursorDisplacementUrl);
+                } catch (e) {
+                    // If not in cache, load it
+                    cursorTexture = await Assets.load(cursorDisplacementUrl);
+                }
 
-        // Add displacement sprites to the stage
-        app.stage.addChild(backgroundDisplacementSprite, cursorDisplacementSprite);
+                // Create cursor displacement sprite
+                const cursorDisplacementSprite = new Sprite(cursorTexture);
+                cursorDisplacementSprite.anchor.set(0.5);
+                cursorDisplacementSprite.x = app.screen.width / 2;
+                cursorDisplacementSprite.y = app.screen.height / 2;
+                cursorDisplacementSprite.scale.set(props.cursorScaleIntensity || 0.65);
+                cursorDisplacementSprite.alpha = 0;
+                pixi.cursorDisplacementSprite.current = cursorDisplacementSprite;
 
-        console.log("Displacement sprites and filters created");
+                // Create displacement filters
+                const backgroundDisplacementFilter = new DisplacementFilter(backgroundDisplacementSprite);
+                const cursorDisplacementFilter = new DisplacementFilter(cursorDisplacementSprite);
+
+                pixi.bgDispFilter.current = backgroundDisplacementFilter;
+                pixi.cursorDispFilter.current = cursorDisplacementFilter;
+
+                // Initialize filter scales to 0
+                backgroundDisplacementFilter.scale.set(0);
+                cursorDisplacementFilter.scale.set(0);
+
+                // Add displacement sprites to the stage
+                app.stage.addChild(backgroundDisplacementSprite, cursorDisplacementSprite);
+
+                console.log("Displacement sprites and filters created");
+            } catch (error) {
+                console.error("Error setting up displacement effects:", error);
+            }
+        };
+
+        setupDisplacementSprites();
 
         return () => {
             // Cleanup
             if (app.stage) {
-                if (backgroundDisplacementSprite.parent) {
-                    backgroundDisplacementSprite.parent.removeChild(backgroundDisplacementSprite);
+                if (pixi.backgroundDisplacementSprite.current && pixi.backgroundDisplacementSprite.current.parent) {
+                    pixi.backgroundDisplacementSprite.current.parent.removeChild(pixi.backgroundDisplacementSprite.current);
                 }
-                if (cursorDisplacementSprite.parent) {
-                    cursorDisplacementSprite.parent.removeChild(cursorDisplacementSprite);
+                if (pixi.cursorDisplacementSprite.current && pixi.cursorDisplacementSprite.current.parent) {
+                    pixi.cursorDisplacementSprite.current.parent.removeChild(pixi.cursorDisplacementSprite.current);
                 }
             }
         };
