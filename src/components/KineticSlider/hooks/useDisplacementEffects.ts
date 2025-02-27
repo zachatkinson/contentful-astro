@@ -1,9 +1,4 @@
-/**
- * Update the useDisplacementEffects.ts hook to use Assets properly
- */
-
-// In useDisplacementEffects.ts - update the effect creation:
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { Sprite, DisplacementFilter, Assets } from 'pixi.js';
 import { gsap } from 'gsap';
 import { type HookParams } from '../types';
@@ -18,10 +13,25 @@ const DEFAULT_CURSOR_FILTER_SCALE = 10;
  * Hook to set up and manage displacement effects
  */
 export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) => {
+    // Track initialization state
+    const isInitialized = useRef(false);
+
     // Set up displacement sprites and filters
     useEffect(() => {
-        if (!pixi.app.current || !pixi.app.current.stage) {
-            console.warn("App or stage not available for displacement effects");
+        // Skip if already initialized
+        if (isInitialized.current) {
+            return;
+        }
+
+        // Skip if app is not initialized
+        if (!pixi.app.current) {
+            console.log("App not available for displacement effects, waiting for initialization");
+            return;
+        }
+
+        // Skip if stage is not available
+        if (!pixi.app.current.stage) {
+            console.log("Stage not available for displacement effects, waiting for initialization");
             return;
         }
 
@@ -87,7 +97,10 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
                 // Add displacement sprites to the stage
                 app.stage.addChild(backgroundDisplacementSprite, cursorDisplacementSprite);
 
-                console.log("Displacement sprites and filters created");
+                // Mark as initialized to prevent duplicate setup
+                isInitialized.current = true;
+
+                console.log("Displacement sprites and filters created successfully");
             } catch (error) {
                 console.error("Error setting up displacement effects:", error);
             }
@@ -97,7 +110,7 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
 
         return () => {
             // Cleanup
-            if (app.stage) {
+            if (app && app.stage) {
                 if (pixi.backgroundDisplacementSprite.current && pixi.backgroundDisplacementSprite.current.parent) {
                     pixi.backgroundDisplacementSprite.current.parent.removeChild(pixi.backgroundDisplacementSprite.current);
                 }
@@ -105,12 +118,16 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
                     pixi.cursorDisplacementSprite.current.parent.removeChild(pixi.cursorDisplacementSprite.current);
                 }
             }
+            isInitialized.current = false;
         };
-    }, [pixi.app.current]);
+    }, [pixi.app.current, props.backgroundDisplacementSpriteLocation, props.cursorDisplacementSpriteLocation, props.cursorScaleIntensity]);
 
     // Mouse tracking for cursor effects
     useEffect(() => {
         if (typeof window === 'undefined' || !sliderRef.current) return;
+
+        // Skip if displacement sprites are not set up
+        if (!pixi.backgroundDisplacementSprite.current) return;
 
         const node = sliderRef.current;
 
@@ -139,21 +156,25 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
         return () => {
             node.removeEventListener('mousemove', updateCursorEffect);
         };
-    }, [sliderRef.current, props.cursorImgEffect, props.cursorMomentum]);
+    }, [sliderRef.current, pixi.backgroundDisplacementSprite.current, pixi.cursorDisplacementSprite.current, props.cursorImgEffect, props.cursorMomentum]);
 
     /**
      * Show displacement effects
      */
     const showDisplacementEffects = useCallback(() => {
+        // Skip if not initialized
+        if (!pixi.backgroundDisplacementSprite.current || !pixi.bgDispFilter.current) {
+            console.log("Cannot show displacement effects - not initialized yet");
+            return;
+        }
+
         console.log("Showing displacement effects");
 
-        if (pixi.backgroundDisplacementSprite.current) {
-            gsap.to(pixi.backgroundDisplacementSprite.current, {
-                alpha: 1,
-                duration: 0.5,
-                ease: 'power2.out',
-            });
-        }
+        gsap.to(pixi.backgroundDisplacementSprite.current, {
+            alpha: 1,
+            duration: 0.5,
+            ease: 'power2.out',
+        });
 
         if (props.cursorImgEffect && pixi.cursorDisplacementSprite.current) {
             gsap.to(pixi.cursorDisplacementSprite.current, {
@@ -163,14 +184,12 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
             });
         }
 
-        if (pixi.bgDispFilter.current) {
-            gsap.to(pixi.bgDispFilter.current.scale, {
-                x: DEFAULT_BG_FILTER_SCALE,
-                y: DEFAULT_BG_FILTER_SCALE,
-                duration: 0.5,
-                ease: 'power2.out',
-            });
-        }
+        gsap.to(pixi.bgDispFilter.current.scale, {
+            x: DEFAULT_BG_FILTER_SCALE,
+            y: DEFAULT_BG_FILTER_SCALE,
+            duration: 0.5,
+            ease: 'power2.out',
+        });
 
         if (props.cursorImgEffect && pixi.cursorDispFilter.current) {
             gsap.to(pixi.cursorDispFilter.current.scale, {
@@ -186,15 +205,18 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
      * Hide displacement effects
      */
     const hideDisplacementEffects = useCallback(() => {
+        // Skip if not initialized
+        if (!pixi.backgroundDisplacementSprite.current || !pixi.bgDispFilter.current) {
+            return;
+        }
+
         console.log("Hiding displacement effects");
 
-        if (pixi.backgroundDisplacementSprite.current) {
-            gsap.to(pixi.backgroundDisplacementSprite.current, {
-                alpha: 0,
-                duration: 0.5,
-                ease: 'power2.out',
-            });
-        }
+        gsap.to(pixi.backgroundDisplacementSprite.current, {
+            alpha: 0,
+            duration: 0.5,
+            ease: 'power2.out',
+        });
 
         if (props.cursorImgEffect && pixi.cursorDisplacementSprite.current) {
             gsap.to(pixi.cursorDisplacementSprite.current, {
@@ -204,14 +226,12 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
             });
         }
 
-        if (pixi.bgDispFilter.current) {
-            gsap.to(pixi.bgDispFilter.current.scale, {
-                x: 0,
-                y: 0,
-                duration: 0.5,
-                ease: 'power2.out',
-            });
-        }
+        gsap.to(pixi.bgDispFilter.current.scale, {
+            x: 0,
+            y: 0,
+            duration: 0.5,
+            ease: 'power2.out',
+        });
 
         if (props.cursorImgEffect && pixi.cursorDispFilter.current) {
             gsap.to(pixi.cursorDispFilter.current.scale, {
