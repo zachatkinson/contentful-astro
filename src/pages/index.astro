@@ -54,17 +54,14 @@ const posts = entries.items.map((entry) => {
             cursorMomentum={0.14}
             imageFilters={[
                 {
-                    type: 'rgb-split',
+                    type: 'advanced-bloom',
                     enabled: true,
-                    intensity: 15
-                },
-                {
-                    type: 'glow',
-                    enabled: true,
-                    intensity: 8,
-                    outerStrength: 3,
-                    color: 0x00ffff
-                }
+                    intensity: 8,      // Controls bloomScale and brightness
+  threshold: 0.5,    // Optional: Brightness threshold (default: 0.5)
+  bloomScale: 1.0,   // Optional: Bloom scaling factor (default: 1.0)
+  brightness: 1.0,   // Optional: Brightness adjustment (default: 1.0)
+  quality: 4         // Optional: Quality of the effect (default: 4)
+}
             ]}
             textFilters={[
                 {

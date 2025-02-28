@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import styles from './KineticSlider.module.css';
 import { type KineticSliderProps } from './types';
 import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
@@ -86,6 +86,61 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
     useEffect(() => {
         setIsClient(true);
     }, []);
+
+    // Create a pixi refs object for hooks
+    const pixiRefs = {
+        app: appRef,
+        slides: slidesRef,
+        textContainers: textContainersRef,
+        backgroundDisplacementSprite: backgroundDisplacementSpriteRef,
+        cursorDisplacementSprite: cursorDisplacementSpriteRef,
+        bgDispFilter: bgDispFilterRef,
+        cursorDispFilter: cursorDispFilterRef,
+        currentIndex: currentIndexRef
+    };
+
+    // Props object for hooks
+    const hookProps = {
+        images,
+        texts,
+        backgroundDisplacementSpriteLocation,
+        cursorDisplacementSpriteLocation,
+        cursorImgEffect,
+        cursorTextEffect,
+        cursorScaleIntensity,
+        cursorMomentum,
+        textTitleColor,
+        textTitleSize,
+        mobileTextTitleSize,
+        textTitleLetterspacing,
+        textTitleFontFamily,
+        textSubTitleColor,
+        textSubTitleSize,
+        mobileTextSubTitleSize,
+        textSubTitleLetterspacing,
+        textSubTitleOffsetTop,
+        mobileTextSubTitleOffsetTop,
+        textSubTitleFontFamily,
+        maxContainerShiftFraction,
+        swipeScaleIntensity,
+        transitionScaleIntensity,
+        imageFilters,
+        textFilters
+    };
+
+    // Use displacement effects
+    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects({
+        sliderRef,
+        pixi: pixiRefs,
+        props: hookProps
+    });
+
+    // Use filters - call this before any references to its returned functions
+    const { updateFilterIntensities, resetAllFilters } = useFilters({
+        sliderRef,
+        pixi: pixiRefs,
+        props: hookProps
+    });
 
     // Preload assets including fonts
     useEffect(() => {
@@ -191,70 +246,6 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         };
     }, [sliderRef.current, assetsLoaded]);
 
-    // Create a pixi refs object for hooks
-    const pixiRefs = {
-        app: appRef,
-        slides: slidesRef,
-        textContainers: textContainersRef,
-        backgroundDisplacementSprite: backgroundDisplacementSpriteRef,
-        cursorDisplacementSprite: cursorDisplacementSpriteRef,
-        bgDispFilter: bgDispFilterRef,
-        cursorDispFilter: cursorDispFilterRef,
-        currentIndex: currentIndexRef
-    };
-
-    // Props object for hooks
-    const hookProps = {
-        images,
-        texts,
-        backgroundDisplacementSpriteLocation,
-        cursorDisplacementSpriteLocation,
-        cursorImgEffect,
-        cursorTextEffect,
-        cursorScaleIntensity,
-        cursorMomentum,
-        textTitleColor,
-        textTitleSize,
-        mobileTextTitleSize,
-        textTitleLetterspacing,
-        textTitleFontFamily,
-        textSubTitleColor,
-        textSubTitleSize,
-        mobileTextSubTitleSize,
-        textSubTitleLetterspacing,
-        textSubTitleOffsetTop,
-        mobileTextSubTitleOffsetTop,
-        textSubTitleFontFamily,
-        maxContainerShiftFraction,
-        swipeScaleIntensity,
-        transitionScaleIntensity,
-        imageFilters,
-        textFilters
-    };
-
-    // Apply hooks only when appRef is available and ready
-    useEffect(() => {
-        // Skip if app is not initialized
-        if (!appRef.current || !isAppReady) return;
-
-        // Update current index ref when state changes
-        currentIndexRef.current = currentSlideIndex;
-    }, [appRef.current, currentSlideIndex, isAppReady]);
-
-    // Use displacement effects
-    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects({
-        sliderRef,
-        pixi: pixiRefs,
-        props: hookProps
-    });
-
-    // Use filters
-    const { updateFilterIntensities } = useFilters({
-        sliderRef,
-        pixi: pixiRefs,
-        props: hookProps
-    });
-
     // Use slides and get transition function
     const { transitionToSlide } = useSlides({
         sliderRef,
@@ -306,20 +297,60 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         defaultCursorFilterScale: 10
     });
 
-    // Navigation functions
-    const handleNext = () => {
+    // Navigation functions with effect reapplication
+    const handleNext = useCallback(() => {
         if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
         const nextIndex = (currentSlideIndex + 1) % slidesRef.current.length;
+
+        // First transition the slide
         transitionToSlide(nextIndex);
         setCurrentSlideIndex(nextIndex);
-    };
 
-    const handlePrev = () => {
+        // If the cursor is currently over the slider (we're interacting),
+        // reapply effects after a short delay to allow for transition
+        if (isInteracting) {
+            setTimeout(() => {
+                console.log("Reapplying effects after slide change (next)");
+                // Ensure displacement effects are shown
+                showDisplacementEffects();
+                // Reapply filter effects to the new slide with force update
+                updateFilterIntensities(true, true);
+            }, 100); // Short delay to allow transition to start
+        }
+    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
+
+    const handlePrev = useCallback(() => {
         if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
         const prevIndex = (currentSlideIndex - 1 + slidesRef.current.length) % slidesRef.current.length;
+
+        // First transition the slide
         transitionToSlide(prevIndex);
         setCurrentSlideIndex(prevIndex);
-    };
+
+        // If the cursor is currently over the slider (we're interacting),
+        // reapply effects after a short delay to allow for transition
+        if (isInteracting) {
+            setTimeout(() => {
+                console.log("Reapplying effects after slide change (prev)");
+                // Ensure displacement effects are shown
+                showDisplacementEffects();
+                // Reapply filter effects to the new slide with force update
+                updateFilterIntensities(true, true);
+            }, 100); // Short delay to allow transition to start
+        }
+    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
+
+    // Apply hooks only when appRef is available and ready - NOW updateFilterIntensities is defined before being referenced
+    useEffect(() => {
+        // Skip if app is not initialized
+        if (!appRef.current || !isAppReady) return;
+
+        // Update current index ref when state changes
+        currentIndexRef.current = currentSlideIndex;
+
+        // Note: We no longer need to handle filter updates here as they are now handled directly
+        // in the navigation functions (handleNext/handlePrev)
+    }, [appRef.current, currentSlideIndex, isAppReady]);
 
     // Use navigation
     useNavigation({
@@ -376,23 +407,52 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         cursorDisplacementSpriteRef
     });
 
-    // Mouse enter handler
-    const handleMouseEnter = () => {
+    // Memoize handlers to prevent unnecessary re-renders
+    const handleMouseEnter = useCallback(() => {
         if (!isAppReady) return;
-        cursorActiveRef.current = true;
-        showDisplacementEffects();
-        updateFilterIntensities(true);
-        setIsInteracting(true);
-    };
+        console.log("Mouse entered the slider - activating all effects");
 
-    // Mouse leave handler
-    const handleMouseLeave = () => {
+        // Update cursor active state
+        cursorActiveRef.current = true;
+
+        // Show displacement effects first
+        showDisplacementEffects();
+
+        // Force update all filter intensities for the active slide
+        setTimeout(() => {
+            console.log("Applying filters after slight delay to ensure proper initialization");
+            updateFilterIntensities(true);
+        }, 50); // Short timeout to ensure displacement is applied first
+
+        setIsInteracting(true);
+    }, [isAppReady, showDisplacementEffects, updateFilterIntensities]);
+
+    // Mouse leave handler - FIXED to ensure all effects are removed
+    const handleMouseLeave = useCallback(() => {
         if (!isAppReady) return;
+        console.log("Mouse left the slider - deactivating ALL effects");
         cursorActiveRef.current = false;
+
+        // Ensure displacement effects are hidden
         hideDisplacementEffects();
-        updateFilterIntensities(false);
+
+        // Force immediate reset of all filters
+        if (resetAllFilters) {
+            resetAllFilters();
+        }
+
+        // Also ensure any transition or navigation effects are reset
+        setTimeout(() => {
+            // Double-check reset after a short delay to catch any lingering effects
+            if (resetAllFilters) {
+                resetAllFilters();
+            }
+            // Reset the filter intensities state
+            updateFilterIntensities(false);
+        }, 10);
+
         setIsInteracting(false);
-    };
+    }, [isAppReady, hideDisplacementEffects, resetAllFilters, updateFilterIntensities]);
 
     // Render component
     return (
