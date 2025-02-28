@@ -228,9 +228,12 @@ export class FilterFactory {
      * Create an ASCII filter
      */
     private static createAsciiFilter(config: AsciiFilterConfig): FilterResult {
+        // Store the user's configured size for consistent reference
+        const userSize = config.size ?? 8;
+
         // Use the options-based constructor instead of the deprecated signature
         const filter = new filters.AsciiFilter({
-            size: config.size ?? 8
+            size: userSize
         });
 
         // AsciiFilter expects a ColorSource (number, string, etc.), not a boolean
@@ -238,7 +241,7 @@ export class FilterFactory {
             // Convert to a number if it's not already (handling string or number types)
             const colorValue = typeof config.color === 'string' ?
                 parseInt(config.color.replace('#', '0x'), 16) :
-               config.color ? config.color : 0xFFFFFF;
+                config.color ? config.color : 0xFFFFFF;
 
             filter.color = colorValue;
         }
@@ -247,14 +250,14 @@ export class FilterFactory {
             // Map intensity to size (inversely proportional)
             // Higher intensity = smaller size = more detailed ASCII
             const newSize = Math.max(2, Math.round(16 - intensity));
-            filter.size = newSize;
+            filter.size = userSize;
         };
 
         // Set initial intensity
         updateIntensity(config.intensity);
 
         const reset = (): void => {
-            filter.size = 8;
+            filter.size = userSize; // Use the user-configured size instead of hard-coded 8
             // Reset to default white color
             filter.color = 0xFFFFFF;
         };

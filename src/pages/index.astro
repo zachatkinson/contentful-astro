@@ -54,13 +54,11 @@ const posts = entries.items.map((entry) => {
             cursorMomentum={0.14}
             imageFilters={[
                 {
-                    type: 'advanced-bloom',
+                    type: 'ascii',
                     enabled: true,
-                    intensity: 8,      // Controls bloomScale and brightness
-  threshold: 0.5,    // Optional: Brightness threshold (default: 0.5)
-  bloomScale: 1.0,   // Optional: Bloom scaling factor (default: 1.0)
-  brightness: 1.0,   // Optional: Brightness adjustment (default: 1.0)
-  quality: 4         // Optional: Quality of the effect (default: 4)
+                    intensity: 8,     // Maps inversely to size property
+  size: 16,           // Optional: Size of ASCII blocks (default: 8)
+  color: 0xFFFFFF    // Optional: Color of the ASCII characters (default: white)
 }
             ]}
             textFilters={[
