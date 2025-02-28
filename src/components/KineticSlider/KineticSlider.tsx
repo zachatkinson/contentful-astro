@@ -2,7 +2,6 @@ import React, { useRef, useState, useEffect } from 'react';
 import styles from './KineticSlider.module.css';
 import { type KineticSliderProps } from './types';
 import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
-import PixiPlugin from 'gsap/PixiPlugin';
 
 // Import hooks directly
 import { useDisplacementEffects } from './hooks';
@@ -136,11 +135,18 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
             try {
                 console.log("Loading PixiJS dependencies...");
                 // Load all dependencies first
-                const { gsap, pixi } = await loadKineticSliderDependencies();
+                const { gsap, pixi, pixiPlugin } = await loadKineticSliderDependencies();
 
-                // Register GSAP plugins
-                gsap.registerPlugin(PixiPlugin);
-                PixiPlugin.registerPIXI(pixi);
+                // Only register plugins in browser
+                if (typeof window !== 'undefined' && pixiPlugin) {
+                    // Register GSAP plugins
+                    gsap.registerPlugin(pixiPlugin);
+
+                    // Check if we have the actual plugin (not the mock)
+                    if (pixiPlugin.registerPIXI) {
+                        pixiPlugin.registerPIXI(pixi);
+                    }
+                }
 
                 console.log("Creating Pixi.js application...");
 

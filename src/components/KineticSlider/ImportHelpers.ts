@@ -43,13 +43,26 @@ export const loadPixiPlugin = async (): Promise<any> => {
 
     try {
         console.log('Loading GSAP PixiPlugin...');
-        const { default: PixiPlugin } = await import('gsap/PixiPlugin');
 
-        // Store in cache
-        importCache.set('pixiPlugin', PixiPlugin);
-        console.log('GSAP PixiPlugin loaded successfully');
+        // Check if we're in a browser environment
+        if (typeof window !== 'undefined') {
+            const { default: PixiPlugin } = await import('gsap/PixiPlugin');
 
-        return PixiPlugin;
+            // Store in cache
+            importCache.set('pixiPlugin', PixiPlugin);
+            console.log('GSAP PixiPlugin loaded successfully');
+
+            return PixiPlugin;
+        } else {
+            // When running in Node.js during build, return a mock
+            console.log('Running in Node.js environment, using mock PixiPlugin');
+            const mockPlugin = {
+                name: 'PixiPlugin (Mock)',
+                registerPIXI: () => console.log('Mock registerPIXI called')
+            };
+            importCache.set('pixiPlugin', mockPlugin);
+            return mockPlugin;
+        }
     } catch (error) {
         console.warn('Failed to load PixiPlugin for GSAP:', error);
         return null;
@@ -113,6 +126,12 @@ export const registerGSAPPixiPlugin = (gsap: typeof GSAPType, pixi: typeof PixiJ
         if (!PixiPlugin) {
             console.warn('PixiPlugin not available for registration');
             return false;
+        }
+
+        // Skip actual registration if it's a mock
+        if (PixiPlugin.name === 'PixiPlugin (Mock)') {
+            console.log('Using mock PixiPlugin, skipping actual registration');
+            return true;
         }
 
         // Extract needed classes from pixi module
