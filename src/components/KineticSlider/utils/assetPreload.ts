@@ -3,6 +3,7 @@
  */
 
 import { Assets } from 'pixi.js';
+import { setupCustomFonts } from './fontUtils';
 
 /**
  * Helper function to preload all KineticSlider assets
@@ -10,17 +11,27 @@ import { Assets } from 'pixi.js';
  * @param images - Array of image URLs to load
  * @param backgroundDisplacement - URL of background displacement image
  * @param cursorDisplacement - URL of cursor displacement image
+ * @param titleFontFamily - Font family for titles
+ * @param subtitleFontFamily - Font family for subtitles
  * @returns Promise that resolves when all assets are loaded
  */
 export const preloadKineticSliderAssets = async (
     images: string[],
     backgroundDisplacement: string = '/images/background-displace.jpg',
-    cursorDisplacement: string = '/images/cursor-displace.png'
+    cursorDisplacement: string = '/images/cursor-displace.png',
+    titleFontFamily?: string,
+    subtitleFontFamily?: string
 ): Promise<void> => {
     try {
         console.log('Preloading KineticSlider assets...');
 
-        // Combine all assets into a single array
+        // First, handle custom fonts if provided
+        if (titleFontFamily || subtitleFontFamily) {
+            console.log('Setting up custom fonts...');
+            await setupCustomFonts(titleFontFamily, subtitleFontFamily);
+        }
+
+        // Combine all image assets into a single array
         const assetsToLoad = [
             ...images,
             backgroundDisplacement,

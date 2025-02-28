@@ -18,7 +18,7 @@ import { useMouseDrag } from './hooks/';
 import { useTextTilt } from './hooks/';
 import { useResizeHandler } from './hooks/';
 import { loadKineticSliderDependencies } from './ImportHelpers';
-import { preloadKineticSliderAssets } from './utils/AssetPreload.ts';
+import { preloadKineticSliderAssets } from './utils/assetPreload';
 
 /**
  * KineticSlider component - Creates an interactive image slider with various effects
@@ -95,20 +95,22 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         setIsClient(true);
     }, []);
 
-    // Preload assets
+    // Preload assets including fonts
     useEffect(() => {
         if (typeof window === 'undefined' || !isClient) return;
 
         const loadAssets = async () => {
             try {
-                console.log("Preloading assets...");
+                console.log("Preloading assets and fonts...");
                 await preloadKineticSliderAssets(
                     images,
                     backgroundDisplacementSpriteLocation,
-                    cursorDisplacementSpriteLocation
+                    cursorDisplacementSpriteLocation,
+                    textTitleFontFamily,
+                    textSubTitleFontFamily
                 );
                 setAssetsLoaded(true);
-                console.log("Assets preloaded successfully");
+                console.log("Assets and fonts preloaded successfully");
             } catch (error) {
                 console.error("Failed to preload assets:", error);
                 // Continue anyway so the component doesn't totally fail
@@ -117,7 +119,14 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         };
 
         loadAssets();
-    }, [isClient, images, backgroundDisplacementSpriteLocation, cursorDisplacementSpriteLocation]);
+    }, [
+        isClient,
+        images,
+        backgroundDisplacementSpriteLocation,
+        cursorDisplacementSpriteLocation,
+        textTitleFontFamily,
+        textSubTitleFontFamily
+    ]);
 
     // Initialize Pixi.js application
     useEffect(() => {
@@ -401,7 +410,10 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
             {/* Placeholder while loading */}
             {(!isAppReady || !assetsLoaded) && (
                 <div className={styles.placeholder}>
-                    <div className={styles.placeholderImage}>Loading slider...</div>
+                    <div className={styles.loadingIndicator}>
+                        <div className={styles.spinner}></div>
+                        <div>Loading slider...</div>
+                    </div>
                 </div>
             )}
 

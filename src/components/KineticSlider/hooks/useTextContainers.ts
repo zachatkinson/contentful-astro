@@ -3,6 +3,7 @@ import { Application, Container, Text, TextStyle, Sprite } from 'pixi.js';
 import { RGBSplitFilter } from 'pixi-filters';
 import { gsap } from 'gsap';
 import { type TextPair } from '../types';
+import { parseFontStack } from '../utils/fontUtils';
 
 interface UseTextContainersProps {
     sliderRef: RefObject<HTMLDivElement | null>;
@@ -30,6 +31,25 @@ interface UseTextContainersProps {
 // Default font fallbacks
 const DEFAULT_TITLE_FONT = 'Georgia, Times, "Times New Roman", serif';
 const DEFAULT_SUBTITLE_FONT = 'Helvetica, Arial, sans-serif';
+
+/**
+ * Helper function to prepare font family string for PIXI.js
+ * PIXI.js needs custom fonts to be properly available in the DOM
+ *
+ * @param fontStack - Font family string from props
+ * @param defaultStack - Default font stack to use if none provided
+ * @returns Processed font family string
+ */
+function prepareFontFamily(fontStack?: string, defaultStack = DEFAULT_TITLE_FONT): string {
+    if (!fontStack) return defaultStack;
+
+    // Parse the font stack to get the first (primary) font
+    const fonts = parseFontStack(fontStack);
+    if (!fonts.length) return defaultStack;
+
+    // Return the full original font stack to maintain fallbacks
+    return fontStack;
+}
 
 /**
  * Hook to create and manage text containers for slide titles and subtitles
@@ -80,9 +100,11 @@ const useTextContainers = ({
         const computedSubTitleSize = isMobile ? mobileTextSubTitleSize : textSubTitleSize;
         const computedSubTitleOffset = isMobile ? mobileTextSubTitleOffsetTop : textSubTitleOffsetTop;
 
-        // Use provided fonts or fallbacks
-        const titleFontFamily = textTitleFontFamily || DEFAULT_TITLE_FONT;
-        const subtitleFontFamily = textSubTitleFontFamily || DEFAULT_SUBTITLE_FONT;
+        // Process and prepare font families
+        const titleFontFamily = prepareFontFamily(textTitleFontFamily, DEFAULT_TITLE_FONT);
+        const subtitleFontFamily = prepareFontFamily(textSubTitleFontFamily, DEFAULT_SUBTITLE_FONT);
+
+        console.log('Creating text containers with fonts:', { titleFontFamily, subtitleFontFamily });
 
         // Create new text containers for each text pair
         texts.forEach((textPair, index) => {
@@ -208,6 +230,10 @@ const useTextContainers = ({
             const computedSubTitleSize = isMobile ? mobileTextSubTitleSize : textSubTitleSize;
             const computedSubTitleOffset = isMobile ? mobileTextSubTitleOffsetTop : textSubTitleOffsetTop;
 
+            // Process and prepare font families
+            const titleFontFamily = prepareFontFamily(textTitleFontFamily, DEFAULT_TITLE_FONT);
+            const subtitleFontFamily = prepareFontFamily(textSubTitleFontFamily, DEFAULT_SUBTITLE_FONT);
+
             // Update each text container's position and text styles
             textContainersRef.current.forEach(container => {
                 container.x = containerWidth / 2;
@@ -217,24 +243,24 @@ const useTextContainers = ({
                 if (container.children[0] && container.children[0] instanceof Text) {
                     const titleText = container.children[0] as Text;
                     titleText.style.fontSize = computedTitleSize;
+                    titleText.style.fontFamily = titleFontFamily;
+
+                    // Force text to update
+                    titleText.text = titleText.text; // This triggers an internal update
                 }
 
                 // Update subtitle text
                 if (container.children[1] && container.children[1] instanceof Text) {
                     const subText = container.children[1] as Text;
                     subText.style.fontSize = computedSubTitleSize;
+                    subText.style.fontFamily = subtitleFontFamily;
 
                     // Force text to update
-                    if ('updateText' in subText) {
-                        (subText as any).updateText();
-                    }
+                    subText.text = subText.text; // This triggers an internal update
 
                     // Update position after title is updated
                     if (container.children[0] instanceof Text) {
                         const titleText = container.children[0] as Text;
-                        if ('updateText' in titleText) {
-                            (titleText as any).updateText();
-                        }
                         subText.y = titleText.height + computedSubTitleOffset;
                     }
                 }
@@ -245,6 +271,9 @@ const useTextContainers = ({
         };
 
         window.addEventListener('resize', handleResize);
+
+        // Initial sizing
+        handleResize();
 
         return () => {
             window.removeEventListener('resize', handleResize);
@@ -257,7 +286,9 @@ const useTextContainers = ({
         textSubTitleSize,
         mobileTextSubTitleSize,
         textSubTitleOffsetTop,
-        mobileTextSubTitleOffsetTop
+        mobileTextSubTitleOffsetTop,
+        textTitleFontFamily,
+        textSubTitleFontFamily
     ]);
 
     return {
