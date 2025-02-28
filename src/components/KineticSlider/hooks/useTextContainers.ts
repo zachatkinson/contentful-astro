@@ -1,6 +1,5 @@
 import { useEffect, type RefObject } from 'react';
 import { Application, Container, Text, TextStyle, Sprite } from 'pixi.js';
-import { RGBSplitFilter } from 'pixi-filters';
 import { gsap } from 'gsap';
 import { type TextPair } from '../types';
 import { parseFontStack } from '../utils/fontUtils';
@@ -12,7 +11,7 @@ interface UseTextContainersProps {
     textContainersRef: RefObject<Container[]>;
     currentIndex: RefObject<number>;
     buttonMode: boolean;
-    textsRgbEffect: boolean;
+    textsRgbEffect: boolean; // We'll keep this parameter for compatibility but ignore it
     texts: TextPair[];
     textTitleColor: string;
     textTitleSize: number;
@@ -61,7 +60,7 @@ const useTextContainers = ({
                                textContainersRef,
                                currentIndex,
                                buttonMode,
-                               textsRgbEffect,
+                               textsRgbEffect, // Kept for API compatibility but not used
                                texts,
                                textTitleColor,
                                textTitleSize,
@@ -142,19 +141,12 @@ const useTextContainers = ({
             textContainer.pivot.y = textContainer.height / 2;
             textContainer.alpha = 0; // Start hidden
 
-            // Add RGB split filter if enabled
-            if (textsRgbEffect) {
-                const textRgbFilter = new RGBSplitFilter({
-                    red: { x: 0, y: 0 },
-                    green: { x: 0, y: 0 },
-                    blue: { x: 0, y: 0 }
-                });
-                textContainer.filters = [textRgbFilter];
-            }
+            // Note: We no longer directly apply RGB split filter here
+            // Filters will be applied through the FilterFactory in useFilters.ts
 
             // Enable button mode if specified
             if (buttonMode) {
-                textContainer.eventMode = 'static'; // Make interactive in Pixi v7+
+                textContainer.eventMode = 'static'; // Modern PIXI.js interaction system
                 textContainer.cursor = 'pointer';
 
                 textContainer.on('pointerover', () => {
@@ -207,7 +199,6 @@ const useTextContainers = ({
         textSubTitleOffsetTop,
         mobileTextSubTitleOffsetTop,
         textSubTitleFontFamily,
-        textsRgbEffect,
         buttonMode
     ]);
 

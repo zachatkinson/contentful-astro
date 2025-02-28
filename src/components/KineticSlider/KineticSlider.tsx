@@ -35,12 +35,6 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
                                                          cursorScaleIntensity = 0.65,
                                                          cursorMomentum = 0.14,
 
-                                                         // Filter settings
-                                                         imagesRgbEffect = true,
-                                                         imagesRgbIntensity = 15,
-                                                         textsRgbEffect = true,
-                                                         textsRgbIntensity = 5,
-
                                                          // Text styling
                                                          textTitleColor = 'white',
                                                          textTitleSize = 64,
@@ -63,10 +57,9 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
                                                          // Navigation settings
                                                          externalNav = false,
                                                          navElement = { prev: '.main-nav.prev', next: '.main-nav.next' },
-                                                         navTextsRgbIntensity = 3,
                                                          buttonMode = false,
 
-                                                         // New filter configurations
+                                                         // Filter configurations
                                                          imageFilters,
                                                          textFilters
                                                      }) => {
@@ -220,10 +213,6 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         cursorTextEffect,
         cursorScaleIntensity,
         cursorMomentum,
-        imagesRgbEffect,
-        imagesRgbIntensity,
-        textsRgbEffect,
-        textsRgbIntensity,
         textTitleColor,
         textTitleSize,
         mobileTextTitleSize,
@@ -281,7 +270,7 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         textContainersRef,
         currentIndex: currentIndexRef,
         buttonMode,
-        textsRgbEffect,
+        textsRgbEffect: false, // Removed legacy prop, we'll rely on textFilters
         texts,
         textTitleColor,
         textTitleSize,

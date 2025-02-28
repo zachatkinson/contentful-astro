@@ -39,25 +39,19 @@ export interface KineticSliderProps {
     imageFilters?: FilterConfig | FilterConfig[];
     textFilters?: FilterConfig | FilterConfig[];
 
-    // Previous RGB effect settings (for backward compatibility)
-    imagesRgbEffect?: boolean;
-    imagesRgbIntensity?: number;
-    textsRgbEffect?: boolean;
-    textsRgbIntensity?: number;
-
     // Text styling props
     textTitleColor?: string;
     textTitleSize?: number;
     mobileTextTitleSize?: number;
     textTitleLetterspacing?: number;
-    textTitleFontFamily?: string; // New prop for title font family
+    textTitleFontFamily?: string;
     textSubTitleColor?: string;
     textSubTitleSize?: number;
     mobileTextSubTitleSize?: number;
     textSubTitleLetterspacing?: number;
     textSubTitleOffsetTop?: number;
     mobileTextSubTitleOffsetTop?: number;
-    textSubTitleFontFamily?: string; // New prop for subtitle font family
+    textSubTitleFontFamily?: string;
 
     // Movement and animation settings
     maxContainerShiftFraction?: number;
@@ -67,7 +61,6 @@ export interface KineticSliderProps {
     // Navigation settings
     externalNav?: boolean;
     navElement?: NavElement;
-    navTextsRgbIntensity?: number;
     buttonMode?: boolean;
 }
 
