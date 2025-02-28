@@ -8,7 +8,7 @@
     "dist"
   ],
   "compilerOptions": {
-    "target": "ES2024",
+    "target": "esnext",
     "lib": [
       "dom",
       "dom.iterable",
