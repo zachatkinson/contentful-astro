@@ -129,9 +129,9 @@ export class FilterFactory {
      */
     private static createRGBSplitFilter(config: RGBSplitFilterConfig): FilterResult {
         const filter = new filters.RGBSplitFilter({
-            red: config.redOffset || { x: 0, y: 0 },
-            green: config.greenOffset || { x: 0, y: 0 },
-            blue: config.blueOffset || { x: 0, y: 0 }
+            red: config.red || { x: 0, y: 0 },
+            green: config.green || { x: 0, y: 0 },
+            blue: config.blue || { x: 0, y: 0 }
         });
 
         const updateIntensity = (intensity: number): void => {
@@ -323,8 +323,6 @@ export class FilterFactory {
         const filter = new filters.BloomFilter({
             quality: config.quality ?? 4,
             strength: config.strength ?? 2,
-            strengthX: config.strengthX,
-            strengthY: config.strengthY
         });
 
         const updateIntensity = (intensity: number): void => {
@@ -372,15 +370,16 @@ export class FilterFactory {
      */
     private static createBulgePinchFilter(config: BulgePinchFilterConfig): FilterResult {
         const filter = new filters.BulgePinchFilter({
-            radius: config.radius ?? 100,
-            strength: config.strength ?? 0.5,
+            radius: config.radius ?? 200,  // Increased default radius
+            strength: config.strength ?? 0,  // Start with no distortion
             center: config.center ?? [0.5, 0.5]
         });
 
         const updateIntensity = (intensity: number): void => {
-            // Map intensity to strength (-1 to 1 range)
-            // Negative values create a pinch effect, positive values a bulge
-            filter.strength = (intensity / 10) - 0.5;
+            // Map intensity to a more controlled range (-0.3 to 0.3)
+            // This provides both bulge and pinch effects without extreme distortion
+            const mappedStrength = (intensity / 50) - 0.2;
+            filter.strength = Math.max(-0.3, Math.min(0.3, mappedStrength));
         };
 
         updateIntensity(config.intensity);
@@ -491,9 +490,9 @@ export class FilterFactory {
             ? parseInt(config.originalColor.replace('#', '0x'), 16)
             : (config.originalColor ?? 0xff0000);
 
-        const targetColor = typeof config.newColor === 'string'
-            ? parseInt(config.newColor.replace('#', '0x'), 16)
-            : (config.newColor ?? 0x0000ff);
+        const targetColor = typeof config.targetColor === 'string'
+            ? parseInt(config.targetColor.replace('#', '0x'), 16)
+            : (config.targetColor ?? 0x0000ff);
 
         // Manual direct construction to avoid type issues
         // The V8 filter actually needs an options object with originalColor and targetColor,

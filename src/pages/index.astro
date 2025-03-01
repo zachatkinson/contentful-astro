@@ -54,11 +54,11 @@ const posts = entries.items.map((entry) => {
             cursorMomentum={0.14}
             imageFilters={[
                 {
-                    type: 'ascii',
+                    type: 'bulge-pinch',
                     enabled: true,
-                    intensity: 8,     // Maps inversely to size property
-  size: 16,           // Optional: Size of ASCII blocks (default: 8)
-  color: 0xFFFFFF    // Optional: Color of the ASCII characters (default: white)
+                    intensity: 5,           // Maps to strength (-0.5 to 0.5 range)
+  radius: 100,            // Optional: Effect radius (default: 100)
+  center: [0.5, 0.5]      // Optional: Center point [x, y] (default: [0.5, 0.5])
 }
             ]}
             textFilters={[
