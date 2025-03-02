@@ -1302,15 +1302,12 @@ export class FilterFactory {
      * Create an Alpha filter
      */
     private static createAlphaFilter(config: AlphaFilterConfig): FilterResult {
-        // Fixed: Use proper constructor approach
-        const filter = new AlphaFilter();
+        // Create filter with proper constructor approach
+        const filter = new AlphaFilter({
+            alpha: config.alpha !== undefined ? config.alpha : 1
+        });
 
-        if (config.alpha !== undefined) {
-            filter.alpha = config.alpha;
-        }
-
-
-
+        // Define reset function to restore default state
         const reset = (): void => {
             filter.alpha = 1;
         };

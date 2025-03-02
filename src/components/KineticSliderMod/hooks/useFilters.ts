@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Container, Sprite } from 'pixi.js';
+import { Container, Sprite, AlphaFilter } from 'pixi.js';
 import { gsap } from 'gsap';
 import { type FilterConfig } from '../filters/types';
 import { FilterFactory } from '../filters/FilterFactory';
@@ -8,7 +8,7 @@ import { type HookParams } from '../types';
 // Define a more specific type for the target objects we're applying filters to
 type FilterableObject = Sprite | Container;
 
-// Type to represent a map of objects to their applied filters and control functions
+// Type to represent a map of objects to their applied filters
 interface FilterMap {
     [id: string]: {
         target: FilterableObject;
@@ -56,11 +56,11 @@ export const useFilters = (
             // Use provided filter configurations or defaults
             const imageFilters = props.imageFilters
                 ? (Array.isArray(props.imageFilters) ? props.imageFilters : [props.imageFilters])
-                : [{ type: 'rgb-split', enabled: true, intensity: 15 }]; // Default RGB split filter
+                : [{ type: 'alpha', enabled: true, alpha: 0.8 }]; // Default alpha filter
 
             const textFilters = props.textFilters
                 ? (Array.isArray(props.textFilters) ? props.textFilters : [props.textFilters])
-                : [{ type: 'rgb-split', enabled: true, intensity: 5 }]; // Default RGB split filter
+                : [{ type: 'alpha', enabled: true, alpha: 0.8 }]; // Default alpha filter
 
             console.log(`Applying ${imageFilters.length} image filters and ${textFilters.length} text filters`);
 
@@ -231,14 +231,14 @@ export const useFilters = (
     }, [pixi.bgDispFilter]);
 
     // Update filter intensities for hover effects
-    const updateFilterIntensities = useCallback((active: boolean, forceUpdate = false) => {
+    const updateFilterValues = useCallback((active: boolean, forceUpdate = false) => {
         // Skip if filters haven't been initialized yet
         if (!filtersInitializedRef.current) {
-            console.log("Filters not initialized yet, skipping intensity update");
+            console.log("Filters not initialized yet, skipping update");
             return;
         }
 
-        console.log(`${active ? 'Activating' : 'Deactivating'} filter intensities${forceUpdate ? ' (FORCED)' : ''}`);
+        console.log(`${active ? 'Activating' : 'Deactivating'} filters${forceUpdate ? ' (FORCED)' : ''}`);
 
         // If current state matches requested state and not forced, don't do anything to avoid flickering
         if (filtersActiveRef.current === active && !forceUpdate) {
@@ -312,13 +312,20 @@ export const useFilters = (
             }
         }
 
-        // Now activate the filter intensities
+        // Now activate the filter values
         // Update slide filters
         if (filterMapRef.current[currentSlideId]) {
             filterMapRef.current[currentSlideId].filters.forEach((filter, index) => {
                 try {
-                    // Use the filter's own update intensity function
+                    const instance = filter.instance;
                     console.log(`Activating slide filter ${index} for ${currentSlideId}`);
+
+                    // Apply appropriate values based on filter type
+                    if (instance instanceof AlphaFilter) {
+                        // Map intensity from 0-10 to alpha 0-1
+                        instance.alpha = 1; // Or any value you want when active
+                    }
+                    // Add other filter type handling as you implement them
                 } catch (error) {
                     console.error(`Error activating slide filter ${index}:`, error);
                 }
@@ -331,8 +338,15 @@ export const useFilters = (
         if (filterMapRef.current[currentTextId]) {
             filterMapRef.current[currentTextId].filters.forEach((filter, index) => {
                 try {
-                    // Use the filter's own update intensity function
+                    const instance = filter.instance;
                     console.log(`Activating text filter ${index} for ${currentTextId}`);
+
+                    // Apply appropriate values based on filter type
+                    if (instance instanceof AlphaFilter) {
+                        // Map intensity from 0-10 to alpha 0-1
+                        instance.alpha = 1; // Or any value you want when active
+                    }
+                    // Add other filter type handling as you implement them
                 } catch (error) {
                     console.error(`Error activating text filter ${index}:`, error);
                 }
@@ -343,7 +357,7 @@ export const useFilters = (
     }, [pixi.currentIndex, pixi.bgDispFilter, pixi.cursorDispFilter, props.cursorImgEffect, resetAllFilters]);
 
     return {
-        updateFilterIntensities,
+        updateFilterValues,
         resetAllFilters,
         isInitialized: filtersInitializedRef.current,
         isActive: filtersActiveRef.current

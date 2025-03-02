@@ -424,7 +424,6 @@ export interface AlphaFilterConfig extends BaseFilterConfig {
     type: 'alpha';
     defaultOptions?: AlphaFilterOptions;
     alpha?: number;
-
 }
 
 // // Blur filter configuration
@@ -472,6 +471,7 @@ export interface AlphaFilterConfig extends BaseFilterConfig {
 
 // Union type of all filter configurations
 export type FilterConfig =
+    | AlphaFilterConfig
 // pixi-filters
 //     | RGBSplitFilterConfig
 //     | AdjustmentFilterConfig
@@ -511,7 +511,6 @@ export type FilterConfig =
 //     | TwistFilterConfig
 //     | ZoomBlurFilterConfig
 // built-in filters
-       | AlphaFilterConfig
 //    | BlurFilterConfig
 //    | ColorMatrixFilterConfig
 //    | DisplacementFilterConfig
