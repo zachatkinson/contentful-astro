@@ -129,9 +129,9 @@ export class FilterFactory {
      */
     private static createRGBSplitFilter(config: RGBSplitFilterConfig): FilterResult {
         const filter = new filters.RGBSplitFilter({
-            red: config.red || { x: 0, y: 0 },
-            green: config.green || { x: 0, y: 0 },
-            blue: config.blue || { x: 0, y: 0 }
+            red: config.redOffset || { x: 0, y: 0 },
+            green: config.greenOffset || { x: 0, y: 0 },
+            blue: config.blueOffset || { x: 0, y: 0 }
         });
 
         const updateIntensity = (intensity: number): void => {
@@ -228,12 +228,9 @@ export class FilterFactory {
      * Create an ASCII filter
      */
     private static createAsciiFilter(config: AsciiFilterConfig): FilterResult {
-        // Store the user's configured size for consistent reference
-        const userSize = config.size ?? 8;
-
         // Use the options-based constructor instead of the deprecated signature
         const filter = new filters.AsciiFilter({
-            size: userSize
+            size: config.size ?? 8
         });
 
         // AsciiFilter expects a ColorSource (number, string, etc.), not a boolean
@@ -241,7 +238,7 @@ export class FilterFactory {
             // Convert to a number if it's not already (handling string or number types)
             const colorValue = typeof config.color === 'string' ?
                 parseInt(config.color.replace('#', '0x'), 16) :
-                config.color ? config.color : 0xFFFFFF;
+               config.color ? config.color : 0xFFFFFF;
 
             filter.color = colorValue;
         }
@@ -250,14 +247,14 @@ export class FilterFactory {
             // Map intensity to size (inversely proportional)
             // Higher intensity = smaller size = more detailed ASCII
             const newSize = Math.max(2, Math.round(16 - intensity));
-            filter.size = userSize;
+            filter.size = newSize;
         };
 
         // Set initial intensity
         updateIntensity(config.intensity);
 
         const reset = (): void => {
-            filter.size = userSize; // Use the user-configured size instead of hard-coded 8
+            filter.size = 8;
             // Reset to default white color
             filter.color = 0xFFFFFF;
         };
@@ -323,6 +320,8 @@ export class FilterFactory {
         const filter = new filters.BloomFilter({
             quality: config.quality ?? 4,
             strength: config.strength ?? 2,
+            strengthX: config.strengthX,
+            strengthY: config.strengthY
         });
 
         const updateIntensity = (intensity: number): void => {
@@ -370,16 +369,15 @@ export class FilterFactory {
      */
     private static createBulgePinchFilter(config: BulgePinchFilterConfig): FilterResult {
         const filter = new filters.BulgePinchFilter({
-            radius: config.radius ?? 200,  // Increased default radius
-            strength: config.strength ?? 0,  // Start with no distortion
+            radius: config.radius ?? 100,
+            strength: config.strength ?? 0.5,
             center: config.center ?? [0.5, 0.5]
         });
 
         const updateIntensity = (intensity: number): void => {
-            // Map intensity to a more controlled range (-0.3 to 0.3)
-            // This provides both bulge and pinch effects without extreme distortion
-            const mappedStrength = (intensity / 50) - 0.2;
-            filter.strength = Math.max(-0.3, Math.min(0.3, mappedStrength));
+            // Map intensity to strength (-1 to 1 range)
+            // Negative values create a pinch effect, positive values a bulge
+            filter.strength = (intensity / 10) - 0.5;
         };
 
         updateIntensity(config.intensity);
@@ -490,9 +488,9 @@ export class FilterFactory {
             ? parseInt(config.originalColor.replace('#', '0x'), 16)
             : (config.originalColor ?? 0xff0000);
 
-        const targetColor = typeof config.targetColor === 'string'
-            ? parseInt(config.targetColor.replace('#', '0x'), 16)
-            : (config.targetColor ?? 0x0000ff);
+        const targetColor = typeof config.newColor === 'string'
+            ? parseInt(config.newColor.replace('#', '0x'), 16)
+            : (config.newColor ?? 0x0000ff);
 
         // Manual direct construction to avoid type issues
         // The V8 filter actually needs an options object with originalColor and targetColor,
