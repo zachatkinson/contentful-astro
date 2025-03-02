@@ -70,13 +70,6 @@ export interface BaseFilterConfig {
 
 // --- PIXI FILTERS ---
 
-// RGB Split filter configuration
-export interface RGBSplitFilterConfig extends BaseFilterConfig {
-    type: 'rgb-split';
-    blue?: PointData;
-    green?: PointData;
-    red?: PointData;
-}
 
 // Adjustment filter configuration
 export interface AdjustmentFilterConfig extends BaseFilterConfig {
@@ -383,6 +376,14 @@ export interface ReflectionFilterConfig extends BaseFilterConfig {
     waveLength?: number[];
 }
 
+// RGB Split filter configuration
+export interface RGBSplitFilterConfig extends BaseFilterConfig {
+    type: 'rgb-split';
+    blue?: PointData;
+    green?: PointData;
+    red?: PointData;
+}
+
 // Shockwave filter configuration
 export interface ShockwaveFilterConfig extends BaseFilterConfig {
     type: 'shockwave';
@@ -506,7 +507,6 @@ export interface CustomFilterConfig extends BaseFilterConfig {
 // Union type of all filter configurations
 export type FilterConfig =
 // pixi-filters
-    | RGBSplitFilterConfig
     | AdjustmentFilterConfig
     | AdvancedBloomFilterConfig
     | AsciiFilterConfig
@@ -537,6 +537,7 @@ export type FilterConfig =
     | PixelateFilterConfig
     | RadialBlurFilterConfig
     | ReflectionFilterConfig
+    | RGBSplitFilterConfig
     | ShockwaveFilterConfig
     | SimpleLightmapFilterConfig
     | SimplexNoiseFilterConfig
