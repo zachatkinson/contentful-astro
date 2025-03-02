@@ -4,8 +4,8 @@ import {contentfulClient} from "../lib/contentful";
 import type {BlogPost} from "../lib/blogPost";
 import Hero from '../components/Hero/Hero.astro';
 import AnimatedCallToAction from "../components/AnimatedCallToAction/AnimatedCallToAction.astro";
-import KineticSlider from "../components/KineticSlider/KineticSlider";
-import {type TextPair} from "../components/KineticSlider/types";
+import KineticSlider from "../components/KineticSliderMOD/KineticSlider";
+import {type TextPair} from "../components/KineticSliderMOD/types";
 const images = [
     "/images/slides/1.jpg",
     "/images/slides/2.jpg",
@@ -54,19 +54,19 @@ const posts = entries.items.map((entry) => {
             cursorMomentum={0.14}
             imageFilters={[
                 {
-                    type: 'bulge-pinch',
+                    type: 'alpha',
                     enabled: true,
-                    intensity: 5,           // Maps to strength (-0.5 to 0.5 range)
-  radius: 100,            // Optional: Effect radius (default: 100)
-  center: [0.5, 0.5]      // Optional: Center point [x, y] (default: [0.5, 0.5])
+                    intensity: 5,     // Maps to alpha (0-1 range)
+  alpha: 0.5         // Optional: Transparency value (default: 1)
 }
             ]}
             textFilters={[
                 {
-                    type: 'rgb-split',
+                    type: 'alpha',
                     enabled: true,
-                    intensity: 5
-                }
+                    intensity: 5,     // Maps to alpha (0-1 range)
+  alpha: 0.5        // Optional: Transparency value (default: 1)
+}
             ]}
             textTitleColor="white"
             textTitleSize={64}
