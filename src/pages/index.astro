@@ -5,7 +5,13 @@ import type {BlogPost} from "../lib/blogPost";
 import Hero from '../components/Hero/Hero.astro';
 import AnimatedCallToAction from "../components/AnimatedCallToAction/AnimatedCallToAction.astro";
 import KineticSlider3 from "../components/KineticSlider3/KineticSlider";
-import {type TextPair} from "../components/KineticSlider3/filters";
+import {
+    type AlphaFilterConfig,
+    type TextPair,
+    type BlurFilterConfig,
+    type ColorMatrixFilterConfig,
+    type ColorBurnBlendFilterConfig
+} from "../components/KineticSlider3/filters";
 const images = [
     "/images/slides/1.jpg",
     "/images/slides/2.jpg",
@@ -13,7 +19,34 @@ const images = [
     "/images/slides/4.jpg",
     "/images/slides/5.jpg",
 ];
+const blurFilter: BlurFilterConfig = {
+    type: 'blur',
+    enabled: true,
+    intensity: 1,
+    quality: 16,
+    resolution: 1,
+    kernelSize: 5
+};
+const alphaFilter: AlphaFilterConfig = {
+    type: 'alpha',
+    enabled: true,
+    intensity: 0
+}
 
+const sepiaFilter: ColorMatrixFilterConfig = {
+    type: 'colorMatrix',
+    enabled: true,
+    intensity: 10, // Controls how strong the effect blends (7/10 = 0.7 alpha)
+    preset: 'vintage' // Use the built-in sepia preset
+
+};
+
+const colorBurnFilter: ColorBurnBlendFilterConfig = {
+    type: 'colorBurnBlend',
+    enabled: true,
+    intensity: 10, // 70% effect intensity (0-10 scale)
+    blendStrength: 0.8 // Optional parameter for strength adjustment (0-1 scale)
+};
 
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
@@ -53,21 +86,10 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                {
-                    type: 'blur',
-                    enabled: true,
-                    intensity: 1,        // Maps to blur strength
-  quality: 1,          // Optional: Blur quality (default: 4)
-  resolution: 1,       // Optional: Resolution scale (default: 1)
-  kernelSize: 5        // Optional: Kernel size (default: 5)
-}
+                colorBurnFilter
             ]}
             textFilters={[
-                {
-                    type: 'alpha',
-                    enabled: true,
-                    intensity: 0
-                }
+
             ]}
             textTitleColor="white"
             textTitleSize={64}

@@ -11,6 +11,8 @@ export { FilterFactory } from './FilterFactory';
 // Export individual filter creators
 export { createAlphaFilter } from './alphaFilter';
 export { createBlurFilter } from './blurFilter';
+export { createColorMatrixFilter } from './colorMatrixFilter';
+export { createNoiseFilter } from './noiseFilter'
 
 // Export filter types
 export * from './types';

@@ -16,6 +16,7 @@ interface FilterMap {
             instance: any;
             updateIntensity: (intensity: number) => void;
             reset: () => void;
+            initialIntensity: number; // Add initialIntensity property
         }[];
     };
 }
@@ -145,7 +146,12 @@ export const useFilters = (
                 .map(config => {
                     try {
                         console.log(`Creating ${config.type} filter for ${id}`);
-                        return FilterFactory.createFilter(config);
+                        const result = FilterFactory.createFilter(config);
+                        // Add initialIntensity to the result
+                        return {
+                            ...result,
+                            initialIntensity: config.intensity
+                        };
                     } catch (error) {
                         console.error(`Failed to create ${config.type} filter:`, error);
                         return null;
@@ -162,7 +168,8 @@ export const useFilters = (
             filterMapRef.current[id].filters = activeFilters.map(result => ({
                 instance: result.filter,
                 updateIntensity: result.updateIntensity,
-                reset: result.reset
+                reset: result.reset,
+                initialIntensity: result.initialIntensity // Store the initial intensity
             }));
 
             // Apply base displacement filter if it exists
@@ -319,9 +326,9 @@ export const useFilters = (
         if (filterMapRef.current[currentSlideId]) {
             filterMapRef.current[currentSlideId].filters.forEach((filter, index) => {
                 try {
-                    // Use the filter's own update intensity function
-                    console.log(`Activating slide filter ${index} for ${currentSlideId}`);
-                    filter.updateIntensity(15); // Default intensity for image filters
+                    // Use the filter's own update intensity function with the stored initial intensity
+                    console.log(`Activating slide filter ${index} for ${currentSlideId} with intensity ${filter.initialIntensity}`);
+                    filter.updateIntensity(filter.initialIntensity); // Use initial intensity instead of hardcoded 15
                 } catch (error) {
                     console.error(`Error activating slide filter ${index}:`, error);
                 }
@@ -334,9 +341,9 @@ export const useFilters = (
         if (filterMapRef.current[currentTextId]) {
             filterMapRef.current[currentTextId].filters.forEach((filter, index) => {
                 try {
-                    // Use the filter's own update intensity function
-                    console.log(`Activating text filter ${index} for ${currentTextId}`);
-                    filter.updateIntensity(5); // Default intensity for text filters
+                    // Use the filter's own update intensity function with the stored initial intensity
+                    console.log(`Activating text filter ${index} for ${currentTextId} with intensity ${filter.initialIntensity}`);
+                    filter.updateIntensity(filter.initialIntensity); // Use initial intensity instead of hardcoded 5
                 } catch (error) {
                     console.error(`Error activating text filter ${index}:`, error);
                 }

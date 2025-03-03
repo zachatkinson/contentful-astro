@@ -3,7 +3,8 @@ import { type FilterConfig, type FilterResult } from './types';
 // Import individual filter creators
 import { createAlphaFilter } from './alphaFilter';
 import { createBlurFilter } from './blurFilter';
-
+import { createColorMatrixFilter } from './colorMatrixFilter';
+import {createNoiseFilter} from "./noiseFilter.ts";
 /**
  * Factory for creating and managing different types of PixiJS filters
  *
@@ -29,6 +30,11 @@ export class FilterFactory {
                 return createAlphaFilter(config);
             case 'blur':
                 return createBlurFilter(config);
+            case 'colorMatrix':
+                return createColorMatrixFilter(config);
+            case 'noise':
+                return createNoiseFilter(config)
+
 
             // Additional filters will be added here as they are implemented
 

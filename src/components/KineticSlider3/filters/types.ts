@@ -1,4 +1,5 @@
 import { Filter } from 'pixi.js';
+import type {NoiseFilterConfig} from "../../KineticSlider/filters/types.ts";
 
 
 export type TextPair = [string, string]; // [title, subtitle]
@@ -10,6 +11,9 @@ export type FilterType =
 // Built-in PixiJS filters
     | 'alpha'
     | 'blur'
+    | 'colorMatrix'
+    | 'colorBurnBlend'
+    | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
 
@@ -51,11 +55,66 @@ export interface BlurFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for ColorMatrixFilter
+ *
+ * ColorMatrixFilter applies a 5x4 matrix transformation on RGBA color values.
+ * It can be used for various effects like brightness, contrast, saturation, etc.
+ *
+ * Available presets:
+ * - brightness: Adjusts brightness (0-1, where 0 is black)
+ * - contrast: Adjusts contrast between dark and bright areas
+ * - saturation/saturate: Increases color separation
+ * - desaturate: Removes color (grayscale)
+ * - negative: Inverts colors
+ * - sepia: Applies sepia tone effect
+ * - grayscale/greyscale: Converts to grayscale with control
+ * - blackandwhite: Converts to black and white
+ * - hue: Rotates colors around the color wheel
+ * - night: Applies a night vision effect
+ * - polaroid: Applies a Polaroid photo effect
+ * - technicolor: Classic film color process from 1916
+ * - toBGR: Swaps red and blue channels
+ * - vintage: Nostalgic vintage photo effect
+ * - kodachrome: Classic Kodak film effect from 1935
+ * - browni: Warm brownish filter
+ * - lsd: Psychedelic color effect
+ * - predator: Thermal vision effect
+ * - tint: Applies a color tint (default red-yellow tint based on intensity)
+ * - colortone: Applies a dual-tone effect with warm highlights and cool shadows
+ */
+export interface ColorMatrixFilterConfig extends BaseFilterConfig {
+    type: 'colorMatrix';
+    alpha?: number;          // Opacity value for mixing original and resultant colors (0-1)
+    preset?: string;         // Name of a preset effect to apply (see documentation above)
+    presetIntensity?: number; // Intensity of the preset effect (typically 0-1 or 0-2)
+    matrix?: number[];       // Custom color matrix (20 values) if not using a preset
+    // Below properties are only used for specific presets that need additional configuration
+    tintColor?: string;      // Custom color for tint preset (hex format e.g. '#FF0000')
+    lightColor?: string;     // Custom light color for colorTone preset (hex format)
+    darkColor?: string;      // Custom dark color for colorTone preset (hex format)
+}
+
+/**
+ * Configuration for ColorBurnBlendFilter
+ *
+ * ColorBurnBlendFilter darkens the base color to reflect the blend color by increasing the contrast.
+ * It requires importing 'pixi.js/advanced-blend-modes' to work.
+ */
+export interface ColorBurnBlendFilterConfig extends BaseFilterConfig {
+    type: 'colorBurnBlend';
+    blendStrength?: number;  // Optional blend strength (0-1 scale, default: 1)
+}
+
+/**
  * Union type of all filter configurations
  */
 export type FilterConfig =
     | AlphaFilterConfig
-    | BlurFilterConfig;
+    | BlurFilterConfig
+    | ColorMatrixFilterConfig
+    | ColorBurnBlendFilterConfig
+    | NoiseFilterConfig
+;
 
 /**
  * Result object returned by filter creation functions
