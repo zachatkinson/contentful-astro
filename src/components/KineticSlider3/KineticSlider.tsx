@@ -22,7 +22,7 @@ import { preloadKineticSliderAssets } from './utils/assetPreload';
 /**
  * KineticSlider component - Creates an interactive image slider with various effects
  */
-const KineticSlider: React.FC<KineticSliderProps> = ({
+const KineticSlider3: React.FC<KineticSliderProps> = ({
                                                          // Content sources
                                                          images = [],
                                                          texts = [],
@@ -487,4 +487,4 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
     );
 };
 
-export default KineticSlider;
+export default KineticSlider3;
