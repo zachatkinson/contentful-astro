@@ -491,11 +491,13 @@ export type FilterConfig =
     | TiltShiftFilterConfig
     | TwistFilterConfig
     | ZoomBlurFilterConfig
+    // built-in filters
     | AlphaFilterConfig
     | BlurFilterConfig
     | ColorMatrixFilterConfig
     | DisplacementFilterConfig
     | NoiseFilterConfig
+    // custom
     | CustomFilterConfig;
 
 // Helper interface for filter factory results

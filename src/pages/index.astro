@@ -4,8 +4,8 @@ import {contentfulClient} from "../lib/contentful";
 import type {BlogPost} from "../lib/blogPost";
 import Hero from '../components/Hero/Hero.astro';
 import AnimatedCallToAction from "../components/AnimatedCallToAction/AnimatedCallToAction.astro";
-import KineticSliderMod from "../components/KineticSliderMod/KineticSliderMod";
-import {type TextPair} from "../components/KineticSliderMod/types";
+import KineticSlider from "../components/KineticSlider/KineticSlider";
+import {type TextPair} from "../components/KineticSlider/types";
 const images = [
     "/images/slides/1.jpg",
     "/images/slides/2.jpg",
@@ -42,7 +42,7 @@ const posts = entries.items.map((entry) => {
     <AnimatedCallToAction />
 
 
-    <KineticSliderMod
+    <KineticSlider
             client:load
             images={images}
             texts={texts}
@@ -57,14 +57,14 @@ const posts = entries.items.map((entry) => {
                     type: 'alpha',
                     enabled: true,
                     intensity: 5,     // Maps to alpha (0-1 range)
-                    alpha: 0.5         // Optional: Transparency value (default: 1)
+                    alpha: 1         // Optional: Transparency value (default: 1)
                 }
             ]}
             textFilters={[
                 {
                     type: 'alpha',
                     enabled: true,
-                    alpha: 0.5        // Optional: Transparency value (default: 1)
+                    alpha: 0        // Optional: Transparency value (default: 1)
                 }
             ]}
             textTitleColor="white"

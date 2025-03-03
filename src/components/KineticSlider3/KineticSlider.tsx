@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import styles from './KineticSliderMod.module.css';
+import styles from './KineticSlider.module.css';
 import { type KineticSliderProps } from './types';
 import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
 
@@ -22,7 +22,7 @@ import { preloadKineticSliderAssets } from './utils/assetPreload';
 /**
  * KineticSlider component - Creates an interactive image slider with various effects
  */
-const KineticSliderMod: React.FC<KineticSliderProps> = ({
+const KineticSlider: React.FC<KineticSliderProps> = ({
                                                          // Content sources
                                                          images = [],
                                                          texts = [],
@@ -136,7 +136,7 @@ const KineticSliderMod: React.FC<KineticSliderProps> = ({
     });
 
     // Use filters - call this before any references to its returned functions
-    const { updateFilterValues, resetAllFilters } = useFilters({
+    const { updateFilterIntensities, resetAllFilters } = useFilters({
         sliderRef,
         pixi: pixiRefs,
         props: hookProps
@@ -314,10 +314,10 @@ const KineticSliderMod: React.FC<KineticSliderProps> = ({
                 // Ensure displacement effects are shown
                 showDisplacementEffects();
                 // Reapply filter effects to the new slide with force update
-                updateFilterValues(true, true);
+                updateFilterIntensities(true, true);
             }, 100); // Short delay to allow transition to start
         }
-    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterValues]);
+    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
 
     const handlePrev = useCallback(() => {
         if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
@@ -335,12 +335,12 @@ const KineticSliderMod: React.FC<KineticSliderProps> = ({
                 // Ensure displacement effects are shown
                 showDisplacementEffects();
                 // Reapply filter effects to the new slide with force update
-                updateFilterValues(true, true);
+                updateFilterIntensities(true, true);
             }, 100); // Short delay to allow transition to start
         }
-    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterValues]);
+    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
 
-    // Apply hooks only when appRef is available and ready
+    // Apply hooks only when appRef is available and ready - NOW updateFilterIntensities is defined before being referenced
     useEffect(() => {
         // Skip if app is not initialized
         if (!appRef.current || !isAppReady) return;
@@ -418,16 +418,16 @@ const KineticSliderMod: React.FC<KineticSliderProps> = ({
         // Show displacement effects first
         showDisplacementEffects();
 
-        // Force update all filter values for the active slide
+        // Force update all filter intensities for the active slide
         setTimeout(() => {
             console.log("Applying filters after slight delay to ensure proper initialization");
-            updateFilterValues(true);
+            updateFilterIntensities(true);
         }, 50); // Short timeout to ensure displacement is applied first
 
         setIsInteracting(true);
-    }, [isAppReady, showDisplacementEffects, updateFilterValues]);
+    }, [isAppReady, showDisplacementEffects, updateFilterIntensities]);
 
-    // Mouse leave handler
+    // Mouse leave handler - FIXED to ensure all effects are removed
     const handleMouseLeave = useCallback(() => {
         if (!isAppReady) return;
         console.log("Mouse left the slider - deactivating ALL effects");
@@ -447,12 +447,12 @@ const KineticSliderMod: React.FC<KineticSliderProps> = ({
             if (resetAllFilters) {
                 resetAllFilters();
             }
-            // Reset the filter values state
-            updateFilterValues(false);
+            // Reset the filter intensities state
+            updateFilterIntensities(false);
         }, 10);
 
         setIsInteracting(false);
-    }, [isAppReady, hideDisplacementEffects, resetAllFilters, updateFilterValues]);
+    }, [isAppReady, hideDisplacementEffects, resetAllFilters, updateFilterIntensities]);
 
     // Render component
     return (
@@ -487,4 +487,4 @@ const KineticSliderMod: React.FC<KineticSliderProps> = ({
     );
 };
 
-export default KineticSliderMod;
+export default KineticSlider;

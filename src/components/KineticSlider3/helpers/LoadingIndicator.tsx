@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from '../KineticSliderMod.module.css';
+import styles from '../KineticSlider.module.css';
 import type { LoadingIndicatorProps } from "../types";
 
 /**
