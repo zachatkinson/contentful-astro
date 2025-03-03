@@ -1,6 +1,4 @@
 import { Filter } from 'pixi.js';
-import type {NoiseFilterConfig} from "../../KineticSlider/filters/types.ts";
-
 
 export type TextPair = [string, string]; // [title, subtitle]
 
@@ -93,17 +91,20 @@ export interface ColorMatrixFilterConfig extends BaseFilterConfig {
     lightColor?: string;     // Custom light color for colorTone preset (hex format)
     darkColor?: string;      // Custom dark color for colorTone preset (hex format)
 }
-
 /**
- * Configuration for ColorBurnBlendFilter
+ * Configuration for NoiseFilter
  *
- * ColorBurnBlendFilter darkens the base color to reflect the blend color by increasing the contrast.
- * It requires importing 'pixi.js/advanced-blend-modes' to work.
+ * NoiseFilter applies random noise to an image.
+ * It can be used to create film grain, static, or other textured effects.
  */
-export interface ColorBurnBlendFilterConfig extends BaseFilterConfig {
-    type: 'colorBurnBlend';
-    blendStrength?: number;  // Optional blend strength (0-1 scale, default: 1)
+export interface NoiseFilterConfig extends BaseFilterConfig {
+    type: 'noise';
+    noiseLevel?: number;      // Amount of noise to apply (0-1)
+    seed?: number;            // Seed for random number generation
+    generateNewSeedOnUpdate?: boolean; // Whether to generate a new seed when intensity changes
 }
+
+
 
 /**
  * Union type of all filter configurations
@@ -112,7 +113,6 @@ export type FilterConfig =
     | AlphaFilterConfig
     | BlurFilterConfig
     | ColorMatrixFilterConfig
-    | ColorBurnBlendFilterConfig
     | NoiseFilterConfig
 ;
 

@@ -10,7 +10,7 @@ import {
     type TextPair,
     type BlurFilterConfig,
     type ColorMatrixFilterConfig,
-    type ColorBurnBlendFilterConfig
+    type NoiseFilterConfig
 } from "../components/KineticSlider3/filters";
 const images = [
     "/images/slides/1.jpg",
@@ -40,13 +40,15 @@ const sepiaFilter: ColorMatrixFilterConfig = {
     preset: 'vintage' // Use the built-in sepia preset
 
 };
-
-const colorBurnFilter: ColorBurnBlendFilterConfig = {
-    type: 'colorBurnBlend',
+const noiseFilter: NoiseFilterConfig = {
+    type: 'noise',
     enabled: true,
-    intensity: 10, // 70% effect intensity (0-10 scale)
-    blendStrength: 0.8 // Optional parameter for strength adjustment (0-1 scale)
+    intensity: 3,      // Intensity on a scale of 0-10 (will be normalized to 0-1 internally)
+    noiseLevel: 0.3,   // Optional: Direct noise level (0-1)
+    seed: Math.random(), // Random seed
+    generateNewSeedOnUpdate: true // Generate new randomization when intensity changes
 };
+
 
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
@@ -86,7 +88,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                colorBurnFilter
+                noiseFilter
             ]}
             textFilters={[
 
