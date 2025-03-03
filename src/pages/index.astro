@@ -4,8 +4,8 @@ import {contentfulClient} from "../lib/contentful";
 import type {BlogPost} from "../lib/blogPost";
 import Hero from '../components/Hero/Hero.astro';
 import AnimatedCallToAction from "../components/AnimatedCallToAction/AnimatedCallToAction.astro";
-import KineticSlider3 from "../components/KineticSlider/KineticSlider3";
-import {type TextPair} from "../components/KineticSlider/types";
+import KineticSlider3 from "../components/KineticSlider3/KineticSlider";
+import {type TextPair} from "../components/KineticSlider3/filters";
 const images = [
     "/images/slides/1.jpg",
     "/images/slides/2.jpg",
@@ -54,17 +54,19 @@ const posts = entries.items.map((entry) => {
             cursorMomentum={0.14}
             imageFilters={[
                 {
-                    type: 'alpha',
+                    type: 'blur',
                     enabled: true,
-                    intensity: 5,     // Maps to alpha (0-1 range)
-                    alpha: 1         // Optional: Transparency value (default: 1)
-                }
+                    intensity: 1,        // Maps to blur strength
+  quality: 1,          // Optional: Blur quality (default: 4)
+  resolution: 1,       // Optional: Resolution scale (default: 1)
+  kernelSize: 5        // Optional: Kernel size (default: 5)
+}
             ]}
             textFilters={[
                 {
                     type: 'alpha',
                     enabled: true,
-                    alpha: 0        // Optional: Transparency value (default: 1)
+                    intensity: 0
                 }
             ]}
             textTitleColor="white"
@@ -84,7 +86,6 @@ const posts = entries.items.map((entry) => {
             transitionScaleIntensity={30}
             externalNav={false}
             buttonMode={false}
-            navTextsRgbIntensity={3}
     />
     <div class="p-4 container mx-auto">
         <h2>Latest Posts</h2>
