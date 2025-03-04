@@ -85,7 +85,7 @@ export interface AlphaFilterConfig extends BaseFilterConfig {
  */
 export interface AsciiFilterConfig extends BaseFilterConfig {
     type: 'ascii';
-    color?: ColorSource | undefined;   // The resulting color of the ascii characters (RGB array or hex)
+    color?: ColorSource;   // The resulting color of the ascii characters (RGB array or hex)
     replaceColor?: boolean | undefined;      // Whether to replace source colors with the provided color
     size?: number;               // The pixel size used by the filter (default: 8)
     primaryProperty?: 'size';    // Property controlled by intensity
