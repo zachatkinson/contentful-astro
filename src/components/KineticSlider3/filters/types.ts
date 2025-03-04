@@ -15,6 +15,7 @@ export type FilterType =
     | 'bloom'
     | 'blur'
     | 'bulgePinch'
+    | 'colorGradient'
     | 'colorMatrix'
     | 'noise'
 // Additional filter types will be added here as they are implemented
@@ -177,6 +178,23 @@ export interface BulgePinchFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for ColorGradientFilter
+ *
+ * The ColorGradientFilter renders a colored gradient overlay that can either
+ * replace the existing colors or be multiplied with them.
+ */
+export interface ColorGradientFilterConfig extends BaseFilterConfig {
+    type: 'colorGradient';
+    colors?: number[]; // Array of colors in the gradient (hex format)
+    stops?: number[];  // Array of stop positions (0-1) for each color
+    angle?: number;    // Angle of the gradient in degrees (default: 90)
+    alpha?: number;    // Alpha of the gradient (default: 1)
+    maxColors?: number; // Maximum number of colors to render (0 = no limit)
+    replace?: boolean;  // If true, replaces existing colors instead of multiplying
+    primaryProperty?: 'alpha' | 'angle'; // Property controlled by intensity
+}
+
+/**
  * Configuration for ColorMatrixFilter
  *
  * ColorMatrixFilter applies a 5x4 matrix transformation on RGBA color values.
@@ -242,9 +260,11 @@ export type FilterConfig =
     | BevelFilterConfig
     | BloomFilterConfig
     | BlurFilterConfig
+    | BulgePinchFilterConfig
+    | ColorGradientFilterConfig
     | ColorMatrixFilterConfig
     | NoiseFilterConfig
-    | BulgePinchFilterConfig
+
 
     ;
 

@@ -17,6 +17,7 @@ export { createBackdropBlurFilter } from './backdropBlurFilter'
 export { createBloomFilter } from './bloomFilter'
 export { createBlurFilter } from './blurFilter';
 export { createBulgePinchFilter } from './bulgePinchFilter'
+export { createColorGradientFilter } from './colorGradientFilter'
 export { createColorMatrixFilter } from './colorMatrixFilter';
 export { createNoiseFilter } from './noiseFilter';
 

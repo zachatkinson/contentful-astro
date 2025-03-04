@@ -148,6 +148,28 @@ const magnifyingGlassFilter = {
     primaryProperty: 'strength'
 };
 
+// Example of a purple-to-orange gradient filter for images
+const imageGradientFilter = {
+    type: 'colorGradient',
+    enabled: true,
+    intensity: 6, // Controls the alpha of the gradient (0-10 scale maps to 0-1)
+    colors: [0x9933ff, 0xff6600], // Purple to orange
+    angle: 45, // 45-degree angle
+    replace: false, // Multiply with original colors instead of replacing
+    primaryProperty: 'alpha' // The intensity controls the alpha
+};
+
+// Example of a blue-to-cyan text gradient filter
+const textGradientFilter = {
+    type: 'colorGradient',
+    enabled: true,
+    intensity: 8,
+    colors: [0x0066ff, 0x00ffcc], // Blue to cyan
+    angle: 90, // Vertical gradient
+    replace: true, // Replace the original text color
+    primaryProperty: 'alpha'
+};
+
 
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
@@ -187,10 +209,10 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                magnifyingGlassFilter
+                imageGradientFilter
             ]}
             textFilters={[
-                bloomFilter
+                textGradientFilter
             ]}
             textTitleColor="white"
             textTitleSize={64}
