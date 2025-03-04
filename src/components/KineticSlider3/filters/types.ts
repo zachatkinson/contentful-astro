@@ -1,6 +1,4 @@
-import { Filter } from 'pixi.js';
-import type {AdvancedBloomFilterConfig} from "../../KineticSlider/filters/types.ts";
-
+import {type ColorSource, Filter, type PointData} from 'pixi.js';
 export type TextPair = [string, string]; // [title, subtitle]
 
 /**
@@ -11,6 +9,7 @@ export type FilterType =
     | 'adjustment'
     | 'advancedBloom'
     | 'alpha'
+    | 'ascii'
     | 'blur'
     | 'colorMatrix'
     | 'noise'
@@ -57,14 +56,16 @@ export interface AdjustmentFilterConfig extends BaseFilterConfig {
  */
 export interface AdvancedBloomFilterConfig extends BaseFilterConfig {
     type: 'advancedBloom';
-    threshold?: number;       // Defines how bright a color needs to be extracted (0-1, default: 0.5)
     bloomScale?: number;      // To adjust the strength of the bloom (default: 1.0)
-    brightness?: number;      // The brightness of the bloom effect (default: 1.0)
     blur?: number;            // The strength of the Blur properties (default: 2)
-    quality?: number;         // The quality of the Blur Filter (default: 4)
+    brightness?: number;      // The brightness of the bloom effect (default: 1.0)
+    kernels?: number[];
+    pixelSize?: PointData;     // The quality of the Blur Filter (default: 4)
     pixelSizeX?: number;      // The horizontal pixel size of the Kawase Blur filter (default: 1)
     pixelSizeY?: number;      // The vertical pixel size of the Kawase Blur filter (default: 1)
     primaryProperty?: 'bloomScale' | 'brightness' | 'blur' | 'threshold'; // Property controlled by intensity
+    quality?: number;
+    threshold?: number;       // Defines how bright a color needs to be extracted (0-1, default: 0.5)
 }
 /**
  * Configuration for AlphaFilter
@@ -75,6 +76,19 @@ export interface AdvancedBloomFilterConfig extends BaseFilterConfig {
  */
 export interface AlphaFilterConfig extends BaseFilterConfig {
     type: 'alpha';
+}
+
+/**
+ * Configuration for AsciiFilter
+ *
+ * The AsciiFilter renders the image as ASCII characters.
+ */
+export interface AsciiFilterConfig extends BaseFilterConfig {
+    type: 'ascii';
+    color?: ColorSource | undefined;   // The resulting color of the ascii characters (RGB array or hex)
+    replaceColor?: boolean | undefined;      // Whether to replace source colors with the provided color
+    size?: number;               // The pixel size used by the filter (default: 8)
+    primaryProperty?: 'size';    // Property controlled by intensity
 }
 
 /**
@@ -152,12 +166,15 @@ export interface NoiseFilterConfig extends BaseFilterConfig {
  * Union type of all filter configurations
  */
 export type FilterConfig =
+    | AdjustmentFilterConfig
+    | AdvancedBloomFilterConfig
     | AlphaFilterConfig
+    | AsciiFilterConfig
     | BlurFilterConfig
     | ColorMatrixFilterConfig
     | NoiseFilterConfig
-    | AdjustmentFilterConfig
-    | AdvancedBloomFilterConfig
+
+
 ;
 
 /**

@@ -9,12 +9,13 @@
 export { FilterFactory } from './FilterFactory';
 
 // Export individual filter creators
+export { createAdjustmentFilter } from './adjustmentFilter';
 export { createAdvancedBloomFilter } from './advancedBloomFilter';
 export { createAlphaFilter } from './alphaFilter';
+export { createAsciiFilter } from './asciiFilter'
 export { createBlurFilter } from './blurFilter';
 export { createColorMatrixFilter } from './colorMatrixFilter';
 export { createNoiseFilter } from './noiseFilter';
-export { createAdjustmentFilter } from './adjustmentFilter';
 
 // Export filter types
 export * from './types';

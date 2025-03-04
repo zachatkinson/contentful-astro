@@ -61,6 +61,34 @@ const fadedFilmFilter: AdjustmentFilterConfig = {
     blue: 1.2,        // Slightly reduce blue
     brightness: 1.1   // Increase brightness
 };
+const bloomEffect = {
+    type: 'advancedBloom',
+    enabled: true,
+    intensity: 6,
+    bloomScale: 1.5,
+    brightness: 1.2,
+    blur: 3,
+    threshold: 0.4,
+    quality: 4,
+    pixelSize: { x: 1, y: 1 },  // This is a single object, not separate X/Y props
+    primaryProperty: 'bloomScale'  // Only valid options are bloomScale, brightness, blur, threshold
+};
+// ASCII filter preserving original colors
+const colorPreservingAsciiFilter = {
+    type: 'ascii',
+    enabled: true,
+    intensity: 1,
+    replaceColor: false, // Keep original image colors
+};
+
+// ASCII filter with custom color
+const coloredAsciiFilter = {
+    type: 'ascii',
+    enabled: true,
+    intensity: 1,
+    color: 0xffffff, // Green ASCII characters
+    replaceColor: true,
+};
 
 
 const entries = await contentfulClient.getEntries<BlogPost>({
@@ -101,7 +129,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                fadedFilmFilter
+                coloredAsciiFilter
             ]}
             textFilters={[
 

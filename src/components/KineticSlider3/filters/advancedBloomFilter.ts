@@ -13,28 +13,16 @@ import { type AdvancedBloomFilterConfig, type FilterResult } from './types';
 export function createAdvancedBloomFilter(config: AdvancedBloomFilterConfig): FilterResult {
     // Create options object with defaults for required properties
     const options: any = {
-        threshold: config.threshold ?? 0.5,
         bloomScale: config.bloomScale ?? 1,
-        brightness: config.brightness ?? 1,
         blur: config.blur ?? 2,
+        brightness: config.brightness ?? 1,
         quality: config.quality ?? 4,
+        threshold: config.threshold ?? 0.5,
     };
 
     // Add optional properties if specified
     if (config.pixelSize !== undefined) {
         options.pixelSize = config.pixelSize;
-    }
-
-    if (config.pixelSizeX !== undefined) {
-        options.pixelSizeX = config.pixelSizeX;
-    }
-
-    if (config.pixelSizeY !== undefined) {
-        options.pixelSizeY = config.pixelSizeY;
-    }
-
-    if (config.kernels !== undefined) {
-        options.kernels = config.kernels;
     }
 
     // Create the filter with options
@@ -70,18 +58,6 @@ export function createAdvancedBloomFilter(config: AdvancedBloomFilterConfig): Fi
                     // threshold: How bright a color needs to be to be affected (0-1)
                     filter.threshold = normalizedIntensity / 10; // 0-10 -> 0-1
                     break;
-                case 'pixelSizeX':
-                    // pixelSizeX: Horizontal pixel size of Kawase Blur (1-10 is a good range)
-                    filter.pixelSizeX = Math.max(1, normalizedIntensity / 2); // 0-10 -> 0-5 (min 1)
-                    break;
-                case 'pixelSizeY':
-                    // pixelSizeY: Vertical pixel size of Kawase Blur (1-10 is a good range)
-                    filter.pixelSizeY = Math.max(1, normalizedIntensity / 2); // 0-10 -> 0-5 (min 1)
-                    break;
-                case 'quality':
-                    // quality: Quality of blur (1-10, higher values = better quality but slower)
-                    filter.quality = Math.max(1, Math.floor(normalizedIntensity / 2)); // 0-10 -> 1-5 (integer)
-                    break;
                 default:
                     // Default behavior if primaryProperty is not recognized
                     filter.bloomScale = normalizedIntensity / 5; // 0-10 -> 0-2
@@ -107,17 +83,9 @@ export function createAdvancedBloomFilter(config: AdvancedBloomFilterConfig): Fi
         filter.blur = 2;
         filter.quality = 4;
 
-        // Reset pixel sizes if they were modified
-        if (filter.pixelSize !== undefined) {
+        // Reset pixel size if it was modified
+        if ('pixelSize' in filter && filter.pixelSize) {
             filter.pixelSize = { x: 1, y: 1 };
-        }
-
-        if (filter.pixelSizeX !== undefined) {
-            filter.pixelSizeX = 1;
-        }
-
-        if (filter.pixelSizeY !== undefined) {
-            filter.pixelSizeY = 1;
         }
     };
 
