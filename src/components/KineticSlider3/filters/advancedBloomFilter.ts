@@ -1,0 +1,125 @@
+import { AdvancedBloomFilter } from 'pixi-filters';
+import { type AdvancedBloomFilterConfig, type FilterResult } from './types';
+
+/**
+ * Creates an AdvancedBloomFilter that applies a bloom effect with advanced controls
+ *
+ * The AdvancedBloomFilter applies a bloom effect to an object with more control options
+ * than the standard BloomFilter, at the cost of performance.
+ *
+ * @param config - Configuration for the AdvancedBloom filter
+ * @returns FilterResult with the filter instance and control functions
+ */
+export function createAdvancedBloomFilter(config: AdvancedBloomFilterConfig): FilterResult {
+    // Create options object with defaults for required properties
+    const options: any = {
+        threshold: config.threshold ?? 0.5,
+        bloomScale: config.bloomScale ?? 1,
+        brightness: config.brightness ?? 1,
+        blur: config.blur ?? 2,
+        quality: config.quality ?? 4,
+    };
+
+    // Add optional properties if specified
+    if (config.pixelSize !== undefined) {
+        options.pixelSize = config.pixelSize;
+    }
+
+    if (config.pixelSizeX !== undefined) {
+        options.pixelSizeX = config.pixelSizeX;
+    }
+
+    if (config.pixelSizeY !== undefined) {
+        options.pixelSizeY = config.pixelSizeY;
+    }
+
+    if (config.kernels !== undefined) {
+        options.kernels = config.kernels;
+    }
+
+    // Create the filter with options
+    const filter = new AdvancedBloomFilter(options);
+
+    /**
+     * Update the filter's intensity based on the configuration's primaryProperty
+     * or the default behavior which adjusts bloomScale and brightness.
+     *
+     * @param intensity - New intensity value (0-10 scale)
+     */
+    const updateIntensity = (intensity: number): void => {
+        // Normalize intensity to a 0-10 scale
+        const normalizedIntensity = Math.max(0, Math.min(10, intensity));
+
+        // Determine which property to adjust based on config
+        if (config.primaryProperty) {
+            // Map intensity (0-10) to appropriate range for the specified property
+            switch (config.primaryProperty) {
+                case 'bloomScale':
+                    // bloomScale: Higher values = more intense brightness (0-2 is a good range)
+                    filter.bloomScale = normalizedIntensity / 5; // 0-10 -> 0-2
+                    break;
+                case 'brightness':
+                    // brightness: Higher values = more blown-out (0-2 is a good range)
+                    filter.brightness = normalizedIntensity / 5; // 0-10 -> 0-2
+                    break;
+                case 'blur':
+                    // blur: Strength of blur properties (1-10 is a good range)
+                    filter.blur = Math.max(1, normalizedIntensity / 2); // 0-10 -> 0-5 (min 1)
+                    break;
+                case 'threshold':
+                    // threshold: How bright a color needs to be to be affected (0-1)
+                    filter.threshold = normalizedIntensity / 10; // 0-10 -> 0-1
+                    break;
+                case 'pixelSizeX':
+                    // pixelSizeX: Horizontal pixel size of Kawase Blur (1-10 is a good range)
+                    filter.pixelSizeX = Math.max(1, normalizedIntensity / 2); // 0-10 -> 0-5 (min 1)
+                    break;
+                case 'pixelSizeY':
+                    // pixelSizeY: Vertical pixel size of Kawase Blur (1-10 is a good range)
+                    filter.pixelSizeY = Math.max(1, normalizedIntensity / 2); // 0-10 -> 0-5 (min 1)
+                    break;
+                case 'quality':
+                    // quality: Quality of blur (1-10, higher values = better quality but slower)
+                    filter.quality = Math.max(1, Math.floor(normalizedIntensity / 2)); // 0-10 -> 1-5 (integer)
+                    break;
+                default:
+                    // Default behavior if primaryProperty is not recognized
+                    filter.bloomScale = normalizedIntensity / 5; // 0-10 -> 0-2
+            }
+        } else {
+            // Default behavior if no primaryProperty is specified:
+            // Adjust both bloomScale and brightness proportionally
+            filter.bloomScale = normalizedIntensity / 5; // 0-10 -> 0-2
+            filter.brightness = Math.min(1.5, 0.5 + (normalizedIntensity / 20)); // 0-10 -> 0.5-1.5
+        }
+    };
+
+    // Set initial intensity
+    updateIntensity(config.intensity);
+
+    /**
+     * Reset the filter to default state (minimal bloom effect)
+     */
+    const reset = (): void => {
+        filter.threshold = 0.5;
+        filter.bloomScale = 0.1; // Very subtle bloom
+        filter.brightness = 1;
+        filter.blur = 2;
+        filter.quality = 4;
+
+        // Reset pixel sizes if they were modified
+        if (filter.pixelSize !== undefined) {
+            filter.pixelSize = { x: 1, y: 1 };
+        }
+
+        if (filter.pixelSizeX !== undefined) {
+            filter.pixelSizeX = 1;
+        }
+
+        if (filter.pixelSizeY !== undefined) {
+            filter.pixelSizeY = 1;
+        }
+    };
+
+    return { filter, updateIntensity, reset };
+}

@@ -1,11 +1,12 @@
 import { type FilterConfig, type FilterResult } from './types';
 
 // Import individual filter creators
+import { createAdvancedBloomFilter } from './advancedBloomFilter';
 import { createAlphaFilter } from './alphaFilter';
 import { createBlurFilter } from './blurFilter';
 import { createColorMatrixFilter } from './colorMatrixFilter';
-import {createNoiseFilter} from "./noiseFilter.ts";
-import {createAdjustmentFilter} from "./adjustmentFilter.ts";
+import { createNoiseFilter } from "./noiseFilter.ts";
+import { createAdjustmentFilter } from "./adjustmentFilter.ts";
 /**
  * Factory for creating and managing different types of PixiJS filters
  *
@@ -27,6 +28,10 @@ export class FilterFactory {
         // Map filter type to creator function
         switch (config.type) {
             // Built-in PixiJS Filters
+            case 'adjustment':
+                return createAdjustmentFilter(config);
+            case 'advancedBloom':
+                return createAdvancedBloomFilter(config);
             case 'alpha':
                 return createAlphaFilter(config);
             case 'blur':
@@ -34,11 +39,7 @@ export class FilterFactory {
             case 'colorMatrix':
                 return createColorMatrixFilter(config);
             case 'noise':
-                return createNoiseFilter(config)
-            case 'adjustment':
-                return createAdjustmentFilter(config)
-
-
+                return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented
 
             default:

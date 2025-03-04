@@ -1,4 +1,5 @@
 import { Filter } from 'pixi.js';
+import type {AdvancedBloomFilterConfig} from "../../KineticSlider/filters/types.ts";
 
 export type TextPair = [string, string]; // [title, subtitle]
 
@@ -8,6 +9,7 @@ export type TextPair = [string, string]; // [title, subtitle]
 export type FilterType =
 // Built-in PixiJS filters
     | 'adjustment'
+    | 'advancedBloom'
     | 'alpha'
     | 'blur'
     | 'colorMatrix'
@@ -46,6 +48,24 @@ export interface AdjustmentFilterConfig extends BaseFilterConfig {
     primaryProperty?: 'gamma' | 'contrast' | 'saturation' | 'brightness' | 'red' | 'green' | 'blue' | 'alpha';
 }
 
+/**
+ * Configuration for AdvancedBloomFilter
+ *
+ * The AdvancedBloomFilter applies a Bloom Effect to an object with advanced controls
+ * for adjusting the look of the bloom. Note: this filter is more GPU-intensive than
+ * the standard BloomFilter.
+ */
+export interface AdvancedBloomFilterConfig extends BaseFilterConfig {
+    type: 'advancedBloom';
+    threshold?: number;       // Defines how bright a color needs to be extracted (0-1, default: 0.5)
+    bloomScale?: number;      // To adjust the strength of the bloom (default: 1.0)
+    brightness?: number;      // The brightness of the bloom effect (default: 1.0)
+    blur?: number;            // The strength of the Blur properties (default: 2)
+    quality?: number;         // The quality of the Blur Filter (default: 4)
+    pixelSizeX?: number;      // The horizontal pixel size of the Kawase Blur filter (default: 1)
+    pixelSizeY?: number;      // The vertical pixel size of the Kawase Blur filter (default: 1)
+    primaryProperty?: 'bloomScale' | 'brightness' | 'blur' | 'threshold'; // Property controlled by intensity
+}
 /**
  * Configuration for AlphaFilter
  *
@@ -137,6 +157,7 @@ export type FilterConfig =
     | ColorMatrixFilterConfig
     | NoiseFilterConfig
     | AdjustmentFilterConfig
+    | AdvancedBloomFilterConfig
 ;
 
 /**
