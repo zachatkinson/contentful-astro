@@ -14,6 +14,7 @@ import {createBloomFilter} from "./bloomFilter.ts";
 import {createBulgePinchFilter} from "./bulgePinchFilter.ts";
 import {createColorGradientFilter} from "./colorGradientFilter.ts";
 import {createColorMapFilter} from "./colorMapFilter.ts";
+import {createColorOverlayFilter} from "./colorOverlayFilter.ts";
 
 
 /**
@@ -61,6 +62,8 @@ export class FilterFactory {
                 return createColorMapFilter(config)
             case 'colorMatrix':
                 return createColorMatrixFilter(config);
+            case 'colorOverlay':
+                return createColorOverlayFilter(config)
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented

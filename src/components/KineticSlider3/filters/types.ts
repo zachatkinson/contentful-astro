@@ -19,6 +19,7 @@ export type FilterType =
     | 'colorGradient'
     | 'colorMap'
     | 'colorMatrix'
+    | 'colorOverlay'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -249,6 +250,20 @@ export interface ColorMatrixFilterConfig extends BaseFilterConfig {
     lightColor?: string;     // Custom light color for colorTone preset (hex format)
     darkColor?: string;      // Custom dark color for colorTone preset (hex format)
 }
+
+/**
+ * Configuration for ColorOverlayFilter
+ *
+ * The ColorOverlayFilter applies a color overlay to an object.
+ * It's useful for tinting images, creating color washes, or applying color effects.
+ */
+export interface ColorOverlayFilterConfig extends BaseFilterConfig {
+    type: 'colorOverlay';
+    color?: number;       // The color of the overlay (hex format, default: 0x000000)
+    alpha?: number;       // The alpha (opacity) of the overlay (0-1, default: 1)
+    primaryProperty?: 'alpha' | 'color';  // Property controlled by intensity
+}
+
 /**
  * Configuration for NoiseFilter
  *
@@ -280,7 +295,9 @@ export type FilterConfig =
     | ColorGradientFilterConfig
     | ColorMapFilterConfig
     | ColorMatrixFilterConfig
+    | ColorOverlayFilterConfig
     | NoiseFilterConfig
+
 
 
     ;

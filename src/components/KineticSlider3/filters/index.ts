@@ -20,6 +20,7 @@ export { createBulgePinchFilter } from './bulgePinchFilter'
 export { createColorGradientFilter } from './colorGradientFilter'
 export { createColorMapFilter } from './colorMapFilter'
 export { createColorMatrixFilter } from './colorMatrixFilter';
+export { createColorOverlayFilter } from './colorOverlayFilter'
 export { createNoiseFilter } from './noiseFilter';
 
 

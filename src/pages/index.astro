@@ -178,6 +178,13 @@ const colorMapFilter = {
     nearest: false
 };
 
+const colorOverlayFilter = {
+    type: 'colorOverlay',
+    enabled: true,
+    intensity: 10, // 50% opacity by default
+    color: 0x00FF00, // Orange overlay
+    primaryProperty: 'alpha' // Intensity will control opacity
+}
 
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
@@ -217,7 +224,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                colorMapFilter
+                colorOverlayFilter
             ]}
             textFilters={[
                 textGradientFilter
