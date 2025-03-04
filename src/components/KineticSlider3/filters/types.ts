@@ -14,6 +14,7 @@ export type FilterType =
     | 'bevel'
     | 'bloom'
     | 'blur'
+    | 'bulgePinch'
     | 'colorMatrix'
     | 'noise'
 // Additional filter types will be added here as they are implemented
@@ -158,6 +159,24 @@ export interface BlurFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for BulgePinchFilter
+ *
+ * The BulgePinchFilter creates a bulge or pinch effect in a circular area of the image.
+ * It can be used to create magnifying glass effects (with positive strength)
+ * or pinch effects (with negative strength).
+ */
+export interface BulgePinchFilterConfig extends BaseFilterConfig {
+    type: 'bulgePinch';
+    center?: PointData;       // Center point of the effect {x,y} in normalized coords (0-1)
+    centerX?: number;         // X coordinate of center (0-1)
+    centerY?: number;         // Y coordinate of center (0-1)
+    radius?: number;          // Radius of the effect circle (default: 100)
+    strength?: number;        // Strength of the effect (-1 to 1, negative = pinch, positive = bulge)
+    allowPinch?: boolean;     // If true, allows negative strength (pinch effect)
+    primaryProperty?: 'strength' | 'radius' | 'centerX' | 'centerY'; // Property controlled by intensity
+}
+
+/**
  * Configuration for ColorMatrixFilter
  *
  * ColorMatrixFilter applies a 5x4 matrix transformation on RGBA color values.
@@ -225,6 +244,7 @@ export type FilterConfig =
     | BlurFilterConfig
     | ColorMatrixFilterConfig
     | NoiseFilterConfig
+    | BulgePinchFilterConfig
 
     ;
 

@@ -11,6 +11,7 @@ import { createColorMatrixFilter } from './colorMatrixFilter';
 import { createNoiseFilter } from "./noiseFilter";
 import {createBevelFilter} from "./bevelFilter.ts";
 import {createBloomFilter} from "./bloomFilter.ts";
+import {createBulgePinchFilter} from "./bulgePinchFilter.ts";
 
 
 /**
@@ -50,6 +51,8 @@ export class FilterFactory {
                 return createBloomFilter(config)
             case 'blur':
                 return createBlurFilter(config);
+            case 'bulgePinch':
+                return createBulgePinchFilter(config)
             case 'colorMatrix':
                 return createColorMatrixFilter(config);
             case 'noise':

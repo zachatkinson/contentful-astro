@@ -137,6 +137,17 @@ const bloomFilter =     {
     primaryProperty: 'strength' // Optional - determines which property intensity affects
 }
 
+// Magnifying glass effect (bulge)
+const magnifyingGlassFilter = {
+    type: 'bulgePinch',
+    enabled: true,
+    intensity: 10,        // On a scale of 0-10
+    radius: 186,         // Size of the effect area
+    strength: 1,       // Positive value for bulge effect
+    center: { x: 0.5, y: 0.5 }, // Center of the screen
+    primaryProperty: 'strength'
+};
+
 
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
@@ -176,7 +187,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                bloomFilter
+                magnifyingGlassFilter
             ]}
             textFilters={[
                 bloomFilter
