@@ -64,7 +64,6 @@ export class FilterFactory {
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented
-
             default:
                 throw new Error(`Unsupported filter type: ${config}`);
         }
