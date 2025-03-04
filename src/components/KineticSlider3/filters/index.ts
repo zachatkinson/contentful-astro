@@ -21,6 +21,7 @@ export { createColorGradientFilter } from './colorGradientFilter'
 export { createColorMapFilter } from './colorMapFilter'
 export { createColorMatrixFilter } from './colorMatrixFilter';
 export { createColorOverlayFilter } from './colorOverlayFilter'
+export { createColorReplaceFilter } from './colorReplaceFilter'
 export { createNoiseFilter } from './noiseFilter';
 
 

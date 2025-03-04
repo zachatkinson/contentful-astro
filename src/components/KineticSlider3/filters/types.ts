@@ -20,6 +20,7 @@ export type FilterType =
     | 'colorMap'
     | 'colorMatrix'
     | 'colorOverlay'
+    | 'colorReplace'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -265,6 +266,20 @@ export interface ColorOverlayFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for ColorReplaceFilter
+ *
+ * ColorReplaceFilter replaces all instances of a specified color with another color.
+ * It offers control over the tolerance of the color matching.
+ */
+export interface ColorReplaceFilterConfig extends BaseFilterConfig {
+    type: 'colorReplace';
+    originalColor?: ColorSource;  // The color to be replaced (RGB array or hex)
+    targetColor?: ColorSource;    // The color to replace with (RGB array or hex)
+    tolerance?: number;           // Sensitivity of the color matching (0-1, default: 0.4)
+    primaryProperty?: 'tolerance'; // Property controlled by intensity
+}
+
+/**
  * Configuration for NoiseFilter
  *
  * NoiseFilter applies random noise to an image.
@@ -296,6 +311,7 @@ export type FilterConfig =
     | ColorMapFilterConfig
     | ColorMatrixFilterConfig
     | ColorOverlayFilterConfig
+    | ColorReplaceFilterConfig
     | NoiseFilterConfig
 
 

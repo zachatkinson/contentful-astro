@@ -9,12 +9,13 @@ import { createBackdropBlurFilter } from "./backdropBlurFilter";
 import { createBlurFilter } from './blurFilter';
 import { createColorMatrixFilter } from './colorMatrixFilter';
 import { createNoiseFilter } from "./noiseFilter";
-import {createBevelFilter} from "./bevelFilter.ts";
-import {createBloomFilter} from "./bloomFilter.ts";
-import {createBulgePinchFilter} from "./bulgePinchFilter.ts";
-import {createColorGradientFilter} from "./colorGradientFilter.ts";
-import {createColorMapFilter} from "./colorMapFilter.ts";
-import {createColorOverlayFilter} from "./colorOverlayFilter.ts";
+import { createBevelFilter } from "./bevelFilter.ts";
+import { createBloomFilter } from "./bloomFilter.ts";
+import { createBulgePinchFilter } from "./bulgePinchFilter.ts";
+import { createColorGradientFilter } from "./colorGradientFilter.ts";
+import { createColorMapFilter } from "./colorMapFilter.ts";
+import { createColorOverlayFilter } from "./colorOverlayFilter.ts";
+import { createColorReplaceFilter } from "./colorReplaceFilter.ts";
 
 
 /**
@@ -64,6 +65,8 @@ export class FilterFactory {
                 return createColorMatrixFilter(config);
             case 'colorOverlay':
                 return createColorOverlayFilter(config)
+            case 'colorReplace':
+                return createColorReplaceFilter(config)
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented
