@@ -1,5 +1,6 @@
-import { type ColorSource, Filter, type PointData } from 'pixi.js';
+import {type ColorSource, Filter, type PointData, type Texture} from 'pixi.js';
 export type TextPair = [string, string]; // [title, subtitle]
+
 
 /**
  * List of supported filter types
@@ -16,6 +17,7 @@ export type FilterType =
     | 'blur'
     | 'bulgePinch'
     | 'colorGradient'
+    | 'colorMap'
     | 'colorMatrix'
     | 'noise'
 // Additional filter types will be added here as they are implemented
@@ -195,6 +197,20 @@ export interface ColorGradientFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for ColorMapFilter
+ *
+ * The ColorMapFilter applies a color-map effect to an object using a provided
+ * texture map.
+ */
+export interface ColorMapFilterConfig extends BaseFilterConfig {
+    type: 'colorMap';
+    colorMap:  Texture | string ; // Path to texture or actual texture object
+    colorSize?: number;       // The size of one color slice
+    mix?: number;             // The mix ratio (0-1)
+    nearest?: boolean;        // Whether to use NEAREST for colorMap texture
+}
+
+/**
  * Configuration for ColorMatrixFilter
  *
  * ColorMatrixFilter applies a 5x4 matrix transformation on RGBA color values.
@@ -262,6 +278,7 @@ export type FilterConfig =
     | BlurFilterConfig
     | BulgePinchFilterConfig
     | ColorGradientFilterConfig
+    | ColorMapFilterConfig
     | ColorMatrixFilterConfig
     | NoiseFilterConfig
 

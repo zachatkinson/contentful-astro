@@ -13,6 +13,7 @@ import {createBevelFilter} from "./bevelFilter.ts";
 import {createBloomFilter} from "./bloomFilter.ts";
 import {createBulgePinchFilter} from "./bulgePinchFilter.ts";
 import {createColorGradientFilter} from "./colorGradientFilter.ts";
+import {createColorMapFilter} from "./colorMapFilter.ts";
 
 
 /**
@@ -56,6 +57,8 @@ export class FilterFactory {
                 return createBulgePinchFilter(config);
             case 'colorGradient':
                 return createColorGradientFilter(config);
+            case 'colorMap':
+                return createColorMapFilter(config)
             case 'colorMatrix':
                 return createColorMatrixFilter(config);
             case 'noise':
