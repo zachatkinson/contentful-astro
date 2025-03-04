@@ -50,7 +50,7 @@ export function createBloomFilter(config: BloomFilterConfig): FilterResult {
             switch (config.primaryProperty) {
                 case 'strength':
                     // Apply to overall strength (both X and Y)
-                    filter.strength = normalizedIntensity * 2; // 0-10 → 0-20
+                    filter.strength = {x: normalizedIntensity * 2, y: normalizedIntensity * 2} ; // 0-10 → 0-20
                     break;
                 case 'strengthX':
                     // Apply to X strength only
