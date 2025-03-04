@@ -10,37 +10,50 @@ import { Assets, Texture } from 'pixi.js';
  * @param config - Configuration for the ColorMap filter
  * @returns FilterResult with the filter instance and control functions
  */
-export async function createColorMapFilter(config: ColorMapFilterConfig): Promise<FilterResult> {
-    // First load the colorMap texture if it's provided as a URL
+export function createColorMapFilter(config: ColorMapFilterConfig): FilterResult {
+    // Create initial texture (placeholder or actual)
     let colorMapTexture: any = config.colorMap;
 
     if (typeof config.colorMap === 'string') {
-        try {
-            // Try to load the texture using Assets API
-            colorMapTexture = await Assets.load(config.colorMap);
-        } catch (error) {
-            console.error(`Failed to load colorMap texture: ${config.colorMap}`, error);
-            throw error;
-        }
+        // For string paths, start with a placeholder
+        colorMapTexture = Texture.EMPTY; // Use empty texture as placeholder
+
+        // Load the actual texture asynchronously
+        Assets.load(config.colorMap)
+            .then(texture => {
+                if (filter) {
+                    filter.colorMap = texture;
+                }
+            })
+            .catch(error => {
+                console.error(`Failed to load colorMap texture: ${config.colorMap}`, error);
+            });
     }
 
-    // Create options object for the filter
-    const options: any = {
-        colorMap: colorMapTexture,
-        nearest: config.nearest ?? false
-    };
+    // Create the filter - use the appropriate constructor based on documentation
+    let filter: ColorMapFilter;
 
-    // Set colorSize if provided
-    if (config.colorSize !== undefined) {
-        options.colorSize = config.colorSize;
+    if (config.nearest !== undefined || config.mix !== undefined) {
+        // Use overload 2 with individual parameters
+        filter = new ColorMapFilter(
+            colorMapTexture,
+            config.nearest,
+            config.mix
+        );
+    } else {
+        // Use overload 1 with options object, but only include properties
+        // that are part of ColorMapFilterOptions
+        filter = new ColorMapFilter({
+            colorMap: colorMapTexture,
+            nearest: config.nearest
+            // Note: we're not including colorSize here as it's not in the options type
+        });
     }
 
-    // Create the filter with options
-    const filter = new ColorMapFilter(options);
-
-    // Set initial mix value if provided
-    if (config.mix !== undefined) {
-        filter.mix = config.mix;
+    // If colorSize is specifically provided, try to set it directly on the filter
+    // after creation (if the property exists)
+    if (config.colorSize !== undefined && 'colorSize' in filter) {
+        (filter as any).colorSize = config.colorSize;
     }
 
     /**
