@@ -9,6 +9,7 @@ import { createBackdropBlurFilter } from "./backdropBlurFilter";
 import { createBlurFilter } from './blurFilter';
 import { createColorMatrixFilter } from './colorMatrixFilter';
 import { createNoiseFilter } from "./noiseFilter";
+import {createBevelFilter} from "./bevelFilter.ts";
 
 
 /**
@@ -42,6 +43,8 @@ export class FilterFactory {
                 return createAsciiFilter(config);
             case 'backdropBlur':
                 return createBackdropBlurFilter(config);
+            case 'bevel':
+                return createBevelFilter(config)
             case 'blur':
                 return createBlurFilter(config);
             case 'colorMatrix':

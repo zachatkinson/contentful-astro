@@ -1,5 +1,4 @@
 import { type ColorSource, Filter, type PointData } from 'pixi.js';
-import type {BackdropBlurFilterConfig} from "../../KineticSlider/filters/types.ts";
 export type TextPair = [string, string]; // [title, subtitle]
 
 /**
@@ -12,6 +11,7 @@ export type FilterType =
     | 'alpha'
     | 'ascii'
     | 'backdropBlur'
+    | 'bevel'
     | 'blur'
     | 'colorMatrix'
     | 'noise'
@@ -94,6 +94,38 @@ export interface AsciiFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for BackdropBlurFilter
+ *
+ * BackdropBlurFilter applies a Gaussian blur to everything behind an object,
+ * and then draws the object on top of it. This creates a depth-of-field effect.
+ */
+export interface BackdropBlurFilterConfig extends BaseFilterConfig {
+    type: 'backdropBlur';
+    strength?: number;     // Blur strength (0-100)
+    quality?: number;      // Quality of the blur (number of passes)
+    kernelSize?: number;   // Size of blur kernel (5, 7, 9, 11, 13, 15)
+    resolution?: number;   // Resolution of the blur filter
+    repeatEdgePixels?: boolean; // Whether to clamp the edge of the target
+}
+
+/**
+ * Configuration for BevelFilter
+ *
+ * BevelFilter gives objects a 3D-like appearance by creating a bevel effect
+ * with configurable light and shadow colors, thickness, and rotation.
+ */
+export interface BevelFilterConfig extends BaseFilterConfig {
+    type: 'bevel';
+    rotation?: number;         // The angle of the light in degrees (default: 45)
+    thickness?: number;        // The thickness of the bevel (default: 2)
+    lightColor?: ColorSource;  // The color value of the left & top bevel (default: 0xffffff)
+    lightAlpha?: number;       // The alpha value of the left & top bevel (default: 0.7)
+    shadowColor?: ColorSource; // The color value of the right & bottom bevel (default: 0x000000)
+    shadowAlpha?: number;      // The alpha value of the right & bottom bevel (default: 0.7)
+    primaryProperty?: 'thickness' | 'lightAlpha' | 'shadowAlpha' | 'rotation'; // Property controlled by intensity
+}
+
+/**
  * Configuration for BlurFilter
  *
  * BlurFilter applies a Gaussian blur to an object.
@@ -173,13 +205,10 @@ export type FilterConfig =
     | AlphaFilterConfig
     | AsciiFilterConfig
     | BackdropBlurFilterConfig
+    | BevelFilterConfig
     | BlurFilterConfig
     | ColorMatrixFilterConfig
-    | NoiseFilterConfig
-
-
-
-;
+    | NoiseFilterConfig;
 
 /**
  * Result object returned by filter creation functions
