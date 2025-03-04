@@ -128,6 +128,15 @@ const embossFilter = {
     primaryProperty: 'lightAlpha' // Intensity controls light strength
 };
 
+const bloomFilter =     {
+    type: 'bloom',
+    enabled: true,
+    intensity: 10,   // On a scale of 0-10
+    strengthX: 10,
+    strengthY: 10,
+    primaryProperty: 'strength' // Optional - determines which property intensity affects
+}
+
 
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
@@ -167,7 +176,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-
+                bloomFilter
             ]}
             textFilters={[
 

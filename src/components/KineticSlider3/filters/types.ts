@@ -12,6 +12,7 @@ export type FilterType =
     | 'ascii'
     | 'backdropBlur'
     | 'bevel'
+    | 'bloom'
     | 'blur'
     | 'colorMatrix'
     | 'noise'
@@ -126,6 +127,20 @@ export interface BevelFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for BloomFilter
+ *
+ * The BloomFilter applies a Gaussian blur to create a bloom/glow effect.
+ * It's a simpler alternative to AdvancedBloomFilter with fewer options but better performance.
+ */
+export interface BloomFilterConfig extends BaseFilterConfig {
+    type: 'bloom';
+    strength?: PointData;     // Sets the strength of both X and Y blur simultaneously
+    strengthX?: number;    // Sets the strength of the blur on the X axis
+    strengthY?: number;    // Sets the strength of the blur on the Y axis
+    primaryProperty?: 'strength' | 'strengthX' | 'strengthY'; // Property controlled by intensity
+}
+
+/**
  * Configuration for BlurFilter
  *
  * BlurFilter applies a Gaussian blur to an object.
@@ -206,9 +221,12 @@ export type FilterConfig =
     | AsciiFilterConfig
     | BackdropBlurFilterConfig
     | BevelFilterConfig
+    | BloomFilterConfig
     | BlurFilterConfig
     | ColorMatrixFilterConfig
-    | NoiseFilterConfig;
+    | NoiseFilterConfig
+
+    ;
 
 /**
  * Result object returned by filter creation functions

@@ -14,6 +14,7 @@ export { createAdvancedBloomFilter } from './advancedBloomFilter';
 export { createAlphaFilter } from './alphaFilter';
 export { createAsciiFilter } from './asciiFilter'
 export { createBackdropBlurFilter } from './backdropBlurFilter'
+export { createBloomFilter } from './bloomFilter'
 export { createBlurFilter } from './blurFilter';
 export { createColorMatrixFilter } from './colorMatrixFilter';
 export { createNoiseFilter } from './noiseFilter';
