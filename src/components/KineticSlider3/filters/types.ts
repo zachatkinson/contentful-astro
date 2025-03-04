@@ -7,10 +7,10 @@ export type TextPair = [string, string]; // [title, subtitle]
  */
 export type FilterType =
 // Built-in PixiJS filters
+    | 'adjustment'
     | 'alpha'
     | 'blur'
     | 'colorMatrix'
-    | 'colorBurnBlend'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -22,6 +22,28 @@ export interface BaseFilterConfig {
     type: FilterType;
     enabled: boolean;
     intensity: number;
+}
+
+/**
+ * This is the section we'll be adding to the types.ts file
+ *
+ * Configuration for AdjustmentFilter
+ *
+ * AdjustmentFilter provides direct control over gamma, contrast, saturation, brightness,
+ * alpha and color-channel shifts without using a matrix. This makes it faster and simpler
+ * than ColorMatrixFilter for common image adjustments.
+ */
+export interface AdjustmentFilterConfig extends BaseFilterConfig {
+    type: 'adjustment';
+    gamma?: number;         // Amount of luminance (0-2 range, 1 is neutral)
+    contrast?: number;      // Amount of contrast (0-2 range, 1 is neutral)
+    saturation?: number;    // Amount of color saturation (0-2 range, 1 is neutral)
+    brightness?: number;    // Overall brightness (0-2 range, 1 is neutral)
+    red?: number;           // Multiplier for red channel (0-2 range, 1 is neutral)
+    green?: number;         // Multiplier for green channel (0-2 range, 1 is neutral)
+    blue?: number;          // Multiplier for blue channel (0-2 range, 1 is neutral)
+    alpha?: number;         // Overall alpha channel (0-1 range, 1 is fully opaque)
+    primaryProperty?: 'gamma' | 'contrast' | 'saturation' | 'brightness' | 'red' | 'green' | 'blue' | 'alpha';
 }
 
 /**
@@ -114,6 +136,7 @@ export type FilterConfig =
     | BlurFilterConfig
     | ColorMatrixFilterConfig
     | NoiseFilterConfig
+    | AdjustmentFilterConfig
 ;
 
 /**
