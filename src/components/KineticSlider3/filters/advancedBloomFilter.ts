@@ -55,7 +55,7 @@ export function createAdvancedBloomFilter(config: AdvancedBloomFilterConfig): Fi
                     filter.blur = Math.max(1, normalizedIntensity / 2); // 0-10 -> 0-5 (min 1)
                     break;
                 case 'threshold':
-                    // threshold: How bright a color needs to be to be affected (0-1)
+                    // threshold: How bright a color needs to be affected (0-1)
                     filter.threshold = normalizedIntensity / 10; // 0-10 -> 0-1
                     break;
                 default:

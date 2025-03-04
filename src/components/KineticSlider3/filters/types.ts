@@ -1,4 +1,5 @@
-import {type ColorSource, Filter, type PointData} from 'pixi.js';
+import { type ColorSource, Filter, type PointData } from 'pixi.js';
+import type {BackdropBlurFilterConfig} from "../../KineticSlider/filters/types.ts";
 export type TextPair = [string, string]; // [title, subtitle]
 
 /**
@@ -10,6 +11,7 @@ export type FilterType =
     | 'advancedBloom'
     | 'alpha'
     | 'ascii'
+    | 'backdropBlur'
     | 'blur'
     | 'colorMatrix'
     | 'noise'
@@ -170,9 +172,11 @@ export type FilterConfig =
     | AdvancedBloomFilterConfig
     | AlphaFilterConfig
     | AsciiFilterConfig
+    | BackdropBlurFilterConfig
     | BlurFilterConfig
     | ColorMatrixFilterConfig
     | NoiseFilterConfig
+
 
 
 ;

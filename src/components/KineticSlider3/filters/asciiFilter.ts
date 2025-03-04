@@ -32,7 +32,7 @@ export function createAsciiFilter(config: AsciiFilterConfig): FilterResult {
         filter.color = configColor;
     }
 
-    // Start with replaceColor set to false to ensure proper initial rendering
+    // Start with replaceColor set to false, ensuring proper initial rendering
     filter.replaceColor = false;
 
     console.log('AsciiFilter created with initial properties:', {
