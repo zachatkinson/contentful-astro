@@ -23,6 +23,7 @@ export { createColorMatrixFilter } from './colorMatrixFilter';
 export { createColorOverlayFilter } from './colorOverlayFilter'
 export { createColorReplaceFilter } from './colorReplaceFilter'
 export { createConvolutionFilter } from './convolutionFilter'
+export { createCrossHatchFilter } from './crossHatchFilter'
 export { createNoiseFilter } from './noiseFilter';
 
 
