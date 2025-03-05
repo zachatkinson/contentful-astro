@@ -29,6 +29,7 @@ export type FilterType =
     | 'dropShadow'
     | 'emboss'
     | 'glitch'
+    | 'glow'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -409,6 +410,24 @@ export interface GlitchFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for GlowFilter
+ *
+ * The GlowFilter applies a glow effect to an object with configurable inner and outer
+ * glow strengths, color, quality, and knockout options.
+ */
+export interface GlowFilterConfig extends BaseFilterConfig {
+    type: 'glow';
+    distance?: number;       // The distance of the glow
+    innerStrength?: number;  // The strength of the glow inward from the edge of the sprite
+    knockout?: boolean;      // Only draw the glow, not the texture itself
+    outerStrength?: number;  // The strength of the glow outward from the edge of the sprite
+    quality?: number;        // A number between 0 and 1 that describes the quality of the glow
+    color?: ColorSource;     // The color of the glow (default: 0xFFFFFF)
+    alpha?: number;          // The alpha of the glow (default: 1)
+    primaryProperty?: 'innerStrength' | 'outerStrength' | 'distance' | 'quality' | 'alpha'; // Property controlled by intensity
+}
+
+/**
  * Configuration for NoiseFilter
  *
  * NoiseFilter applies random noise to an image.
@@ -448,6 +467,7 @@ export type FilterConfig =
     | DropShadowFilterConfig
     | EmbossFilterConfig
     | GlitchFilterConfig
+    | GlowFilterConfig
     | NoiseFilterConfig
 
 

@@ -29,6 +29,7 @@ export { createDotFilter } from './dotFilter'
 export { createDropShadowFilter } from './dropShadowFilter'
 export { createEmbossFilter } from './embossFilter'
 export { createGlitchFilter } from './glitchFilter'
+export { createGlowFilter } from './glowFilter'
 export { createNoiseFilter } from './noiseFilter';
 
 

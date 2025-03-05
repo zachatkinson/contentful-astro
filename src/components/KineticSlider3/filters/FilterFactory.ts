@@ -19,10 +19,11 @@ import { createConvolutionFilter } from "./convolutionFilter";
 import { createCrossHatchFilter } from "./crossHatchFilter";
 import { createCRTFilter } from "./crtFilter";
 import { createDotFilter } from "./dotFilter";
+import {createDropShadowFilter} from "./dropShadowFilter";
+import {createEmbossFilter} from "./embossFilter";
+import {createGlitchFilter} from "./glitchFilter";
+import { createGlowFilter } from "./glowFilter";
 import { createNoiseFilter } from "./noiseFilter";
-import {createDropShadowFilter} from "./dropShadowFilter.ts";
-import {createEmbossFilter} from "./embossFilter.ts";
-import {createGlitchFilter} from "./glitchFilter.ts";
 
 
 
@@ -89,6 +90,8 @@ export class FilterFactory {
                 return createEmbossFilter(config);
             case 'glitch':
                 return createGlitchFilter(config);
+            case 'glow':
+                return createGlowFilter(config);
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented

@@ -316,6 +316,51 @@ const animatedGlitch = {
     primaryProperty: 'slices'   // Intensity affects number of slices
 };
 
+const redOutlineGlow = {
+    type: 'glow',
+    enabled: true,
+    intensity: 4,
+    color: 0xFF0000,        // Red
+    distance: 1,            // Minimum distance for a thin outline
+    outerStrength: 4,       // Medium strength
+    innerStrength: 0,
+    quality: 0.4,           // Higher quality for cleaner edges
+    knockout: false,
+    alpha: 1.0,
+    primaryProperty: 'outerStrength'
+};
+
+const whiteTextGlow = {
+    type: 'glow',
+    enabled: true,
+    intensity: 3,           // Low intensity (0-10 scale)
+    color: 0xFFFFFF,        // Pure white
+    distance: 2,            // Very small distance
+    outerStrength: 3,       // Moderate outer strength
+    innerStrength: 0,       // No inner glow
+    quality: 0.2,           // Moderate quality (0-1)
+    knockout: false,        // Show the text (not just the glow)
+    alpha: 1.0,             // Full opacity glow
+    primaryProperty: 'outerStrength'
+};
+
+// Blue image glow - adds a blue aura to images
+const blueImageGlow = {
+    type: 'glow',
+    enabled: true,
+    intensity: 5,           // Medium intensity
+    color: 0x0088FF,        // Blue
+    distance: 4,            // Moderate distance
+    outerStrength: 5,       // Medium-high strength
+    innerStrength: 0,       // No inner glow
+    quality: 0.3,           // Better quality
+    knockout: false,
+    alpha: 0.8,             // Slightly transparent
+    primaryProperty: 'outerStrength'
+};
+
+
+
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
 })
@@ -354,10 +399,10 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                animatedGlitch
+                blueImageGlow
             ]}
             textFilters={[
-                textShadow
+                redOutlineGlow
             ]}
             textTitleColor="white"
             textTitleSize={64}
