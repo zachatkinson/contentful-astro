@@ -26,6 +26,7 @@ export { createConvolutionFilter } from './convolutionFilter'
 export { createCrossHatchFilter } from './crossHatchFilter';
 export { createCRTFilter } from './crtFilter'
 export { createDotFilter } from './dotFilter'
+export { createDropShadowFilter } from './dropShadowFilter'
 export { createNoiseFilter } from './noiseFilter';
 
 

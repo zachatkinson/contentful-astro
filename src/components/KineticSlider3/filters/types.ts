@@ -26,6 +26,7 @@ export type FilterType =
     | 'crossHatch'
     | 'crt'
     | 'dot'
+    | 'dropShadow'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -351,6 +352,27 @@ export interface DotFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for DropShadowFilter
+ *
+ * The DropShadowFilter applies a drop shadow effect to display objects.
+ */
+export interface DropShadowFilterConfig extends BaseFilterConfig {
+    type: 'dropShadow';
+    alpha?: number;         // Alpha of the shadow (default: 1)
+    blur?: number;          // Blur strength of the shadow (default: 2)
+    color?: ColorSource;    // Shadow color (default: 0x000000)
+    offset?: PointData;     // Shadow offset [x,y] (default: [4,4])
+    offsetX?: number;       // X offset of shadow (default: 4)
+    offsetY?: number;       // Y offset of shadow (default: 4)
+    pixelSize?: PointData;  // Pixel size for Kawase blur (default: [1,1])
+    pixelSizeX?: number;    // X pixel size (default: 1)
+    pixelSizeY?: number;    // Y pixel size (default: 1)
+    quality?: number;       // Blur quality (default: 4)
+    shadowOnly?: boolean;   // Only show shadow, not the object (default: false)
+    primaryProperty?: 'alpha' | 'blur' | 'offsetX' | 'offsetY'; // Property controlled by intensity
+}
+
+/**
  * Configuration for NoiseFilter
  *
  * NoiseFilter applies random noise to an image.
@@ -387,6 +409,7 @@ export type FilterConfig =
     | CrossHatchFilterConfig
     | CRTFilterConfig
     | DotFilterConfig
+    | DropShadowFilterConfig
     | NoiseFilterConfig
 
 

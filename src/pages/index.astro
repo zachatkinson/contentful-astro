@@ -261,6 +261,18 @@ const newspaperDotFilter = {
     primaryProperty: 'scale' // Intensity controls pattern scale
 };
 
+const textShadow = {
+    type: 'dropShadow',
+    enabled: true,
+    intensity: 6,
+    blur: 3,
+    offsetX: 10,
+    offsetY: 10,
+    color: 0x00FF00,
+    alpha: 0.7,
+    primaryProperty: 'alpha'  // Intensity affects opacity
+};
+
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
 })
@@ -302,7 +314,7 @@ const posts = entries.items.map((entry) => {
                 comicBookFilter
             ]}
             textFilters={[
-                textGradientFilter
+                textShadow
             ]}
             textTitleColor="white"
             textTitleSize={64}

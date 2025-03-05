@@ -20,6 +20,7 @@ import { createCrossHatchFilter } from "./crossHatchFilter";
 import { createCRTFilter } from "./crtFilter";
 import { createDotFilter } from "./dotFilter";
 import { createNoiseFilter } from "./noiseFilter";
+import {createDropShadowFilter} from "./dropShadowFilter.ts";
 
 
 
@@ -80,6 +81,8 @@ export class FilterFactory {
                 return createCRTFilter(config);
             case 'dot':
                 return createDotFilter(config);
+            case 'dropShadow':
+                return createDropShadowFilter(config);
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented
