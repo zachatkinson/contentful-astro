@@ -197,14 +197,14 @@ const colorReplaceFilter = {
 const convolutionFilter = {
         type: 'convolution',
             enabled: true,
-        intensity: 10, // 0-10 scale, 5 = half strength effect
+        intensity: 1, // 0-10 scale, 5 = half strength effect
         preset: 'sharpen'
 }
 
 const crossHatchFilter = {
     type: 'crossHatch',  // Apply the CrossHatch filter
     enabled: true,       // Enable the filter
-    intensity: 7         // Set medium-high intensity (0-10 scale)
+    intensity: 10         // Set medium-high intensity (0-10 scale)
 }
 
 const entries = await contentfulClient.getEntries<BlogPost>({
