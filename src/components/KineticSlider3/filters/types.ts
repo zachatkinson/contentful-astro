@@ -27,6 +27,8 @@ export type FilterType =
     | 'crt'
     | 'dot'
     | 'dropShadow'
+    | 'emboss'
+    | 'glitch'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -373,6 +375,40 @@ export interface DropShadowFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for EmbossFilter
+ *
+ * The EmbossFilter applies an emboss effect to objects, creating a relief-like appearance.
+ */
+export interface EmbossFilterConfig extends BaseFilterConfig {
+    type: 'emboss';
+    strength?: number;      // Strength of the emboss effect (default: 5)
+}
+
+/**
+ * Configuration for GlitchFilter
+ *
+ * The GlitchFilter applies a glitch effect to an object, creating visual distortions
+ * similar to digital artifacts and RGB channel splitting.
+ */
+export interface GlitchFilterConfig extends BaseFilterConfig {
+    type: 'glitch';
+    average?: boolean;       // If true, divides bands equally; false makes it more random
+    direction?: number;      // Angle in degrees of the offset slices
+    red?: PointData;         // Red channel offset {x, y} coordinates
+    green?: PointData;       // Green channel offset {x, y} coordinates
+    blue?: PointData;        // Blue channel offset {x, y} coordinates
+    slices?: number;         // Number of slices/bands
+    offset?: number;         // Maximum offset amount of slices
+    minSize?: number;        // Minimum size of slices as portion of sampleSize
+    sampleSize?: number;     // Height of the displacement map canvas
+    seed?: number;           // Seed value for randomizing the effect
+    fillMode?: number;       // Fill mode for displaced areas (0=transparent)
+    animated?: boolean;      // Whether the effect should automatically animate
+    refreshFrequency?: number; // How often to apply a new random offset (for animation)
+    primaryProperty?: 'slices' | 'offset' | 'direction' | 'red' | 'blue'; // Property controlled by intensity
+}
+
+/**
  * Configuration for NoiseFilter
  *
  * NoiseFilter applies random noise to an image.
@@ -410,6 +446,8 @@ export type FilterConfig =
     | CRTFilterConfig
     | DotFilterConfig
     | DropShadowFilterConfig
+    | EmbossFilterConfig
+    | GlitchFilterConfig
     | NoiseFilterConfig
 
 

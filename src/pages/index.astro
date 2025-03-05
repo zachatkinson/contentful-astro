@@ -273,6 +273,49 @@ const textShadow = {
     primaryProperty: 'alpha'  // Intensity affects opacity
 };
 
+const standardEmboss = {
+    type: 'emboss',
+    enabled: true,
+    intensity: 5 // Medium emboss effect (maps to strength of 10)
+};
+
+// Basic static glitch effect - classic RGB split with static distortion
+const basicGlitch = {
+    type: 'glitch',
+    enabled: true,
+    intensity: 5,          // Medium intensity on 0-10 scale
+    slices: 6,             // Number of horizontal slices
+    offset: 100,           // Maximum offset distance
+    direction: 0,          // Horizontal direction (0 degrees)
+    red: { x: 3, y: 0 },   // Red channel offset right
+    blue: { x: -3, y: 0 }, // Blue channel offset left
+    green: { x: 0, y: 0 }, // Green channel centered
+    average: false,        // Random slice sizes for more chaotic look
+    fillMode: 0,           // Transparent fill mode
+    primaryProperty: 'offset', // Intensity controls offset amount
+    seed: 42               // Fixed seed for consistent distortion pattern
+};
+
+// Animated digital error glitch effect - simulates transmission errors
+const animatedGlitch = {
+    type: 'glitch',
+    enabled: true,
+    intensity: 7,           // Higher intensity for more dramatic effect
+    slices: 10,             // More slices for fragmented look
+    offset: 150,            // Larger offset for more dramatic displacement
+    direction: 0,           // Horizontal glitching
+    red: { x: 4, y: 1 },    // Red channel offset right and slightly down
+    blue: { x: -4, y: -1 }, // Blue channel offset left and slightly up
+    green: { x: -8, y: 2 },  // Green channel centered
+    animated: true,         // Enable automatic animation
+    refreshFrequency: 1,    // Refresh effect 3 times per second
+    minSize: 5,             // Allow for smaller slice sizes
+    sampleSize: 512,        // Standard sample size
+    fillMode: 0,            // Transparent fill mode
+    seed: Math.random() * 1000, // Random seed for variety
+    primaryProperty: 'slices'   // Intensity affects number of slices
+};
+
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
 })
@@ -311,7 +354,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                comicBookFilter
+                animatedGlitch
             ]}
             textFilters={[
                 textShadow

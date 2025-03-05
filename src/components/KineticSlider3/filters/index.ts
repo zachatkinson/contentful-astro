@@ -27,6 +27,8 @@ export { createCrossHatchFilter } from './crossHatchFilter';
 export { createCRTFilter } from './crtFilter'
 export { createDotFilter } from './dotFilter'
 export { createDropShadowFilter } from './dropShadowFilter'
+export { createEmbossFilter } from './embossFilter'
+export { createGlitchFilter } from './glitchFilter'
 export { createNoiseFilter } from './noiseFilter';
 
 
