@@ -1,8 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Container, Sprite } from 'pixi.js';
 import { gsap } from 'gsap';
-import { type FilterConfig } from '../filters/types';
-import { FilterFactory } from '../filters/FilterFactory';
+import { type FilterConfig } from '../filters';
+import { FilterFactory } from '../filters';
 import { type HookParams } from '../types';
 
 // Define a more specific type for the target objects we're applying filters to
