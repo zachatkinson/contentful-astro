@@ -408,6 +408,7 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
     });
 
     // Memoize handlers to prevent unnecessary re-renders
+    // Handle mouse enter handler - FIXED to ensure all effects are properly initialized and applied
     const handleMouseEnter = useCallback(() => {
         if (!isAppReady) return;
         console.log("Mouse entered the slider - activating all effects");
@@ -418,10 +419,11 @@ const KineticSlider: React.FC<KineticSliderProps> = ({
         // Show displacement effects first
         showDisplacementEffects();
 
-        // Force update all filter intensities for the active slide
+        // Force update all filter intensities for the active slide with proper initialization
         setTimeout(() => {
             console.log("Applying filters after slight delay to ensure proper initialization");
-            updateFilterIntensities(true);
+            // The true parameter indicates active status, the second true forces reinitialization
+            updateFilterIntensities(true, true);
         }, 50); // Short timeout to ensure displacement is applied first
 
         setIsInteracting(true);

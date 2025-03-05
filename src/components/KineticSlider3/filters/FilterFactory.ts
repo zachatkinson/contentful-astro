@@ -5,17 +5,18 @@ import { createAdjustmentFilter } from "./adjustmentFilter";
 import { createAdvancedBloomFilter } from './advancedBloomFilter';
 import { createAlphaFilter } from './alphaFilter';
 import { createAsciiFilter } from "./asciiFilter";
-import { createBevelFilter } from "./bevelFilter.ts";
-import { createBloomFilter } from "./bloomFilter.ts";
-import { createBulgePinchFilter } from "./bulgePinchFilter.ts";
+import { createBevelFilter } from "./bevelFilter";
+import { createBloomFilter } from "./bloomFilter";
+import { createBulgePinchFilter } from "./bulgePinchFilter";
 import { createBackdropBlurFilter } from "./backdropBlurFilter";
 import { createBlurFilter } from './blurFilter';
-import { createColorGradientFilter } from "./colorGradientFilter.ts";
-import { createColorMapFilter } from "./colorMapFilter.ts";
+import { createColorGradientFilter } from "./colorGradientFilter";
+import { createColorMapFilter } from "./colorMapFilter";
 import { createColorMatrixFilter } from './colorMatrixFilter';
-import { createColorOverlayFilter } from "./colorOverlayFilter.ts";
-import { createColorReplaceFilter } from "./colorReplaceFilter.ts";
-import { createConvolutionFilter } from "./convolutionFilter.ts";
+import { createColorOverlayFilter } from "./colorOverlayFilter";
+import { createColorReplaceFilter } from "./colorReplaceFilter";
+import { createConvolutionFilter } from "./convolutionFilter";
+import { createCrossHatchFilter } from "./crossHatchFilter";
 import { createNoiseFilter } from "./noiseFilter";
 
 
@@ -70,6 +71,8 @@ export class FilterFactory {
                 return createColorReplaceFilter(config)
             case 'convolution':
                 return createConvolutionFilter(config)
+            case 'crossHatch':
+                return createCrossHatchFilter(config);
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented

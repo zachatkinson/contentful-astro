@@ -23,6 +23,7 @@ export type FilterType =
     | 'colorOverlay'
     | 'colorReplace'
     | 'convolution'
+    | 'crossHatch'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -297,7 +298,19 @@ export interface ConvolutionFilterConfig extends BaseFilterConfig {
     primaryProperty?: 'matrix';   // Property controlled by intensity
 }
 
-
+/**
+ * Configuration for CrossHatchFilter
+ *
+ * The CrossHatchFilter applies a cross-hatch effect to an object,
+ * creating a pattern of crossed lines similar to pen-and-ink drawing techniques.
+ *
+ * Based on the available documentation, this filter does not have configurable properties
+ * beyond the standard intensity control.
+ */
+export interface CrossHatchFilterConfig extends BaseFilterConfig {
+    type: 'crossHatch';
+    alpha: number;
+}
 /**
  * Configuration for NoiseFilter
  *
@@ -332,6 +345,7 @@ export type FilterConfig =
     | ColorOverlayFilterConfig
     | ColorReplaceFilterConfig
     | ConvolutionFilterConfig
+    | CrossHatchFilterConfig
     | NoiseFilterConfig
 
 
