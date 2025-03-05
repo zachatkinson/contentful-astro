@@ -17,8 +17,10 @@ import { createColorOverlayFilter } from "./colorOverlayFilter";
 import { createColorReplaceFilter } from "./colorReplaceFilter";
 import { createConvolutionFilter } from "./convolutionFilter";
 import { createCrossHatchFilter } from "./crossHatchFilter";
+import { createCRTFilter } from "./crtFilter";
+import { createDotFilter } from "./dotFilter";
 import { createNoiseFilter } from "./noiseFilter";
-import {createCRTFilter} from "./crtFilter.ts";
+
 
 
 /**
@@ -63,19 +65,21 @@ export class FilterFactory {
             case 'colorGradient':
                 return createColorGradientFilter(config);
             case 'colorMap':
-                return createColorMapFilter(config)
+                return createColorMapFilter(config);
             case 'colorMatrix':
                 return createColorMatrixFilter(config);
             case 'colorOverlay':
-                return createColorOverlayFilter(config)
+                return createColorOverlayFilter(config);
             case 'colorReplace':
-                return createColorReplaceFilter(config)
+                return createColorReplaceFilter(config);
             case 'convolution':
-                return createConvolutionFilter(config)
+                return createConvolutionFilter(config);
             case 'crossHatch':
                 return createCrossHatchFilter(config);
             case 'crt':
-                return createCRTFilter(config)
+                return createCRTFilter(config);
+            case 'dot':
+                return createDotFilter(config);
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented

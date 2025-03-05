@@ -1,5 +1,6 @@
 import {type ColorSource, Filter, type PointData, type Texture} from 'pixi.js';
 import type {ConvolutionMatrix} from "pixi-filters";
+import type {DotFilterConfig} from "../../KineticSlider/filters/types.ts";
 export type TextPair = [string, string]; // [title, subtitle]
 
 
@@ -25,6 +26,7 @@ export type FilterType =
     | 'convolution'
     | 'crossHatch'
     | 'crt'
+    | 'dot'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -370,6 +372,7 @@ export type FilterConfig =
     | ConvolutionFilterConfig
     | CrossHatchFilterConfig
     | CRTFilterConfig
+    | DotFilterConfig
     | NoiseFilterConfig
 
 

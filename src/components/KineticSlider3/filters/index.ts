@@ -25,6 +25,7 @@ export { createColorReplaceFilter } from './colorReplaceFilter'
 export { createConvolutionFilter } from './convolutionFilter'
 export { createCrossHatchFilter } from './crossHatchFilter';
 export { createCRTFilter } from './crtFilter'
+export { createDotFilter } from './dotFilter'
 export { createNoiseFilter } from './noiseFilter';
 
 
