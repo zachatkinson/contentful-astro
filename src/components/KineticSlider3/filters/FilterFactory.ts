@@ -18,6 +18,7 @@ import { createColorReplaceFilter } from "./colorReplaceFilter";
 import { createConvolutionFilter } from "./convolutionFilter";
 import { createCrossHatchFilter } from "./crossHatchFilter";
 import { createNoiseFilter } from "./noiseFilter";
+import {createCRTFilter} from "./crtFilter.ts";
 
 
 /**
@@ -73,6 +74,8 @@ export class FilterFactory {
                 return createConvolutionFilter(config)
             case 'crossHatch':
                 return createCrossHatchFilter(config);
+            case 'crt':
+                return createCRTFilter(config)
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented

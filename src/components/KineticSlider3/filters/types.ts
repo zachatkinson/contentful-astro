@@ -24,6 +24,7 @@ export type FilterType =
     | 'colorReplace'
     | 'convolution'
     | 'crossHatch'
+    | 'crt'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -317,6 +318,28 @@ export interface CrossHatchFilterConfig extends BaseFilterConfig {
  * NoiseFilter applies random noise to an image.
  * It can be used to create film grain, static, or other textured effects.
  */
+
+/**
+ * Configuration for CRTFilter
+ *
+ * The CRTFilter simulates an old CRT (Cathode Ray Tube) display with effects like
+ * scan lines, screen curvature, vignetting, and noise.
+ */
+export interface CRTFilterConfig extends BaseFilterConfig {
+    type: 'crt';
+    curvature?: number;       // Bend of interlaced lines, higher value means more bend (default: 1)
+    lineContrast?: number;    // Contrast of interlaced lines (default: 0.25)
+    lineWidth?: number;       // Width of interlaced lines (default: 1)
+    noise?: number;           // Opacity/intensity of the noise effect between 0 and 1 (default: 0.3)
+    noiseSize?: number;       // The size of the noise particles (default: 0)
+    seed?: number;            // A seed value to apply to the random noise generation (default: 0)
+    time?: number;            // Opacity/intensity of the noise effect between 0 and 1 (default: 0.3)
+    verticalLine?: boolean;   // The orientation of the line (true for vertical, false for horizontal) (default: false)
+    vignetting?: number;      // The radius of the vignette effect (default: 0.3)
+    vignettingAlpha?: number; // Amount of opacity of vignette (default: 1)
+    vignettingBlur?: number;  // Blur intensity of the vignette (default: 0.3)
+    primaryProperty?: 'curvature' | 'lineContrast' | 'lineWidth' | 'noise' | 'vignetting' | 'vignettingAlpha';
+}
 export interface NoiseFilterConfig extends BaseFilterConfig {
     type: 'noise';
     noiseLevel?: number;      // Amount of noise to apply (0-1)
@@ -346,6 +369,7 @@ export type FilterConfig =
     | ColorReplaceFilterConfig
     | ConvolutionFilterConfig
     | CrossHatchFilterConfig
+    | CRTFilterConfig
     | NoiseFilterConfig
 
 
