@@ -63,8 +63,12 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
                         sprite.x = app.screen.width / 2;
                         sprite.y = app.screen.height / 2;
 
-                        // Set initial state
-                        sprite.alpha = index === 0 ? 1 : 0; // Only show the first slide
+                        // Set initial state - only show the first slide
+                        sprite.alpha = index === 0 ? 1 : 0;
+
+                        // IMPORTANT: Set visibility for non-active slides to false
+                        // This will prevent them from being rendered at all
+                        sprite.visible = index === 0;
 
                         // Calculate scale
                         const scaleResult = calculateSpriteScale(
@@ -143,10 +147,15 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
             return;
         }
 
-        // Ensure next elements start invisible
+        // IMPORTANT: Make both slides visible during transition
+        currentSlide.visible = true;
+        nextSlide.visible = true;
+
+        // Ensure next elements start invisible (alpha = 0)
         nextSlide.alpha = 0;
         if (nextTextContainer) {
             nextTextContainer.alpha = 0;
+            nextTextContainer.visible = true; // Make next text visible before transition
         }
 
         // Calculate scale based on transition intensity
@@ -173,6 +182,10 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
                 alpha: 0,
                 duration: 1,
                 ease: 'power2.out',
+                onComplete: () => {
+                    // IMPORTANT: Hide previous slide after transition completes
+                    currentSlide.visible = false;
+                }
             }, 0)
             .to(nextSlide, {
                 alpha: 1,
@@ -186,11 +199,15 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
                 alpha: 0,
                 duration: 1,
                 ease: 'power2.out',
+                onComplete: () => {
+                    // IMPORTANT: Hide previous text after transition completes
+                    currentTextContainer.visible = false;
+                }
             }, 0)
                 .to(nextTextContainer, {
                     alpha: 1,
                     duration: 1,
-                    ease: 'power2.out',
+                    ease: 'power2.out'
                 }, 0);
         }
 

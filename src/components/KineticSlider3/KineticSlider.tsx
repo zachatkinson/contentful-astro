@@ -407,6 +407,8 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         cursorDisplacementSpriteRef
     });
 
+
+
     // Memoize handlers to prevent unnecessary re-renders
     const handleMouseEnter = useCallback(() => {
         if (!isAppReady) return;
@@ -418,14 +420,16 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         // Show displacement effects first
         showDisplacementEffects();
 
-        // Force update all filter intensities for the active slide
+        // Force update all filter intensities for the active slide with a slight delay
+        // to ensure proper initialization and avoid filter stacking issues
         setTimeout(() => {
             console.log("Applying filters after slight delay to ensure proper initialization");
-            updateFilterIntensities(true);
+            updateFilterIntensities(true, true); // Force update to ensure proper application
         }, 50); // Short timeout to ensure displacement is applied first
 
         setIsInteracting(true);
     }, [isAppReady, showDisplacementEffects, updateFilterIntensities]);
+
 
     // Mouse leave handler - FIXED to ensure all effects are removed
     const handleMouseLeave = useCallback(() => {

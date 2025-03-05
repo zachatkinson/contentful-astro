@@ -1,6 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Container, Sprite } from 'pixi.js';
-import { gsap } from 'gsap';
 import { type FilterConfig } from '../filters/';
 import { FilterFactory } from '../filters/';
 import { type HookParams } from '../types';
@@ -224,8 +223,13 @@ export const useFilters = (
             try {
                 const baseFilters = [];
 
-                // Add base displacement filters if they exist
+                // Add base displacement filters if they exist, but with zero scales
                 if (pixi.bgDispFilter.current) {
+                    // Make sure scale is set to zero
+                    if (pixi.bgDispFilter.current.scale) {
+                        pixi.bgDispFilter.current.scale.x = 0;
+                        pixi.bgDispFilter.current.scale.y = 0;
+                    }
                     baseFilters.push(pixi.bgDispFilter.current);
                 }
 

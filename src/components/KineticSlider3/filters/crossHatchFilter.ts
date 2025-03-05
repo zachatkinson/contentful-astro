@@ -15,6 +15,9 @@ export function createCrossHatchFilter(config: CrossHatchFilterConfig): FilterRe
     // Create the filter without options as per documentation
     const filter = new CrossHatchFilter();
 
+    // Track if filter has been activated
+    let isActive = false;
+
     /**
      * Update the filter's intensity
      * Since the documentation doesn't specify configurable properties,
@@ -30,6 +33,9 @@ export function createCrossHatchFilter(config: CrossHatchFilterConfig): FilterRe
         if ('alpha' in filter) {
             filter.alpha = normalizedIntensity / 10;
         }
+
+        // Mark as active only if intensity > 0
+        isActive = normalizedIntensity > 0;
     };
 
     // Set initial intensity
@@ -41,8 +47,17 @@ export function createCrossHatchFilter(config: CrossHatchFilterConfig): FilterRe
     const reset = (): void => {
         // Reset alpha if available
         if ('alpha' in filter) {
-            filter.alpha = 1;
+            filter.alpha = 0; // Set to 0 instead of 1 to completely disable the effect
         }
+
+        // For CrossHatch, we need to ensure it's properly inactive
+        // Force an additional property reset if available
+        if ('enabled' in filter) {
+            (filter as any).enabled = false;
+        }
+
+        // Mark as inactive
+        isActive = false;
     };
 
     return { filter, updateIntensity, reset };

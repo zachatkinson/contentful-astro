@@ -60,7 +60,6 @@ const useTextContainers = ({
                                textContainersRef,
                                currentIndex,
                                buttonMode,
-                               textsRgbEffect, // Kept for API compatibility but not used
                                texts,
                                textTitleColor,
                                textTitleSize,
@@ -139,10 +138,12 @@ const useTextContainers = ({
 
             textContainer.addChild(titleText, subText);
             textContainer.pivot.y = textContainer.height / 2;
-            textContainer.alpha = 0; // Start hidden
 
-            // Note: We no longer directly apply RGB split filter here
-            // Filters will be applied through the FilterFactory in useFilters.ts
+            // Set initial state - only show the first container
+            textContainer.alpha = index === 0 ? 1 : 0;
+
+            // IMPORTANT: Set visibility property for all but the first text container
+            textContainer.visible = index === 0;
 
             // Enable button mode if specified
             if (buttonMode) {
@@ -169,11 +170,6 @@ const useTextContainers = ({
             stage.addChild(textContainer);
             textContainersRef.current.push(textContainer);
         });
-
-        // Show the first text container
-        if (textContainersRef.current.length > 0) {
-            textContainersRef.current[0].alpha = 1;
-        }
 
         return () => {
             // Cleanup
