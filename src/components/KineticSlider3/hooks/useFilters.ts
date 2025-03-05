@@ -21,6 +21,7 @@ interface FilterMap {
     };
 }
 
+
 /**
  * Hook to manage filters for slides and text containers
  */

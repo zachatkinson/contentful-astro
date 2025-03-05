@@ -11,11 +11,13 @@ import { type CrossHatchFilterConfig, type FilterResult } from './types';
  * @returns FilterResult with the filter instance and control functions
  */
 export function createCrossHatchFilter(config: CrossHatchFilterConfig): FilterResult {
-    // Create the filter - CrossHatchFilter doesn't accept parameters
-    const filter = new CrossHatchFilter();
+    // Create a fake filter placeholder that will never be shown
+    // We'll completely replace it with a real filter on first activation
+    const dummyFilter = new CrossHatchFilter();
+    dummyFilter.enabled = false;
 
-    // Track initialization state
-    let isFirstActivation = true;
+    // Reference to the actual filter that will be created on first use
+    let actualFilter: CrossHatchFilter | null = null;
     let pendingTimeout: number | null = null;
 
     /**
@@ -27,53 +29,73 @@ export function createCrossHatchFilter(config: CrossHatchFilterConfig): FilterRe
     const updateIntensity = (intensity: number): void => {
         // Normalize intensity to a 0-10 scale
         const normalizedIntensity = Math.max(0, Math.min(10, intensity));
+        const shouldBeEnabled = normalizedIntensity > 0;
 
-        // For first activation, use special handling to prevent double application
-        if (isFirstActivation) {
-            console.log('First activation of CrossHatchFilter');
+        // If this is the first time we're activating the filter with a positive intensity
+        if (!actualFilter && shouldBeEnabled) {
+            console.log('First activation of CrossHatchFilter - creating new instance');
 
-            // Clear any pending timeout to avoid race conditions
+            // Clear any pending timeouts
             if (pendingTimeout !== null) {
                 clearTimeout(pendingTimeout);
+                pendingTimeout = null;
             }
 
-            // First ensure the filter is properly initialized but disabled
-            filter.enabled = false;
+            // Create the real filter with disabled state
+            actualFilter = new CrossHatchFilter();
+            actualFilter.enabled = false;
 
-            // Then set a timeout to enable it after the next render cycle
+            // Replace dummyFilter reference in the return value
+            // This is a trick that updates the exported filter reference
+            Object.defineProperty(filterResult, 'filter', {
+                get: function() {
+                    return actualFilter || dummyFilter;
+                }
+            });
+
+            // Set a timeout to enable the filter after the initial disabled state is processed
             pendingTimeout = window.setTimeout(() => {
-                filter.enabled = normalizedIntensity > 0;
+                if (actualFilter) {
+                    actualFilter.enabled = shouldBeEnabled;
+                    console.log('CrossHatchFilter real instance enabled after delay');
+                }
                 pendingTimeout = null;
-                console.log('CrossHatchFilter enabled after initialization');
-            }, 50);
-
-            isFirstActivation = false;
-        } else {
-            // Standard intensity update - simply enable/disable based on intensity
-            filter.enabled = normalizedIntensity > 0;
+            }, 100);
+        }
+        // If we already have an actual filter, just update its state
+        else if (actualFilter) {
+            actualFilter.enabled = shouldBeEnabled;
+            console.log('CrossHatchFilter standard update - enabled:', shouldBeEnabled);
         }
     };
 
-    // No initial call to updateIntensity - wait for the first active call
-
     /**
-     * Reset the filter to default state (minimal effect)
+     * Reset the filter to default state
      */
     const reset = (): void => {
-        // Clear any pending timeout
+        // Clear any pending timeouts
         if (pendingTimeout !== null) {
             clearTimeout(pendingTimeout);
             pendingTimeout = null;
         }
 
-        // Disable the filter
-        filter.enabled = false;
+        // Disable the actual filter if it exists
+        if (actualFilter) {
+            actualFilter.enabled = false;
+        }
 
-        // Flag for next activation
-        isFirstActivation = true;
+        // Reset the actual filter to null, forcing re-creation on next use
+        actualFilter = null;
 
         console.log('CrossHatchFilter reset to initial state');
     };
 
-    return { filter, updateIntensity, reset };
+    // Create the result object with a getter for the filter
+    const filterResult = {
+        get filter() { return actualFilter || dummyFilter; },
+        updateIntensity,
+        reset
+    };
+
+    return filterResult as FilterResult;
 }
