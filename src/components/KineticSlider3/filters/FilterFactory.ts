@@ -16,6 +16,7 @@ import { createColorGradientFilter } from "./colorGradientFilter.ts";
 import { createColorMapFilter } from "./colorMapFilter.ts";
 import { createColorOverlayFilter } from "./colorOverlayFilter.ts";
 import { createColorReplaceFilter } from "./colorReplaceFilter.ts";
+import {createConvolutionFilter} from "./convolutionFilter.ts";
 
 
 /**
@@ -67,6 +68,8 @@ export class FilterFactory {
                 return createColorOverlayFilter(config)
             case 'colorReplace':
                 return createColorReplaceFilter(config)
+            case 'convolution':
+                return createConvolutionFilter(config)
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented

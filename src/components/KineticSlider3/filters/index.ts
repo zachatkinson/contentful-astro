@@ -22,6 +22,7 @@ export { createColorMapFilter } from './colorMapFilter'
 export { createColorMatrixFilter } from './colorMatrixFilter';
 export { createColorOverlayFilter } from './colorOverlayFilter'
 export { createColorReplaceFilter } from './colorReplaceFilter'
+export { createConvolutionFilter } from './convolutionFilter'
 export { createNoiseFilter } from './noiseFilter';
 
 

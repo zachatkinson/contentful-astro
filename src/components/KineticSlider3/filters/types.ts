@@ -1,4 +1,5 @@
 import {type ColorSource, Filter, type PointData, type Texture} from 'pixi.js';
+import type {ConvolutionMatrix} from "pixi-filters";
 export type TextPair = [string, string]; // [title, subtitle]
 
 
@@ -21,6 +22,7 @@ export type FilterType =
     | 'colorMatrix'
     | 'colorOverlay'
     | 'colorReplace'
+    | 'convolution'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -280,6 +282,22 @@ export interface ColorReplaceFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for ConvolutionFilter
+ *
+ * ConvolutionFilter applies a matrix convolution effect to an image.
+ * It can create effects like blurring, edge detection, sharpening,
+ * embossing, and beveling by using different matrices.
+ */
+export interface ConvolutionFilterConfig extends BaseFilterConfig {
+    type: 'convolution';
+    matrix?: ConvolutionMatrix;   // 3x3 matrix as array of 9 values
+    width?: number;               // Width of the object (default: 200)
+    height?: number;              // Height of the object (default: 200)
+    preset?: 'normal' | 'gaussianBlur' | 'boxBlur' | 'sharpen' | 'edgeDetection' | 'emboss' | 'topSobel' | 'rightSobel' | string;  // Name of a preset effect to use
+    primaryProperty?: 'matrix';   // Property controlled by intensity
+}
+
+/**
  * Configuration for NoiseFilter
  *
  * NoiseFilter applies random noise to an image.
@@ -312,6 +330,7 @@ export type FilterConfig =
     | ColorMatrixFilterConfig
     | ColorOverlayFilterConfig
     | ColorReplaceFilterConfig
+    | ConvolutionFilterConfig
     | NoiseFilterConfig
 
 
