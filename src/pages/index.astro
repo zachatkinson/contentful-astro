@@ -222,6 +222,45 @@ const crtFilter = {
     primaryProperty: 'noise'  // Intensity controls noise level
 };
 
+// Basic dotscreen effect with default settings
+const basicDotFilter = {
+    type: 'dot',
+    enabled: true,
+    intensity: 5      // Medium intensity on 0-10 scale
+};
+
+// Color dotscreen effect (non-grayscale)
+const colorDotFilter = {
+    type: 'dot',
+    enabled: true,
+    intensity: 7,
+    grayscale: false, // Should be in color
+    scale: 1.5,       // Slightly larger pattern
+    angle: 5,         // Default dot size
+    primaryProperty: 'scale'
+};
+
+const comicBookFilter = {
+    type: 'dot',
+    enabled: true,
+    intensity: 8,       // High intensity for pronounced dots
+    grayscale: false,   // Use color for "four-color" printing effect
+    scale: 1.8,         // Larger scale makes the dots more visible
+    angle: 6,           // Medium-large dots
+    primaryProperty: 'angle' // Intensity controls dot size
+};
+
+// Large-scale newspaper print style effect
+const newspaperDotFilter = {
+    type: 'dot',
+    enabled: true,
+    intensity: 1,    // Maximum intensity
+    angle: 5,         // Larger dot radius
+    scale: 1,         // Larger scale for bigger pattern
+    grayscale: true,  // Black and white
+    primaryProperty: 'scale' // Intensity controls pattern scale
+};
+
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
 })
@@ -260,7 +299,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                crtFilter
+                comicBookFilter
             ]}
             textFilters={[
                 textGradientFilter

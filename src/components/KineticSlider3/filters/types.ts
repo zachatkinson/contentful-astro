@@ -1,6 +1,5 @@
 import {type ColorSource, Filter, type PointData, type Texture} from 'pixi.js';
 import type {ConvolutionMatrix} from "pixi-filters";
-import type {DotFilterConfig} from "../../KineticSlider/filters/types.ts";
 export type TextPair = [string, string]; // [title, subtitle]
 
 
@@ -314,12 +313,6 @@ export interface CrossHatchFilterConfig extends BaseFilterConfig {
     type: 'crossHatch';
     alpha: number;
 }
-/**
- * Configuration for NoiseFilter
- *
- * NoiseFilter applies random noise to an image.
- * It can be used to create film grain, static, or other textured effects.
- */
 
 /**
  * Configuration for CRTFilter
@@ -342,6 +335,27 @@ export interface CRTFilterConfig extends BaseFilterConfig {
     vignettingBlur?: number;  // Blur intensity of the vignette (default: 0.3)
     primaryProperty?: 'curvature' | 'lineContrast' | 'lineWidth' | 'noise' | 'vignetting' | 'vignettingAlpha';
 }
+
+/**
+ * Configuration for DotFilter
+ *
+ * The DotFilter applies a dotscreen effect making display objects appear to be made out of
+ * black and white halftone dots like an old printer.
+ */
+export interface DotFilterConfig extends BaseFilterConfig {
+    type: 'dot';
+    angle?: number;        // The radius of the effect (default: 5)
+    grayscale?: boolean;   // Whether to render in grayscale (default: true)
+    scale?: number;        // The scale of the effect (default: 1)
+    primaryProperty?: 'angle' | 'scale'; // Property controlled by intensity
+}
+
+/**
+ * Configuration for NoiseFilter
+ *
+ * NoiseFilter applies random noise to an image.
+ * It can be used to create film grain, static, or other textured effects.
+ */
 export interface NoiseFilterConfig extends BaseFilterConfig {
     type: 'noise';
     noiseLevel?: number;      // Amount of noise to apply (0-1)

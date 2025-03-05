@@ -4,8 +4,8 @@ import { type DotFilterConfig, type FilterResult } from './types';
 /**
  * Creates a Dot filter that applies a dotscreen effect to an object
  *
- * This filter makes display objects appear to be made out of black and white
- * halftone dots like an old printer or newspaper.
+ * This filter makes display objects appear to be made out of halftone dots
+ * like an old printer or newspaper.
  *
  * @param config - Configuration for the Dot filter
  * @returns FilterResult with the filter instance and control functions
@@ -19,8 +19,17 @@ export function createDotFilter(config: DotFilterConfig): FilterResult {
     if (config.scale !== undefined) options.scale = config.scale;
     if (config.grayscale !== undefined) options.grayscale = config.grayscale;
 
+    // Log what we're creating for debugging
+    console.log('Creating DotFilter with options:', options);
+
     // Create the filter with options
     const filter = new DotFilter(options);
+
+    // Explicitly set grayscale after creation to ensure it takes effect
+    if (config.grayscale !== undefined) {
+        filter.grayscale = config.grayscale;
+        console.log('DotFilter grayscale set to:', filter.grayscale);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -35,27 +44,25 @@ export function createDotFilter(config: DotFilterConfig): FilterResult {
         if (config.primaryProperty) {
             switch (config.primaryProperty) {
                 case 'angle':
-                    // Map 0-10 to 0-10 for angle (represents the radius of the effect)
-                    filter.angle = normalizedIntensity;
+                    // Map 0-10 to 1-10 for angle (dot radius)
+                    filter.angle = 1 + normalizedIntensity;
                     break;
                 case 'scale':
-                    // Map 0-10 to 0.5-5 for scale (1 is normal, higher values increase dot size)
+                    // Map 0-10 to 0.5-5 for scale (pattern size)
                     filter.scale = 0.5 + (normalizedIntensity / 2);
                     break;
                 default:
-                    // Default to adjusting angle if primary property is not recognized
-                    filter.angle = normalizedIntensity;
+                    // Default to adjusting angle
+                    filter.angle = 1 + normalizedIntensity;
             }
         } else {
-            // Default behavior - adjust angle (radius of the effect)
-            filter.angle = normalizedIntensity;
+            // Default behavior - adjust angle
+            filter.angle = 1 + normalizedIntensity;
+        }
 
-            // For more dramatic effect at higher intensities, also adjust scale
-            if (normalizedIntensity > 5) {
-                filter.scale = 1 + ((normalizedIntensity - 5) / 5); // 1-2 range as intensity goes from 5-10
-            } else {
-                filter.scale = 1; // Default scale
-            }
+        // IMPORTANT: Re-apply grayscale setting to ensure it doesn't get reset
+        if (config.grayscale !== undefined) {
+            filter.grayscale = config.grayscale;
         }
     };
 
@@ -68,7 +75,8 @@ export function createDotFilter(config: DotFilterConfig): FilterResult {
     const reset = (): void => {
         filter.angle = 5;
         filter.scale = 1;
-        filter.grayscale = true;
+        // Reset to configured grayscale or default
+        filter.grayscale = config.grayscale !== undefined ? config.grayscale : true;
     };
 
     return { filter, updateIntensity, reset };
