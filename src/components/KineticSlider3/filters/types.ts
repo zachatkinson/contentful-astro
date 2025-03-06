@@ -38,6 +38,7 @@ export type FilterType =
     | 'multiColorReplace'
     | 'noise'
     | 'oldFilm'
+    | 'outline'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -575,6 +576,21 @@ export interface OldFilmFilterConfig extends BaseFilterConfig {
     primaryProperty?: 'noise' | 'scratch' | 'sepia' | 'vignetting' | 'scratchDensity'; // Property controlled by intensity
 }
 
+/**
+ * Configuration for OutlineFilter
+ *
+ * The OutlineFilter draws a colored outline around display objects.
+ */
+export interface OutlineFilterConfig extends BaseFilterConfig {
+    type: 'outline';
+    thickness?: number;      // The thickness of the outline (default: 1)
+    color?: ColorSource;     // The color of the outline (default: 0x000000)
+    quality?: number;        // The quality of the outline from 0 to 1 (default: 0.1)
+    alpha?: number;          // Coefficient for alpha multiplication (default: 1)
+    knockout?: boolean;      // Whether to only render outline, not the contents (default: false)
+    primaryProperty?: 'thickness' | 'alpha' | 'quality'; // Property controlled by intensity
+}
+
 
 /**
  * Union type of all filter configurations
@@ -610,6 +626,7 @@ export type FilterConfig =
     | MultiColorReplaceFilterConfig
     | NoiseFilterConfig
     | OldFilmFilterConfig
+    | OutlineFilterConfig
 
 
 

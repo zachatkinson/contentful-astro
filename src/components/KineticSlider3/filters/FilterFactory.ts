@@ -31,6 +31,7 @@ import {createMotionBlurFilter} from "./motionBlurFilter.ts";
 import {createMultiColorReplaceFilter} from "./multiColorReplaceFilter.ts";
 import { createNoiseFilter } from "./noiseFilter";
 import { createOldFilmFilter } from "./oldFilmFilter";
+import { createOutlineFilter } from "./outlineFilter";
 
 
 /**
@@ -114,6 +115,8 @@ export class FilterFactory {
                 return createNoiseFilter(config);
             case 'oldFilm':
                 return createOldFilmFilter(config);
+            case 'outline':
+                return createOutlineFilter(config);
             // Additional filters will be added here as they are implemented
             default:
                 throw new Error(`Unsupported filter type: ${config}`);

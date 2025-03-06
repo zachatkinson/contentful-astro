@@ -22,18 +22,15 @@ const texts:TextPair[] = [
     ["Venus", "Surface gravity‎: ‎8.87 m/s²"]
 ];
 
-const oldFilm = {
-
-    type: 'oldFilm',
+const outlineEffect = {
+    type: 'outline',
     enabled: true,
-    intensity: 7,
-    primaryProperty: 'sepia',
-    scratch: 0.7,
-    scratchDensity: 0.4,
-    vignetting: 0.5,
-    vignettingBlur: 0.8
-
-}
+    intensity: 5,
+    color: 0xff0000, // Red outline
+    thickness: 3,
+    quality: 0.5,
+    knockout: false
+};
 
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
@@ -64,10 +61,10 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                oldFilm
+
             ]}
             textFilters={[
-
+                outlineEffect
             ]}
             textTitleColor="white"
             textTitleSize={64}

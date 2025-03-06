@@ -37,7 +37,8 @@ export { createKawaseBlurFilter } from './kawaseBlurFilter';
 export { createMotionBlurFilter } from './motionBlurFilter'
 export { createMultiColorReplaceFilter } from './multiColorReplaceFilter'
 export { createNoiseFilter } from './noiseFilter';
-
+export { createOldFilmFilter } from './oldFilmFilter'
+export { createOutlineFilter } from './outlineFilter'
 
 // Export filter types
 export * from './types';
