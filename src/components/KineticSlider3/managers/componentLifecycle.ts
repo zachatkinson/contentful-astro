@@ -72,13 +72,13 @@ export function useComponentLifecycle(
     };
 
     const pauseRendering = () => {
-        if (appRef.current && !appRef.current.ticker.stopped) {
+        if (appRef.current && appRef.current.ticker) {
             appRef.current.ticker.stop();
         }
     };
 
     const resumeRendering = () => {
-        if (appRef.current && appRef.current.ticker.stopped) {
+        if (appRef.current && appRef.current.ticker) {
             appRef.current.ticker.start();
         }
     };
@@ -136,7 +136,7 @@ export function useComponentLifecycle(
         if (!appRef.current) return;
 
         // Add a debug message in development mode
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
             const checkInterval = setInterval(() => {
                 if (stateRef.current.isUnmounting && appRef.current) {
                     console.warn('PixiJS application still exists after component unmount');
@@ -172,11 +172,7 @@ export function destroyPixiApplication(app: Application): void {
             const child = stage.children[i];
             stage.removeChild(child);
             if (child.destroy) {
-                child.destroy({
-                    children: true,
-                    texture: false,
-                    baseTexture: false
-                });
+                child.destroy();
             }
         }
 
@@ -186,7 +182,7 @@ export function destroyPixiApplication(app: Application): void {
         }
 
         // Clear the application instance
-        app.destroy(true, { children: true, texture: false, baseTexture: false });
+        app.destroy(true, { children: true, texture: false});
 
         // Force a garbage collection hint
         if (typeof window !== 'undefined' && (window as any).gc) {
