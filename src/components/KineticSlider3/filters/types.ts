@@ -46,6 +46,7 @@ export type FilterType =
     | 'shockwave'
     | 'simpleLightmap'
     | 'simplexNoise'
+    | 'tiltShift'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -736,6 +737,26 @@ export interface SimplexNoiseFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for TiltShiftFilter
+ *
+ * The TiltShiftFilter creates a photography-like tilt-shift effect that makes scenes
+ * look like miniature models by applying a gradient blur. The effect keeps a horizontal
+ * or vertical strip in focus while blurring the rest.
+ */
+export interface TiltShiftFilterConfig extends BaseFilterConfig {
+    type: 'tiltShift';
+    blur?: number;                  // The strength of the blur
+    gradientBlur?: number;          // The strength of the gradient blur
+    start?: PointData;              // The position to start the effect at {x,y}
+    startX?: number;                // The position to start the effect at on the x axis (0-1)
+    startY?: number;                // The position to start the effect at on the y axis (0-1)
+    end?: PointData;                // The position to end the effect at {x,y}
+    endX?: number;                  // The position to end the effect at on the x axis (0-1)
+    endY?: number;                  // The position to end the effect at on the y axis (0-1)
+    primaryProperty?: 'blur' | 'gradientBlur' | 'focusArea'; // Property controlled by intensity
+}
+
+/**
  * Union type of all filter configurations
  */
 export type FilterConfig =
@@ -777,6 +798,7 @@ export type FilterConfig =
     | ShockwaveFilterConfig
     | SimpleLightmapFilterConfig
     | SimplexNoiseFilterConfig
+    | TiltShiftFilterConfig
 
 
 
