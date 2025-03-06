@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { Sprite, Container, Assets } from 'pixi.js';
 import { type EnhancedSprite, type HookParams } from '../types';
 import { calculateSpriteScale } from '../utils/calculateSpriteScale';
@@ -8,20 +8,30 @@ import gsap from 'gsap';
  * Hook to create and manage slide sprites
  */
 export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
+    // Keep track of all animations for proper cleanup
+    const slideAnimationsRef = useRef<gsap.core.Timeline[]>([]);
+
+    // Clear all active animations
+    const clearAnimations = useCallback(() => {
+        slideAnimationsRef.current.forEach(timeline => {
+            if (timeline) {
+                timeline.kill();
+            }
+        });
+        slideAnimationsRef.current = [];
+    }, []);
+
     // Create slides for each image
     useEffect(() => {
         if (!pixi.app.current || !pixi.app.current.stage) {
-            console.log("App or stage not available for slides, deferring initialization");
             return;
         }
 
         // Check if we have images to display
         if (!props.images.length) {
-            console.warn("No images provided for slides");
             return;
         }
 
-        console.log("Creating slides for", props.images.length, "images");
         const app = pixi.app.current;
 
         // Get the stage container - either the first child or the stage itself
@@ -29,10 +39,19 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
             ? app.stage.children[0] as Container
             : app.stage;
 
-        // Clear existing slides
+        // Track loaded textures for cleanup
+        const loadedTextures = new Set();
+
+        // Clear existing slides and animations
+        clearAnimations();
         pixi.slides.current.forEach(sprite => {
             if (sprite && sprite.parent) {
                 sprite.parent.removeChild(sprite);
+                // Properly destroy the sprite
+                sprite.destroy({
+                    children: true,
+                    texture: false // Don't destroy textures yet as they might be cached/shared
+                });
             }
         });
         pixi.slides.current = [];
@@ -45,17 +64,19 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
 
                 // Load any images not in cache
                 if (imagesToLoad.length > 0) {
-                    console.log(`Loading ${imagesToLoad.length} uncached images...`);
                     await Assets.load(imagesToLoad);
                 }
+
+                // Clear any previous animations
+                clearAnimations();
 
                 // Create slides for each image
                 props.images.forEach((image, index) => {
                     try {
-                        console.log(`Creating slide from image: ${image}`);
-
                         // Get texture from cache
                         const texture = Assets.get(image);
+                        // Track for cleanup
+                        loadedTextures.add(texture);
 
                         // Create the sprite
                         const sprite = new Sprite(texture) as EnhancedSprite;
@@ -65,9 +86,6 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
 
                         // Set initial state - only show the first slide
                         sprite.alpha = index === 0 ? 1 : 0;
-
-                        // IMPORTANT: Set visibility for non-active slides to false
-                        // This will prevent them from being rendered at all
                         sprite.visible = index === 0;
 
                         // Calculate scale
@@ -79,7 +97,6 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
                         );
 
                         // Apply the calculated scale
-                        // Handle both old and new return types of calculateSpriteScale
                         if (typeof scaleResult === 'number') {
                             sprite.scale.set(scaleResult);
                             sprite.baseScale = scaleResult;
@@ -91,8 +108,6 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
                         // Add to stage and store reference
                         stage.addChild(sprite);
                         pixi.slides.current.push(sprite);
-
-                        console.log(`Created slide ${index} for ${image}`);
                     } catch (error) {
                         console.error(`Error creating slide for ${image}:`, error);
                     }
@@ -105,15 +120,36 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
         loadSlides();
 
         return () => {
-            // Cleanup
+            // Properly clean up animations
+            clearAnimations();
+
+            // Properly clean up sprites
             pixi.slides.current.forEach(sprite => {
-                if (sprite && sprite.parent) {
-                    sprite.parent.removeChild(sprite);
+                if (sprite) {
+                    if (sprite.parent) {
+                        sprite.parent.removeChild(sprite);
+                    }
+
+                    // Destroy the sprite properly
+                    sprite.destroy({
+                        children: true,
+                        texture: false // Don't destroy textures as they might be in cache
+                    });
                 }
             });
             pixi.slides.current = [];
+
+            // Optionally clean textures if not needed elsewhere
+            // Be careful with this as it might affect other components using the same textures
+            /*
+            loadedTextures.forEach(texture => {
+                if (texture && !texture.destroyed) {
+                    texture.destroy(true);
+                }
+            });
+            */
         };
-    }, [pixi.app.current, props.images]);
+    }, [pixi.app.current, props.images, clearAnimations]);
 
     /**
      * Transition to a specific slide
@@ -121,18 +157,19 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
      */
     const transitionToSlide = useCallback((nextIndex: number) => {
         if (!pixi.slides.current.length) {
-            console.warn("No slides available for transition");
             return;
         }
 
         if (nextIndex < 0 || nextIndex >= pixi.slides.current.length) {
-            console.warn(`Invalid slide index: ${nextIndex}`);
             return;
         }
 
-        console.log(`Transitioning to slide ${nextIndex}`);
+        // Clear any active animations before starting new ones
+        clearAnimations();
 
         const tl = gsap.timeline();
+        slideAnimationsRef.current.push(tl); // Track for cleanup
+
         const currentIndex = pixi.currentIndex.current;
         const currentSlide = pixi.slides.current[currentIndex];
         const nextSlide = pixi.slides.current[nextIndex];
@@ -143,11 +180,10 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
 
         // Ensure next slide is loaded
         if (!nextSlide || !nextSlide.texture) {
-            console.warn(`Slide ${nextIndex} is not ready for transition`);
             return;
         }
 
-        // IMPORTANT: Make both slides visible during transition
+        // Make both slides visible during transition
         currentSlide.visible = true;
         nextSlide.visible = true;
 
@@ -183,8 +219,11 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
                 duration: 1,
                 ease: 'power2.out',
                 onComplete: () => {
-                    // IMPORTANT: Hide previous slide after transition completes
+                    // Hide previous slide after transition completes
                     currentSlide.visible = false;
+                    // Ensure proper garbage collection opportunity
+                    gsap.killTweensOf(currentSlide);
+                    gsap.killTweensOf(currentSlide.scale);
                 }
             }, 0)
             .to(nextSlide, {
@@ -200,8 +239,10 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
                 duration: 1,
                 ease: 'power2.out',
                 onComplete: () => {
-                    // IMPORTANT: Hide previous text after transition completes
+                    // Hide previous text after transition completes
                     currentTextContainer.visible = false;
+                    // Ensure proper garbage collection opportunity
+                    gsap.killTweensOf(currentTextContainer);
                 }
             }, 0)
                 .to(nextTextContainer, {
@@ -214,12 +255,20 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
         // Update current index
         pixi.currentIndex.current = nextIndex;
 
-        console.log(`Current slide is now ${nextIndex}`);
+        // Set up cleanup for this timeline when it completes
+        tl.eventCallback('onComplete', () => {
+            // Remove this timeline from our tracking array
+            const index = slideAnimationsRef.current.indexOf(tl);
+            if (index !== -1) {
+                slideAnimationsRef.current.splice(index, 1);
+            }
+        });
 
         return tl;
-    }, [pixi.slides.current, pixi.textContainers.current, pixi.currentIndex, props.transitionScaleIntensity]);
+    }, [pixi.slides.current, pixi.textContainers.current, pixi.currentIndex, props.transitionScaleIntensity, clearAnimations]);
 
     return {
-        transitionToSlide
+        transitionToSlide,
+        clearAnimations // Export so other hooks can access it if needed
     };
 };
