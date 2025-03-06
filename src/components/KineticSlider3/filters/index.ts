@@ -35,6 +35,7 @@ export { createGrayscaleFilter } from './grayscaleFilter'
 export { createHslAdjustmentFilter } from './hslAdjustmentFilter'
 export { createKawaseBlurFilter } from './kawaseBlurFilter';
 export { createMotionBlurFilter } from './motionBlurFilter'
+export { createMultiColorReplaceFilter } from './multiColorReplaceFilter'
 export { createNoiseFilter } from './noiseFilter';
 
 

@@ -35,6 +35,7 @@ export type FilterType =
     | 'hsl'
     | 'kawaseBlur'
     | 'motionBlur'
+    | 'multiColorReplace'
     | 'noise'
 
 // Additional filter types will be added here as they are implemented
@@ -519,6 +520,27 @@ export interface MotionBlurFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for MultiColorReplaceFilter
+ *
+ * The MultiColorReplaceFilter replaces multiple colors with different target colors.
+ * Similar to ColorReplaceFilter, but supports multiple replacements at once.
+ */
+export interface MultiColorReplaceFilterConfig extends BaseFilterConfig {
+    type: 'multiColorReplace';
+    replacements?: Array<[ColorSource, ColorSource]>;  // Array of [originalColor, targetColor] pairs
+    tolerance?: number;       // Tolerance of the color comparison (0-1, default: 0.05)
+    maxColors?: number;       // Maximum number of color replacements (set at construction)
+
+    // Extended options for more advanced features
+    primaryProperty?: 'tolerance' | 'blendFactor';  // Property controlled by intensity
+
+    // If using blendFactor as primaryProperty, these arrays can be used to define
+    // a range of color transformations that are blended based on intensity
+    originalColors?: ColorSource[];   // Original colors for blending
+    targetColors?: ColorSource[];     // Target colors for blending
+}
+
+/**
  * Configuration for NoiseFilter
  *
  * NoiseFilter applies random noise to an image.
@@ -563,8 +585,9 @@ export type FilterConfig =
     | GrayscaleFilterConfig
     | HslAdjustmentFilterConfig
     | KawaseBlurFilterConfig
-    | NoiseFilterConfig
     | MotionBlurFilterConfig
+    | MultiColorReplaceFilterConfig
+    | NoiseFilterConfig
 
 
 

@@ -14,14 +14,6 @@ const images = [
     "/images/slides/5.jpg",
 ];
 
-const motionFilter =  {
-    type: 'motionBlur',
-    enabled: true,     // Enable this filter
-    intensity: 20,      // Set intensity (0-10 scale)
-    direction: 45,     // Direction of motion in degrees (45 = diagonal)
-    primaryProperty: 'velocity' // The property controlled by intensity
-}
-
 
 const texts:TextPair[] = [
     ["Earth", "Surface gravity‎: ‎9.807 m/s²"],
@@ -60,7 +52,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                motionFilter
+
             ]}
             textFilters={[
 
