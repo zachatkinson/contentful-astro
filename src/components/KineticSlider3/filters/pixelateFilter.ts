@@ -57,11 +57,33 @@ export function createPixelateFilter(config: PixelateFilterConfig): FilterResult
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        // Reset to default values (pixelation of 1 = minimal effect)
-        filter.size = 1;
+        // If the original filter was configured with separate X and Y values
+        if (config.sizeX !== undefined || config.sizeY !== undefined) {
+            // Reset to the configured values or default of 10
+            const x = config.sizeX !== undefined ? config.sizeX : 10;
+            const y = config.sizeY !== undefined ? config.sizeY : 10;
+
+            // Apply the values to the filter
+            filter.sizeX = x;
+            filter.sizeY = y;
+        }
+        // If size was provided as a single value
+        else if (config.size !== undefined) {
+            filter.size = config.size;
+        }
+        // No size configuration was provided
+        else {
+            // Reset to minimal pixelation (pixel size of 1)
+            filter.size = 1;
+        }
+
+        // If intensity was provided in config, use updateIntensity to reset properly
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

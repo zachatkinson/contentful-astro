@@ -50,15 +50,41 @@ export function createBlurFilter(config: BlurFilterConfig): FilterResult {
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state (no blur)
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.strength = 0;
-        if(config.strengthX !== undefined){
-            filter.strengthX = 0;
+        // Reset strength to config value if provided, otherwise use default
+        const defaultStrength = config.intensity !== undefined ? config.intensity * 10 : 8;
+        filter.strength = defaultStrength;
+
+        // Reset X and Y strengths if they were specifically configured
+        if (config.strengthX !== undefined) {
+            filter.strengthX = config.strengthX * 10;
         }
-        if(config.strengthY !== undefined){
-            filter.strengthY = 0;
+
+        if (config.strengthY !== undefined) {
+            filter.strengthY = config.strengthY * 10;
+        }
+
+        // Reset quality if it was configured
+        if (config.quality !== undefined) {
+            filter.quality = config.quality;
+        }
+
+        // Reset kernelSize if it was configured
+        // Use type assertion or safely check if property exists
+        if (config.kernelSize !== undefined && 'kernelSize' in filter) {
+            (filter as any).kernelSize = config.kernelSize;
+        }
+
+        // Reset repeatEdgePixels if it was configured
+        if (config.repeatEdgePixels !== undefined) {
+            filter.repeatEdgePixels = config.repeatEdgePixels;
+        }
+
+        // If intensity was explicitly provided in config, use updateIntensity
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
         }
     };
 

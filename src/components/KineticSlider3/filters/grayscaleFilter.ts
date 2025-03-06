@@ -35,11 +35,20 @@ export function createGrayscaleFilter(config: GrayscaleFilterConfig): FilterResu
     };
 
     /**
-     * Reset the filter to default state (full grayscale)
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        // GrayscaleFilter has no resettable properties
-        // The natural state is full grayscale
+        // Check if enabled property exists and was specified in config
+        if ('enabled' in filter && config.enabled !== undefined) {
+            filter.enabled = config.enabled;
+        }
+
+        // Even though GrayscaleFilter doesn't have configurable intensity,
+        // if we've stored the initial intensity in the config, we can use
+        // updateIntensity to reset to that initial state for consistency
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

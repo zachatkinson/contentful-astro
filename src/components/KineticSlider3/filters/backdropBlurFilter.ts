@@ -40,10 +40,37 @@ export function createBackdropBlurFilter(config: BackdropBlurFilterConfig): Filt
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state (no blur)
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.strength = 0;
+        // Reset strength to config value if provided, otherwise use default
+        const defaultStrength = config.intensity !== undefined ? config.intensity * 10 : 8;
+        filter.strength = defaultStrength;
+
+        // Reset quality if it was configured and property exists
+        if (config.quality !== undefined && 'quality' in filter) {
+            filter.quality = config.quality;
+        }
+
+        // Reset kernelSize if it was configured and property exists
+        if (config.kernelSize !== undefined && 'kernelSize' in filter) {
+            (filter as any).kernelSize = config.kernelSize;
+        }
+
+        // Reset resolution if it was configured and property exists
+        if (config.resolution !== undefined && 'resolution' in filter) {
+            (filter as any).resolution = config.resolution;
+        }
+
+        // Reset repeatEdgePixels if it was configured and property exists
+        if (config.repeatEdgePixels !== undefined && 'repeatEdgePixels' in filter) {
+            filter.repeatEdgePixels = config.repeatEdgePixels;
+        }
+
+        // If intensity was explicitly provided in config, use updateIntensity
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

@@ -87,20 +87,36 @@ export function createCRTFilter(config: CRTFilterConfig): FilterResult {
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.curvature = 1;
-        filter.lineContrast = 0.25;
-        filter.lineWidth = 1;
-        filter.noise = 0.3;
-        filter.noiseSize = 0;
-        filter.seed = 0;
-        filter.time = 0.3;
-        filter.verticalLine = false;
-        filter.vignetting = 0.3;
-        filter.vignettingAlpha = 1;
-        filter.vignettingBlur = 0.3;
+        // Reset each property to config value if provided, otherwise use default
+
+        // Display properties
+        filter.curvature = config.curvature !== undefined ? config.curvature : 1;
+        filter.verticalLine = config.verticalLine !== undefined ? config.verticalLine : false;
+
+        // Line properties
+        filter.lineContrast = config.lineContrast !== undefined ? config.lineContrast : 0.25;
+        filter.lineWidth = config.lineWidth !== undefined ? config.lineWidth : 1;
+
+        // Noise properties
+        filter.noise = config.noise !== undefined ? config.noise : 0.3;
+        filter.noiseSize = config.noiseSize !== undefined ? config.noiseSize : 0;
+        filter.seed = config.seed !== undefined ? config.seed : 0;
+
+        // Time property
+        filter.time = config.time !== undefined ? config.time : 0.3;
+
+        // Vignetting properties
+        filter.vignetting = config.vignetting !== undefined ? config.vignetting : 0.3;
+        filter.vignettingAlpha = config.vignettingAlpha !== undefined ? config.vignettingAlpha : 1;
+        filter.vignettingBlur = config.vignettingBlur !== undefined ? config.vignettingBlur : 0.3;
+
+        // If intensity was provided in config, use updateIntensity to reset properly
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

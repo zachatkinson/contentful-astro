@@ -71,10 +71,44 @@ export function createColorGradientFilter(config: ColorGradientFilterConfig): Fi
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.alpha = 0; // Make the gradient invisible
+        // Reset angle to config value if provided, otherwise use default
+        filter.angle = config.angle !== undefined ? config.angle : 90;
+
+        // Reset alpha to config value if provided, otherwise use default
+        filter.alpha = config.alpha !== undefined ? config.alpha : 1;
+
+        // Reset maxColors to config value if provided, otherwise use default
+        if ('maxColors' in filter && config.maxColors !== undefined) {
+            (filter as any).maxColors = config.maxColors;
+        }
+
+        // Reset replace option to config value if provided, otherwise use default
+        if ('replace' in filter && config.replace !== undefined) {
+            (filter as any).replace = config.replace;
+        }
+
+        // Reset gradient type to config value if provided, otherwise use default
+        if ('type' in filter && config.type !== undefined) {
+            (filter as any).type = config.type;
+        }
+
+        // Reset colors to config value if provided, otherwise use default
+        if ('colors' in filter && config.colors !== undefined) {
+            (filter as any).colors = config.colors;
+        }
+
+        // Reset stops to config value if provided, otherwise use default
+        if ('stops' in filter && config.stops !== undefined) {
+            (filter as any).stops = config.stops;
+        }
+
+        // If intensity was provided in config, use updateIntensity to reset properly
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

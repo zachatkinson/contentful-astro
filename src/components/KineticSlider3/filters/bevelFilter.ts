@@ -66,15 +66,29 @@ export function createBevelFilter(config: BevelFilterConfig): FilterResult {
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.rotation = 45;
-        filter.thickness = 2;
-        filter.lightColor = 0xffffff;
-        filter.lightAlpha = 0.7;
-        filter.shadowColor = 0x000000;
-        filter.shadowAlpha = 0.7;
+        // Reset each property to config value if provided, otherwise use default
+
+        // Rotation
+        filter.rotation = config.rotation !== undefined ? config.rotation : 45;
+
+        // Thickness
+        filter.thickness = config.thickness !== undefined ? config.thickness : 2;
+
+        // Light properties
+        filter.lightColor = config.lightColor !== undefined ? config.lightColor : 0xffffff;
+        filter.lightAlpha = config.lightAlpha !== undefined ? config.lightAlpha : 0.7;
+
+        // Shadow properties
+        filter.shadowColor = config.shadowColor !== undefined ? config.shadowColor : 0x000000;
+        filter.shadowAlpha = config.shadowAlpha !== undefined ? config.shadowAlpha : 0.7;
+
+        // If intensity was provided in config, use updateIntensity to reset properly
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

@@ -84,15 +84,30 @@ export function createSimplexNoiseFilter(config: SimplexNoiseFilterConfig): Filt
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.noiseScale = 10;
-        filter.offsetX = 0;
-        filter.offsetY = 0;
-        filter.offsetZ = 0;
-        filter.step = -1;
-        filter.strength = 0;
+        // Reset each property to config value if provided, otherwise use default
+
+        // Noise scale
+        filter.noiseScale = config.noiseScale !== undefined ? config.noiseScale : 10;
+
+        // Offset values
+        filter.offsetX = config.offsetX !== undefined ? config.offsetX : 0;
+        filter.offsetY = config.offsetY !== undefined ? config.offsetY : 0;
+        filter.offsetZ = config.offsetZ !== undefined ? config.offsetZ : 0;
+
+        // Step threshold
+        filter.step = config.step !== undefined ? config.step : -1;
+
+        // Strength
+        filter.strength = config.strength !== undefined ? config.strength : 0;
+
+        // If intensity was provided in config, use updateIntensity to reset properly
+        // This will adjust properties based on the primaryProperty setting
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

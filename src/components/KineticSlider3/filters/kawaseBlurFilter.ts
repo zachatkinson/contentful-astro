@@ -65,13 +65,35 @@ export function createKawaseBlurFilter(config: KawaseBlurFilterConfig): FilterRe
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.kernels = [0];
-        filter.pixelSize = { x: 1, y: 1 };
-        filter.quality = 3;
-        filter.strength = 4;
+        // Reset kernels to config value or default
+        filter.kernels = config.kernels !== undefined ? config.kernels : [0];
+
+        // Reset pixelSize to config values or default
+        if (config.pixelSize !== undefined) {
+            filter.pixelSize = config.pixelSize;
+        } else if (config.pixelSizeX !== undefined || config.pixelSizeY !== undefined) {
+            // If individual components were provided
+            const x = config.pixelSizeX !== undefined ? config.pixelSizeX : 1;
+            const y = config.pixelSizeY !== undefined ? config.pixelSizeY : 1;
+            filter.pixelSize = { x, y };
+        } else {
+            // Default value
+            filter.pixelSize = { x: 1, y: 1 };
+        }
+
+        // Reset quality to config value or default
+        filter.quality = config.quality !== undefined ? config.quality : 3;
+
+        // Reset strength to config value or default
+        filter.strength = config.strength !== undefined ? config.strength : 4;
+
+        // If intensity was provided, use updateIntensity to reset properly
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

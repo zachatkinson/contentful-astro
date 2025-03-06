@@ -83,12 +83,32 @@ export function createBulgePinchFilter(config: BulgePinchFilterConfig): FilterRe
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.center = { x: 0.5, y: 0.5 };
-        filter.radius = 100;
-        filter.strength = 0; // No effect
+        // Reset center to config value if provided, otherwise use default
+        if (config.center !== undefined) {
+            filter.center = config.center;
+        } else {
+            filter.center = { x: 0.5, y: 0.5 };
+        }
+
+        // Reset radius to config value if provided, otherwise use default
+        filter.radius = config.radius !== undefined ? config.radius : 100;
+
+        // Reset strength to config value if provided, otherwise use default
+        // If no strength was provided but intensity was, we'll handle that with updateIntensity
+        if (config.strength !== undefined) {
+            filter.strength = config.strength;
+        } else if (config.intensity === undefined) {
+            // Only set to 0 if neither strength nor intensity were provided
+            filter.strength = 0;
+        }
+
+        // If intensity was provided in config, use updateIntensity to reset properly
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

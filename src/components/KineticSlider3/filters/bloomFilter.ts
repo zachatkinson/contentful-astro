@@ -74,11 +74,30 @@ export function createBloomFilter(config: BloomFilterConfig): FilterResult {
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state (minimal bloom)
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        // Reset to default values according to the documentation
-        filter.strength = 2; // Default value is 2
+        // Use config values if provided, otherwise use default value of 2
+        if (config.strength !== undefined) {
+            filter.strength = config.strength;
+        } else if (config.strengthX !== undefined && config.strengthY !== undefined) {
+            filter.strengthX = config.strengthX;
+            filter.strengthY = config.strengthY;
+        } else if (config.strengthX !== undefined) {
+            filter.strengthX = config.strengthX;
+            filter.strengthY = 2; // Default for Y if only X is provided
+        } else if (config.strengthY !== undefined) {
+            filter.strengthX = 2; // Default for X if only Y is provided
+            filter.strengthY = config.strengthY;
+        } else {
+            // Reset to default values if no config values were provided
+            filter.strength = 2; // Default value is 2
+        }
+
+        // If intensity was provided in config, apply that
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

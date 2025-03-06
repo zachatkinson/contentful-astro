@@ -87,19 +87,36 @@ export function createOldFilmFilter(config: OldFilmFilterConfig): FilterResult {
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.noise = 0.3;
-        filter.noiseSize = 1;
-        filter.scratch = 0.5;
-        filter.scratchDensity = 0.3;
-        filter.scratchWidth = 1;
-        filter.seed = 0;
-        filter.sepia = 0.3;
-        filter.vignetting = 0.3;
-        filter.vignettingAlpha = 1;
-        filter.vignettingBlur = 1;
+        // Reset each property to config value if provided, otherwise use default
+
+        // Noise properties
+        filter.noise = config.noise !== undefined ? config.noise : 0.3;
+        filter.noiseSize = config.noiseSize !== undefined ? config.noiseSize : 1;
+
+        // Scratch properties
+        filter.scratch = config.scratch !== undefined ? config.scratch : 0.5;
+        filter.scratchDensity = config.scratchDensity !== undefined ? config.scratchDensity : 0.3;
+        filter.scratchWidth = config.scratchWidth !== undefined ? config.scratchWidth : 1;
+
+        // Seed property
+        filter.seed = config.seed !== undefined ? config.seed : 0;
+
+        // Sepia property
+        filter.sepia = config.sepia !== undefined ? config.sepia : 0.3;
+
+        // Vignetting properties
+        filter.vignetting = config.vignetting !== undefined ? config.vignetting : 0.3;
+        filter.vignettingAlpha = config.vignettingAlpha !== undefined ? config.vignettingAlpha : 1;
+        filter.vignettingBlur = config.vignettingBlur !== undefined ? config.vignettingBlur : 1;
+
+        // If intensity was provided in config, use updateIntensity to reset properly
+        // This will adjust multiple properties based on the primaryProperty setting
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

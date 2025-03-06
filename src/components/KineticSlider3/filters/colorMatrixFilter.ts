@@ -52,7 +52,8 @@ export function createColorMatrixFilter(config: ColorMatrixFilterConfig): Filter
      */
     const reset = (): void => {
         filter.reset();
-        filter.alpha = 1;
+
+        filter.alpha = config.alpha ?? 1;
     };
 
     return { filter, updateIntensity, reset };

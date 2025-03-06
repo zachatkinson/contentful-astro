@@ -70,13 +70,22 @@ export function createDotFilter(config: DotFilterConfig): FilterResult {
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.angle = 5;
-        filter.scale = 1;
-        // Reset to configured grayscale or default
+        // Reset angle to config value if provided, otherwise use default
+        filter.angle = config.angle !== undefined ? config.angle : 5;
+
+        // Reset scale to config value if provided, otherwise use default
+        filter.scale = config.scale !== undefined ? config.scale : 1;
+
+        // Reset grayscale to config value if provided, otherwise use default
         filter.grayscale = config.grayscale !== undefined ? config.grayscale : true;
+
+        // If intensity was provided in config, use updateIntensity to reset properly
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

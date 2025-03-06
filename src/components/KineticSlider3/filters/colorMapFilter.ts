@@ -73,10 +73,31 @@ export function createColorMapFilter(config: ColorMapFilterConfig): FilterResult
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.mix = 0; // No effect
+        // Reset mix to config value if explicitly provided
+        if (config.mix !== undefined) {
+            filter.mix = config.mix;
+        } else if (config.intensity === undefined) {
+            // Only set to 0 if neither mix nor intensity were provided
+            filter.mix = 0;
+        }
+
+        // Reset nearest if it was configured and property exists
+        if (config.nearest !== undefined && 'nearest' in filter) {
+            filter.nearest = config.nearest;
+        }
+
+        // Reset colorSize if it was configured and property exists
+        if (config.colorSize !== undefined && 'colorSize' in filter) {
+            (filter as any).colorSize = config.colorSize;
+        }
+
+        // If intensity was provided in config, use updateIntensity to reset properly
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

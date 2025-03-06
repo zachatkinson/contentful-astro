@@ -57,10 +57,24 @@ export function createColorOverlayFilter(config: ColorOverlayFilterConfig): Filt
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.alpha = 0; // Reset to transparent but keep the color
+        // Reset color to config value if provided, otherwise use default
+        filter.color = config.color !== undefined ? config.color : 0xFF5500;
+
+        // Reset alpha to config value if explicitly provided
+        if (config.alpha !== undefined) {
+            filter.alpha = config.alpha;
+        } else if (config.intensity === undefined) {
+            // Only set to 0 if neither alpha nor intensity were provided
+            filter.alpha = 0;
+        }
+
+        // If intensity was provided in config, use updateIntensity to reset properly
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };
