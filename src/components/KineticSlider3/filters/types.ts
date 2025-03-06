@@ -33,8 +33,10 @@ export type FilterType =
     | 'godray'
     | 'grayscale'
     | 'hsl'
-    | 'noise'
     | 'kawaseBlur'
+    | 'motionBlur'
+    | 'noise'
+
 // Additional filter types will be added here as they are implemented
     ;
 
@@ -500,6 +502,23 @@ export interface KawaseBlurFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for MotionBlurFilter
+ *
+ * The MotionBlurFilter applies a directional blur effect that simulates movement.
+ * It can be configured to blur in any direction with varying intensities.
+ */
+export interface MotionBlurFilterConfig extends BaseFilterConfig {
+    type: 'motionBlur';
+    kernelSize?: number;      // Size of the blur kernel (must be odd number >= 5)
+    offset?: number;          // Offset of the blur filter
+    velocity?: PointData;     // Velocity of the motion for blur effect as {x,y}
+    velocityX?: number;       // Velocity on X axis
+    velocityY?: number;       // Velocity on Y axis
+    direction?: number;       // Direction in degrees (0-360) - helper property
+    primaryProperty?: 'velocity' | 'velocityX' | 'velocityY' | 'kernelSize' | 'offset'; // Property controlled by intensity
+}
+
+/**
  * Configuration for NoiseFilter
  *
  * NoiseFilter applies random noise to an image.
@@ -545,6 +564,7 @@ export type FilterConfig =
     | HslAdjustmentFilterConfig
     | KawaseBlurFilterConfig
     | NoiseFilterConfig
+    | MotionBlurFilterConfig
 
 
 

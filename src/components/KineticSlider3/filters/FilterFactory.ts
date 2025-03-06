@@ -28,6 +28,7 @@ import {createGrayscaleFilter} from "./grayscaleFilter.ts";
 import {createHslAdjustmentFilter} from "./hslAdjustmentFilter.ts";
 import { createNoiseFilter } from "./noiseFilter";
 import {createKawaseBlurFilter} from "./kawaseBlurFilter.ts";
+import {createMotionBlurFilter} from "./motionBlurFilter.ts";
 
 
 
@@ -105,6 +106,8 @@ export class FilterFactory {
                 return createHslAdjustmentFilter(config);
             case 'kawaseBlur':
                 return createKawaseBlurFilter(config);
+            case 'motionBlur':
+                return createMotionBlurFilter(config);
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented
