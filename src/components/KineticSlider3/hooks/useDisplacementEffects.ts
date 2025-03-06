@@ -16,6 +16,19 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
     // Track initialization state
     const isInitialized = useRef(false);
 
+    // Track active GSAP animations for proper cleanup
+    const activeAnimations = useRef<gsap.core.Tween[]>([]);
+
+    // Helper function to kill active animations
+    const killActiveAnimations = useCallback(() => {
+        activeAnimations.current.forEach(tween => {
+            if (tween) {
+                tween.kill();
+            }
+        });
+        activeAnimations.current = [];
+    }, []);
+
     // Set up displacement sprites and filters
     useEffect(() => {
         // Skip if already initialized
@@ -109,7 +122,10 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
         setupDisplacementSprites();
 
         return () => {
-            // Cleanup
+            // Kill any active animations
+            killActiveAnimations();
+
+            // Cleanup sprites
             if (app && app.stage) {
                 if (pixi.backgroundDisplacementSprite.current && pixi.backgroundDisplacementSprite.current.parent) {
                     pixi.backgroundDisplacementSprite.current.parent.removeChild(pixi.backgroundDisplacementSprite.current);
@@ -120,7 +136,7 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
             }
             isInitialized.current = false;
         };
-    }, [pixi.app.current, props.backgroundDisplacementSpriteLocation, props.cursorDisplacementSpriteLocation, props.cursorScaleIntensity]);
+    }, [pixi.app.current, props.backgroundDisplacementSpriteLocation, props.cursorDisplacementSpriteLocation, props.cursorScaleIntensity, killActiveAnimations]);
 
     // Mouse tracking for cursor effects
     useEffect(() => {
@@ -133,21 +149,35 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
 
         const updateCursorEffect = (e: MouseEvent) => {
             if (pixi.backgroundDisplacementSprite.current) {
-                gsap.to(pixi.backgroundDisplacementSprite.current, {
+                // Track the animation
+                const bgTween = gsap.to(pixi.backgroundDisplacementSprite.current, {
                     x: e.clientX,
                     y: e.clientY,
                     duration: props.cursorMomentum || 0.14,
                     ease: 'power2.out',
                 });
+                activeAnimations.current.push(bgTween);
             }
 
             if (props.cursorImgEffect && pixi.cursorDisplacementSprite.current) {
-                gsap.to(pixi.cursorDisplacementSprite.current, {
+                // Track the animation
+                const cursorTween = gsap.to(pixi.cursorDisplacementSprite.current, {
                     x: e.clientX,
                     y: e.clientY,
                     duration: props.cursorMomentum || 0.14,
                     ease: 'power2.out',
                 });
+                activeAnimations.current.push(cursorTween);
+            }
+
+            // Clean up older animations to avoid accumulation
+            // Only keep recent animations (last 5 should be sufficient for this effect)
+            if (activeAnimations.current.length > 5) {
+                const oldTweens = activeAnimations.current.slice(0, activeAnimations.current.length - 5);
+                oldTweens.forEach(tween => {
+                    tween.kill();
+                });
+                activeAnimations.current = activeAnimations.current.slice(-5);
             }
         };
 
@@ -155,8 +185,10 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
 
         return () => {
             node.removeEventListener('mousemove', updateCursorEffect);
+            // Kill any remaining animations
+            killActiveAnimations();
         };
-    }, [sliderRef.current, pixi.backgroundDisplacementSprite.current, pixi.cursorDisplacementSprite.current, props.cursorImgEffect, props.cursorMomentum]);
+    }, [sliderRef.current, pixi.backgroundDisplacementSprite.current, pixi.cursorDisplacementSprite.current, props.cursorImgEffect, props.cursorMomentum, killActiveAnimations]);
 
     /**
      * Show displacement effects
@@ -170,36 +202,44 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
 
         console.log("Showing displacement effects");
 
-        gsap.to(pixi.backgroundDisplacementSprite.current, {
+        // Kill any existing animations to prevent interference
+        killActiveAnimations();
+
+        // Track new animations
+        const bgSpriteTween = gsap.to(pixi.backgroundDisplacementSprite.current, {
             alpha: 1,
             duration: 0.5,
             ease: 'power2.out',
         });
+        activeAnimations.current.push(bgSpriteTween);
 
         if (props.cursorImgEffect && pixi.cursorDisplacementSprite.current) {
-            gsap.to(pixi.cursorDisplacementSprite.current, {
+            const cursorSpriteTween = gsap.to(pixi.cursorDisplacementSprite.current, {
                 alpha: 1,
                 duration: 0.5,
                 ease: 'power2.out',
             });
+            activeAnimations.current.push(cursorSpriteTween);
         }
 
-        gsap.to(pixi.bgDispFilter.current.scale, {
+        const bgFilterTween = gsap.to(pixi.bgDispFilter.current.scale, {
             x: DEFAULT_BG_FILTER_SCALE,
             y: DEFAULT_BG_FILTER_SCALE,
             duration: 0.5,
             ease: 'power2.out',
         });
+        activeAnimations.current.push(bgFilterTween);
 
         if (props.cursorImgEffect && pixi.cursorDispFilter.current) {
-            gsap.to(pixi.cursorDispFilter.current.scale, {
+            const cursorFilterTween = gsap.to(pixi.cursorDispFilter.current.scale, {
                 x: DEFAULT_CURSOR_FILTER_SCALE,
                 y: DEFAULT_CURSOR_FILTER_SCALE,
                 duration: 0.5,
                 ease: 'power2.out',
             });
+            activeAnimations.current.push(cursorFilterTween);
         }
-    }, [pixi, props.cursorImgEffect]);
+    }, [pixi, props.cursorImgEffect, killActiveAnimations]);
 
     /**
      * Hide displacement effects
@@ -212,41 +252,50 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
 
         console.log("Hiding displacement effects");
 
-        gsap.to(pixi.backgroundDisplacementSprite.current, {
+        // Kill any existing animations to prevent interference
+        killActiveAnimations();
+
+        // Track new animations
+        const bgSpriteTween = gsap.to(pixi.backgroundDisplacementSprite.current, {
             alpha: 0,
             duration: 0.5,
             ease: 'power2.out',
         });
+        activeAnimations.current.push(bgSpriteTween);
 
         if (props.cursorImgEffect && pixi.cursorDisplacementSprite.current) {
-            gsap.to(pixi.cursorDisplacementSprite.current, {
+            const cursorSpriteTween = gsap.to(pixi.cursorDisplacementSprite.current, {
                 alpha: 0,
                 duration: 0.5,
                 ease: 'power2.out',
             });
+            activeAnimations.current.push(cursorSpriteTween);
         }
 
-        gsap.to(pixi.bgDispFilter.current.scale, {
+        const bgFilterTween = gsap.to(pixi.bgDispFilter.current.scale, {
             x: 0,
             y: 0,
             duration: 0.5,
             ease: 'power2.out',
         });
+        activeAnimations.current.push(bgFilterTween);
 
         if (props.cursorImgEffect && pixi.cursorDispFilter.current) {
-            gsap.to(pixi.cursorDispFilter.current.scale, {
+            const cursorFilterTween = gsap.to(pixi.cursorDispFilter.current.scale, {
                 x: 0,
                 y: 0,
                 duration: 0.5,
                 ease: 'power2.out',
             });
+            activeAnimations.current.push(cursorFilterTween);
         }
-    }, [pixi, props.cursorImgEffect]);
+    }, [pixi, props.cursorImgEffect, killActiveAnimations]);
 
     return {
         showDisplacementEffects,
         hideDisplacementEffects,
         DEFAULT_BG_FILTER_SCALE,
-        DEFAULT_CURSOR_FILTER_SCALE
+        DEFAULT_CURSOR_FILTER_SCALE,
+        killActiveAnimations, // Expose the cleanup function for external use
     };
 };
