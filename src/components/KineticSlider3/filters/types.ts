@@ -48,6 +48,7 @@ export type FilterType =
     | 'simplexNoise'
     | 'tiltShift'
     | 'twist'
+    | 'zoomBlur'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -772,6 +773,23 @@ export interface TwistFilterConfig extends BaseFilterConfig {
     offsetY?: number;              // The y coordinate of the center (default: 0)
     primaryProperty?: 'angle' | 'radius' | 'center' | 'offsetX' | 'offsetY'; // Property controlled by intensity
 }
+
+/**
+ * Configuration for ZoomBlurFilter
+ *
+ * The ZoomBlurFilter applies a zoom/radial blur effect to objects,
+ * creating the appearance of zooming in or out from a center point.
+ */
+export interface ZoomBlurFilterConfig extends BaseFilterConfig {
+    type: 'zoomBlur';
+    center?: PointData;            // The center of the zoom effect as {x,y} (default: [0,0])
+    centerX?: number;              // The x coordinate of the center (default: 0)
+    centerY?: number;              // The y coordinate of the center (default: 0)
+    innerRadius?: number;          // The inner radius where effect begins (default: 0)
+    radius?: number;               // Outer radius of the effect, -1 = infinity (default: -1)
+    strength?: number;             // Strength of the zoom blur effect (default: 0.1)
+    primaryProperty?: 'strength' | 'radius' | 'innerRadius' | 'center' | 'centerX' | 'centerY'; // Property controlled by intensity
+}
 /**
  * Union type of all filter configurations
  */
@@ -816,6 +834,7 @@ export type FilterConfig =
     | SimplexNoiseFilterConfig
     | TiltShiftFilterConfig
     | TwistFilterConfig
+    | ZoomBlurFilterConfig
 
 
 

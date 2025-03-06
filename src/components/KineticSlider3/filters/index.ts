@@ -48,5 +48,6 @@ export { createSimpleLightmapFilter } from './simpleLightmapFilter'
 export { createSimplexNoiseFilter } from './simplexNoiseFilter'
 export { createTiltShiftFilter } from './tiltShiftFilter'
 export { createTwistFilter } from './twistFilter'
+export { createZoomBlurFilter } from './zoomBlurFilter'
 // Export filter types
 export * from './types';

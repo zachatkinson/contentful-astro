@@ -39,9 +39,9 @@ import { createRGBSplitFilter } from "./rgbSplitFilter";
 import { createShockwaveFilter } from "./shockwaveFilter";
 import { createSimpleLightmapFilter } from "./simpleLightmapFilter";
 import { createSimplexNoiseFilter } from "./simplexNoiseFilter";
-import {createTiltShiftFilter} from "./tiltShiftFilter.ts";
-import {createTwistFilter} from "./twistFilter.ts";
-
+import { createTiltShiftFilter } from "./tiltShiftFilter";
+import { createTwistFilter } from "./twistFilter";
+import { createZoomBlurFilter } from "./zoomBlurFilter";
 
 /**
  * Factory for creating and managing different types of PixiJS filters
@@ -144,6 +144,8 @@ export class FilterFactory {
                 return createTiltShiftFilter(config);
             case 'twist':
                 return createTwistFilter(config);
+            case "zoomBlur":
+                return createZoomBlurFilter(config);
             // Additional filters will be added here as they are implemented
             default:
                 throw new Error(`Unsupported filter type: ${config}`);

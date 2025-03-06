@@ -32,15 +32,16 @@ const outlineEffect = {
     knockout: false
 };
 
-const twistEffect = {
-    type: 'twist',
+const zoomBlurEffect = {
+    type: 'zoomBlur',
     enabled: true,
-    intensity: 5,
-    angle: 6,         // Adjust for stronger twist
-    radius: 200,      // Area of effect
-    offsetX: 200,       // Center X (0 = middle)
-    offsetY: 200,       // Center Y (0 = middle)
-    primaryProperty: 'angle' // Control angle with intensity
+    intensity: 2,        // Controls overall intensity
+    strength: 0.3,       // Strength of the blur (if using directly)
+    centerX: 0.5,        // Center X (0.5 = middle of screen)
+    centerY: 0.5,        // Center Y (0.5 = middle of screen)
+    radius: -1,          // Outer radius (-1 = infinite)
+    innerRadius: 20,     // Inner radius where effect begins
+    primaryProperty: 'strength' // Control strength with intensity
 };
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
@@ -71,7 +72,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                twistEffect
+                zoomBlurEffect
             ]}
             textFilters={[
                 outlineEffect
