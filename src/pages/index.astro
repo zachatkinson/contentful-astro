@@ -33,14 +33,14 @@ const outlineEffect = {
 };
 
 // Create a pixelate filter configuration
-const pixelateEffect = {
-    type: 'pixelate',
+const customRadialBlur = {
+    type: 'radialBlur',
     enabled: true,
-    intensity: 5,  // 0-10 scale (will be mapped to pixel size)
-    size: 10,      // Initial pixel size (optional if using intensity)
-    // sizeX: 15,  // Optional: set different horizontal pixelation
-    // sizeY: 8,   // Optional: set different vertical pixelation
-    primaryProperty: 'size' // Controls which property is affected by intensity
+    intensity: 7,
+    primaryProperty: 'angle', // Only the angle will be affected by intensity
+    centerX: 0.3,             // Offset the blur center to the right
+    centerY: -0.2,            // and slightly upward
+    kernelSize: 7             // Higher quality blur
 };
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
@@ -71,7 +71,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                pixelateEffect
+                customRadialBlur
             ]}
             textFilters={[
                 outlineEffect

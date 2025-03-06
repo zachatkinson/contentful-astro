@@ -40,6 +40,7 @@ export type FilterType =
     | 'oldFilm'
     | 'outline'
     | 'pixelate'
+    | 'radialBlur'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -606,6 +607,23 @@ export interface PixelateFilterConfig extends BaseFilterConfig {
     primaryProperty?: 'size' | 'sizeX' | 'sizeY'; // Property controlled by intensity
 }
 
+/**
+ * Configuration for RadialBlurFilter
+ *
+ * The RadialBlurFilter applies a circular/radial motion blur to an object.
+ * It creates the effect of rotation or zooming with a blur based on the center point.
+ */
+export interface RadialBlurFilterConfig extends BaseFilterConfig {
+    type: 'radialBlur';
+    angle?: number;           // Angle in degrees of the motion for blur effect (default: 0)
+    center?: PointData;       // Center point {x,y} of the blur effect
+    centerX?: number;         // X coordinate of the center of the effect
+    centerY?: number;         // Y coordinate of the center of the effect
+    kernelSize?: number;      // Size of the blur kernel (must be odd number >= 3, default: 5)
+    radius?: number;          // Maximum size of the blur radius (-1 for infinity, default: -1)
+    primaryProperty?: 'angle' | 'radius' | 'kernelSize' | 'centerX' | 'centerY'; // Property controlled by intensity
+}
+
 
 /**
  * Union type of all filter configurations
@@ -643,6 +661,7 @@ export type FilterConfig =
     | OldFilmFilterConfig
     | OutlineFilterConfig
     | PixelateFilterConfig
+    | RadialBlurFilterConfig
 
 
 

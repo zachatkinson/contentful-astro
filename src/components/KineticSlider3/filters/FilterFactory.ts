@@ -33,6 +33,7 @@ import { createNoiseFilter } from "./noiseFilter";
 import { createOldFilmFilter } from "./oldFilmFilter";
 import { createOutlineFilter } from "./outlineFilter";
 import {createPixelateFilter} from "./pixelateFilter.ts";
+import {createRadialBlurFilter} from "./radialBlurFilter.ts";
 
 
 /**
@@ -120,6 +121,8 @@ export class FilterFactory {
                 return createOutlineFilter(config);
             case 'pixelate':
                 return createPixelateFilter(config);
+            case 'radialBlur':
+                return createRadialBlurFilter(config);
             // Additional filters will be added here as they are implemented
             default:
                 throw new Error(`Unsupported filter type: ${config}`);
