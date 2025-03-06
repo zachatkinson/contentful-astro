@@ -56,14 +56,15 @@ export function createColorReplaceFilter(config: ColorReplaceFilterConfig): Filt
      * Reset the filter to default state
      */
     const reset = (): void => {
-        // Return to default values
-        filter.tolerance = 0.4; // Default tolerance from documentation
+        // Reset tolerance to config value if provided, otherwise use default
+        filter.tolerance = config.tolerance !== undefined ? config.tolerance : 0.4;
 
-        // If original colors were provided in config, restore them
+        // Reset original color to config value if provided
         if (config.originalColor !== undefined) {
             filter.originalColor = config.originalColor;
         }
 
+        // Reset target color to config value if provided
         if (config.targetColor !== undefined) {
             filter.targetColor = config.targetColor;
         }

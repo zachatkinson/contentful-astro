@@ -274,18 +274,27 @@ export function createGlitchFilter(config: GlitchFilterConfig): FilterResult {
         }
         currentTweens = [];
 
-        // Reset to default values according to documentation
-        filter.slices = 5;
-        filter.offset = 100;
-        filter.direction = 0;
-        filter.seed = 0;
-        filter.red = { x: 0, y: 0 };
-        filter.green = { x: 0, y: 0 };
-        filter.blue = { x: 0, y: 0 };
-        filter.average = false;
-        filter.minSize = 8;
-        filter.sampleSize = 512;
-        filter.fillMode = 0; // TRANSPARENT mode (0)
+        // Reset to configured values or defaults if not specified
+        filter.slices = config.slices !== undefined ? config.slices : 5;
+        filter.offset = config.offset !== undefined ? config.offset : 100;
+        filter.direction = config.direction !== undefined ? config.direction : 0;
+        filter.seed = config.seed !== undefined ? config.seed : 0;
+
+        // Reset color channel offsets
+        filter.red = config.red !== undefined ? config.red : { x: 0, y: 0 };
+        filter.green = config.green !== undefined ? config.green : { x: 0, y: 0 };
+        filter.blue = config.blue !== undefined ? config.blue : { x: 0, y: 0 };
+
+        // Reset other properties
+        filter.average = config.average !== undefined ? config.average : false;
+        filter.minSize = config.minSize !== undefined ? config.minSize : 8;
+        filter.sampleSize = config.sampleSize !== undefined ? config.sampleSize : 512;
+        filter.fillMode = config.fillMode !== undefined ? config.fillMode : 0; // TRANSPARENT mode (0)
+
+        // If intensity was provided in config, apply it
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

@@ -130,20 +130,24 @@ export function createGodrayFilter(config: GodrayFilterConfig): FilterResult {
     }
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        // Stop any active animation
-        stopAnimation();
+        // Reset enabled property if it exists and was specified in config
+        if ('enabled' in filter) {
+            filter.enabled = config.enabled !== undefined ? config.enabled : true;
+        }
 
-        // Reset to default values
-        filter.alpha = 1;
-        filter.angle = 30;
-        filter.center = { x: 0, y: 0 };
-        filter.gain = 0.5;
-        filter.lacunarity = 2.5;
-        filter.parallel = true;
-        filter.time = 0;
+        // Reset alpha if it exists on the filter and was specified in config
+        if ('alpha' in filter) {
+            (filter as any).alpha = config.alpha !== undefined ? config.alpha : 1;
+        }
+
+        // Even though GrayscaleFilter doesn't have many configurable properties,
+        // if intensity was provided, apply it for consistency with other filters
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

@@ -69,11 +69,17 @@ export function createHslAdjustmentFilter(config: HslAdjustmentFilterConfig): Fi
      * Reset the filter to default state
      */
     const reset = (): void => {
-        filter.alpha = 1;
-        filter.colorize = false;
-        filter.hue = 0;
-        filter.lightness = 0;
-        filter.saturation = 0;
+        // Reset to configured values or defaults if not specified
+        filter.alpha = config.alpha !== undefined ? config.alpha : 1;
+        filter.colorize = config.colorize !== undefined ? config.colorize : false;
+        filter.hue = config.hue !== undefined ? config.hue : 0;
+        filter.lightness = config.lightness !== undefined ? config.lightness : 0;
+        filter.saturation = config.saturation !== undefined ? config.saturation : 0;
+
+        // If intensity was provided in config, apply it
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };

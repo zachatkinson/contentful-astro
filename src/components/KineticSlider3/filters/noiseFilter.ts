@@ -43,20 +43,28 @@ export function createNoiseFilter(config: NoiseFilterConfig): FilterResult {
      * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        // If noiseLevel was provided in config, reset to that value
+        // Reset noise level to config value if provided, otherwise use default
         if (config.noiseLevel !== undefined) {
             filter.noise = config.noiseLevel;
+        } else if (config.intensity !== undefined) {
+            // If intensity is provided but not noiseLevel, don't explicitly set noise
+            // as updateIntensity will handle it
         } else {
-            // Otherwise reset to 0 (no noise)
+            // If neither is provided, default to 0 (no noise)
             filter.noise = 0;
         }
 
-        // If a specific seed was provided in config, reset to that value
+        // Handle seed resetting with proper config respect
         if (config.seed !== undefined) {
+            // If a specific seed was provided in config, use that value
             filter.seed = config.seed;
-        } else {
-            // If generateNewSeedOnReset flag is true, generate a new random seed
+        } else if (config.generateNewSeedOnReset === true) {
+            // Only generate a new seed if explicitly requested
             filter.seed = Math.random();
+        } else {
+            // Otherwise keep the current seed or use a consistent default
+            // This avoids changing the visual effect unexpectedly on reset
+            filter.seed = filter.seed || 0;
         }
 
         // If intensity was provided in config, use updateIntensity to reset properly

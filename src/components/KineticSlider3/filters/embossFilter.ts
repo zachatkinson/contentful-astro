@@ -31,7 +31,8 @@ export function createEmbossFilter(config: EmbossFilterConfig): FilterResult {
      * Reset the filter to default state
      */
     const reset = (): void => {
-        filter.strength = 5; // Default value according to documentation
+        // Reset strength to config value if provided, otherwise use default
+        filter.strength = config.strength !== undefined ? config.strength : 5;
     };
 
     return { filter, updateIntensity, reset };

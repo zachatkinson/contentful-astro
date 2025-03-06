@@ -71,17 +71,23 @@ export function createDropShadowFilter(config: DropShadowFilterConfig): FilterRe
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration values or defaults
      */
     const reset = (): void => {
-        filter.alpha = 1;
-        filter.blur = 2;
-        filter.offsetX = 4;
-        filter.offsetY = 4;
-        filter.shadowOnly = false;
+        // Reset alpha to config value if provided, otherwise use default (1)
+        if ('alpha' in filter) {
+            filter.alpha = config.alpha !== undefined ? config.alpha : 1;
+        }
 
-        // Reset color to black if it was changed
-        filter.color = 0x000000;
+        // Reset enabled property to config value if provided, otherwise use default (true)
+        if ('enabled' in filter) {
+            (filter as any).enabled = config.enabled !== undefined ? config.enabled : true;
+        }
+
+        // If intensity was provided in config, use updateIntensity to reset properly
+        if (config.intensity !== undefined) {
+            updateIntensity(config.intensity);
+        }
     };
 
     return { filter, updateIntensity, reset };
