@@ -33,6 +33,7 @@ export { createGlowFilter } from './glowFilter'
 export { createGodrayFilter } from './godrayFilter'
 export { createGrayscaleFilter } from './grayscaleFilter'
 export { createHslAdjustmentFilter } from './hslAdjustmentFilter'
+export { createKawaseBlurFilter } from "./kawaseBlurFilter";
 export { createNoiseFilter } from './noiseFilter';
 
 

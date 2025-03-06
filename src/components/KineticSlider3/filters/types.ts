@@ -34,6 +34,7 @@ export type FilterType =
     | 'grayscale'
     | 'hsl'
     | 'noise'
+    | 'kawaseBlur'
 // Additional filter types will be added here as they are implemented
     ;
 
@@ -480,6 +481,25 @@ export interface HslAdjustmentFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for KawaseBlurFilter
+ *
+ * The KawaseBlurFilter is a much faster blur than Gaussian blur, but with slightly
+ * different visual characteristics. It's ideal for performance-critical applications.
+ * See: https://software.intel.com/en-us/blogs/2014/07/15/an-investigation-of-fast-real-time-gpu-based-image-blur-algorithms
+ */
+export interface KawaseBlurFilterConfig extends BaseFilterConfig {
+    type: 'kawaseBlur';
+    clamp?: boolean;             // Whether the filter is clamped (default: false)
+    kernels?: number[];          // The kernel size array for advanced usage (default: [0])
+    pixelSize?: PointData;       // Size of pixels, larger means blurrier (default: {x:1, y:1})
+    pixelSizeX?: number;         // Size of pixels on x-axis (default: 1)
+    pixelSizeY?: number;         // Size of pixels on y-axis (default: 1)
+    quality?: number;            // Quality of the filter, integer > 1 (default: 3)
+    strength?: number;           // Amount of blur, value > 0 (default: 4)
+    primaryProperty?: 'strength' | 'quality' | 'pixelSize'; // Property controlled by intensity
+}
+
+/**
  * Configuration for NoiseFilter
  *
  * NoiseFilter applies random noise to an image.
@@ -523,6 +543,7 @@ export type FilterConfig =
     | GodrayFilterConfig
     | GrayscaleFilterConfig
     | HslAdjustmentFilterConfig
+    | KawaseBlurFilterConfig
     | NoiseFilterConfig
 
 
