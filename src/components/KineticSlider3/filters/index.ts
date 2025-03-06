@@ -39,6 +39,7 @@ export { createMultiColorReplaceFilter } from './multiColorReplaceFilter'
 export { createNoiseFilter } from './noiseFilter';
 export { createOldFilmFilter } from './oldFilmFilter'
 export { createOutlineFilter } from './outlineFilter'
+export { createPixelateFilter } from './pixelateFilter'
 
 // Export filter types
 export * from './types';

@@ -39,6 +39,7 @@ export type FilterType =
     | 'noise'
     | 'oldFilm'
     | 'outline'
+    | 'pixelate'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -591,6 +592,20 @@ export interface OutlineFilterConfig extends BaseFilterConfig {
     primaryProperty?: 'thickness' | 'alpha' | 'quality'; // Property controlled by intensity
 }
 
+/**
+ * Configuration for PixelateFilter
+ *
+ * The PixelateFilter applies a pixelate effect making display objects appear 'blocky'.
+ * It can be configured with either an overall size or separate X and Y pixel sizes.
+ */
+export interface PixelateFilterConfig extends BaseFilterConfig {
+    type: 'pixelate';
+    size?: number;              // Size of the pixels (square)
+    sizeX?: number;             // Size of the pixels on the x-axis
+    sizeY?: number;             // Size of the pixels on the y-axis
+    primaryProperty?: 'size' | 'sizeX' | 'sizeY'; // Property controlled by intensity
+}
+
 
 /**
  * Union type of all filter configurations
@@ -627,6 +642,7 @@ export type FilterConfig =
     | NoiseFilterConfig
     | OldFilmFilterConfig
     | OutlineFilterConfig
+    | PixelateFilterConfig
 
 
 

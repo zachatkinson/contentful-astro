@@ -32,6 +32,16 @@ const outlineEffect = {
     knockout: false
 };
 
+// Create a pixelate filter configuration
+const pixelateEffect = {
+    type: 'pixelate',
+    enabled: true,
+    intensity: 5,  // 0-10 scale (will be mapped to pixel size)
+    size: 10,      // Initial pixel size (optional if using intensity)
+    // sizeX: 15,  // Optional: set different horizontal pixelation
+    // sizeY: 8,   // Optional: set different vertical pixelation
+    primaryProperty: 'size' // Controls which property is affected by intensity
+};
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
 })
@@ -61,7 +71,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-
+                pixelateEffect
             ]}
             textFilters={[
                 outlineEffect
