@@ -43,6 +43,7 @@ export type FilterType =
     | 'radialBlur'
     | 'reflection'
     | 'rgbSplit'
+    | 'shockwave'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -676,6 +677,31 @@ export interface RGBSplitFilterConfig extends BaseFilterConfig {
     blueDirection?: 'horizontal' | 'vertical' | 'diagonal';     // Direction of blue channel offset
 }
 
+/**
+ * Configuration for ShockwaveFilter
+ *
+ * The ShockwaveFilter creates a visual distortion that radiates from a center point,
+ * simulating ripples on water or blast waves.
+ */
+export interface ShockwaveFilterConfig extends BaseFilterConfig {
+    type: 'shockwave';
+    amplitude?: number;       // The amplitude of the shockwave (default: 30)
+    brightness?: number;      // The brightness of the shockwave (default: 1)
+    center?: PointData;       // Center coordinates {x,y} of the effect (default: {x:0.5, y:0.5})
+    centerX?: number;         // X coordinate of center (0-1, default: 0.5)
+    centerY?: number;         // Y coordinate of center (0-1, default: 0.5)
+    radius?: number;          // Max radius of shockwave (default: -1, infinite distance)
+    speed?: number;           // Speed of the ripple effect in pixels/second (default: 500)
+    wavelength?: number;      // Wavelength of the shockwave (default: 160)
+    time?: number;            // Elapsed time of the shockwave, controls current size
+    primaryProperty?: 'amplitude' | 'wavelength' | 'radius' | 'brightness' | 'speed'; // Property controlled by intensity
+    animate?: boolean;        // Whether to animate the waves over time
+    animationSpeed?: number;  // Speed of animation (time increment per second)
+    pulse?: boolean;          // Whether to create a pulsing effect
+    pulseIntensity?: number;  // Intensity of the pulse effect (0-1)
+    pulseDuration?: number;   // Duration of one pulse cycle in seconds
+}
+
 
 /**
  * Union type of all filter configurations
@@ -716,6 +742,7 @@ export type FilterConfig =
     | RadialBlurFilterConfig
     | ReflectionFilterConfig
     | RGBSplitFilterConfig
+    | ShockwaveFilterConfig
 
 
 

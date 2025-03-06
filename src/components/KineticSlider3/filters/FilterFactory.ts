@@ -36,6 +36,7 @@ import { createPixelateFilter } from "./pixelateFilter.ts";
 import { createRadialBlurFilter } from "./radialBlurFilter";
 import { createReflectionFilter } from "./reflectionFilter";
 import { createRGBSplitFilter } from "./rgbSplitFilter";
+import {createShockwaveFilter} from "./shockwaveFilter.ts";
 
 
 /**
@@ -129,6 +130,8 @@ export class FilterFactory {
                 return createReflectionFilter(config);
             case "rgbSplit":
                 return createRGBSplitFilter(config);
+            case 'shockwave':
+                return createShockwaveFilter(config);
             // Additional filters will be added here as they are implemented
             default:
                 throw new Error(`Unsupported filter type: ${config}`);

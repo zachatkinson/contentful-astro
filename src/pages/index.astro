@@ -32,16 +32,14 @@ const outlineEffect = {
     knockout: false
 };
 
-// Create a pixelate filter configuration
-const splitFilter =     {
-    type: 'rgbSplit',
+const shockwaveFilter = {
+    type: 'shockwave',
     enabled: true,
-    intensity: 5, // 0-10 scale
-    // Optional: configure specific channel behaviors
-    redDirection: 'horizontal',
-    greenDirection: 'vertical',
-    blueDirection: 'diagonal'
-}
+    intensity: 5,
+    animate: true,
+    center: { x: 0.5, y: 0.5 },
+    pulse: true
+};
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
 })
@@ -71,7 +69,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                splitFilter
+                shockwaveFilter
             ]}
             textFilters={[
                 outlineEffect
