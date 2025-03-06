@@ -36,8 +36,9 @@ import { createPixelateFilter } from "./pixelateFilter.ts";
 import { createRadialBlurFilter } from "./radialBlurFilter";
 import { createReflectionFilter } from "./reflectionFilter";
 import { createRGBSplitFilter } from "./rgbSplitFilter";
-import {createShockwaveFilter} from "./shockwaveFilter.ts";
-import {createSimpleLightmapFilter} from "./simpleLightmapFilter.ts";
+import { createShockwaveFilter } from "./shockwaveFilter.ts";
+import { createSimpleLightmapFilter } from "./simpleLightmapFilter.ts";
+import {createSimplexNoiseFilter} from "./simplexNoiseFilter.ts";
 
 
 /**
@@ -135,6 +136,8 @@ export class FilterFactory {
                 return createShockwaveFilter(config);
             case 'simpleLightmap':
                 return createSimpleLightmapFilter(config);
+            case 'simplexNoise':
+                return createSimplexNoiseFilter(config);
             // Additional filters will be added here as they are implemented
             default:
                 throw new Error(`Unsupported filter type: ${config}`);

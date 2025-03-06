@@ -45,6 +45,7 @@ export type FilterType =
     | 'rgbSplit'
     | 'shockwave'
     | 'simpleLightmap'
+    | 'simplexNoise'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -718,6 +719,23 @@ export interface SimpleLightmapFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for SimplexNoiseFilter
+ *
+ * The SimplexNoiseFilter multiplies simplex noise with the current texture data,
+ * creating various noise effects like static, clouds, or organic textures.
+ */
+export interface SimplexNoiseFilterConfig extends BaseFilterConfig {
+    type: 'simplexNoise';
+    noiseScale?: number;      // Noise map scale (default: 10)
+    offsetX?: number;         // Horizontal offset for the noise map (default: 0)
+    offsetY?: number;         // Vertical offset for the noise map (default: 0)
+    offsetZ?: number;         // Depth offset for the noise map (default: 0)
+    step?: number;            // Threshold for creating a blocky effect (default: -1)
+    strength?: number;        // Strength of the noise effect (default: 0.5)
+    primaryProperty?: 'noiseScale' | 'strength' | 'step' | 'offset' | 'offsetX' | 'offsetY' | 'offsetZ'; // Property controlled by intensity
+}
+
+/**
  * Union type of all filter configurations
  */
 export type FilterConfig =
@@ -758,6 +776,7 @@ export type FilterConfig =
     | RGBSplitFilterConfig
     | ShockwaveFilterConfig
     | SimpleLightmapFilterConfig
+    | SimplexNoiseFilterConfig
 
 
 

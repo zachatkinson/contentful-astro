@@ -45,6 +45,6 @@ export { createReflectionFilter } from './reflectionFilter'
 export { createRGBSplitFilter } from './rgbSplitFilter'
 export { createShockwaveFilter } from './shockwaveFilter'
 export { createSimpleLightmapFilter } from './simpleLightmapFilter'
-
+export { createSimplexNoiseFilter } from './simplexNoiseFilter'
 // Export filter types
 export * from './types';
