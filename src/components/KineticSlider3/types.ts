@@ -1,4 +1,9 @@
 import { Application, Sprite, Container, DisplacementFilter, Filter } from 'pixi.js';
+import type TextureManager from "./managers/textureManager.ts";
+import type AnimationManager from "./managers/animationManager.ts";
+import PerformanceMonitor, { QualityLevel } from "./managers/performanceMonitor.ts";
+import type EventManager from "./managers/eventManager.ts";
+import type FilterManager from "./managers/filterManager.ts";
 
 export type NavElement = {
     prev: string;
@@ -75,14 +80,14 @@ export interface EnhancedSprite extends Sprite {
  * References to core PIXI objects used across hooks
  */
 export interface PixiRefs {
-    app: React.MutableRefObject<Application | null>;
-    slides: React.MutableRefObject<EnhancedSprite[]>;
-    textContainers: React.MutableRefObject<Container[]>;
-    backgroundDisplacementSprite: React.MutableRefObject<Sprite | null>;
-    cursorDisplacementSprite: React.MutableRefObject<Sprite | null>;
-    bgDispFilter: React.MutableRefObject<DisplacementFilter | null>;
-    cursorDispFilter: React.MutableRefObject<DisplacementFilter | null>;
-    currentIndex: React.MutableRefObject<number>;
+    app: React.RefObject<Application | null>;
+    slides: React.RefObject<EnhancedSprite[]>;
+    textContainers: React.RefObject<Container[]>;
+    backgroundDisplacementSprite: React.RefObject<Sprite | null>;
+    cursorDisplacementSprite: React.RefObject<Sprite | null>;
+    bgDispFilter: React.RefObject<DisplacementFilter | null>;
+    cursorDispFilter: React.RefObject<DisplacementFilter | null>;
+    currentIndex: React.RefObject<number>;
 }
 
 
@@ -110,6 +115,34 @@ export interface HookParams {
     sliderRef: React.RefObject<HTMLDivElement | null>;
     pixi: PixiRefs;
     props: KineticSliderProps;
+}
+
+
+/**
+ * Combined interface for all managers
+ */
+export interface ManagerRefs {
+    textureManager: TextureManager;
+    animationManager: AnimationManager;
+    filterManager: FilterManager;
+    eventManager: EventManager;
+    performanceMonitor: PerformanceMonitor | null;
+}
+
+/**
+ * Enhanced hook parameters that include managers
+ * This extends the base HookParams with managers and quality level
+ */
+export interface EnhancedHookParams extends HookParams {
+    managers: ManagerRefs;
+    qualityLevel: QualityLevel;
+}
+
+/**
+ * Enhanced Sprite with additional properties
+ */
+export interface EnhancedSprite extends Sprite {
+    baseScale?: number;
 }
 
 export interface LoadingIndicatorProps {
