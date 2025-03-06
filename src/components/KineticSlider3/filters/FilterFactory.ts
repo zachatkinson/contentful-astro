@@ -37,6 +37,7 @@ import { createRadialBlurFilter } from "./radialBlurFilter";
 import { createReflectionFilter } from "./reflectionFilter";
 import { createRGBSplitFilter } from "./rgbSplitFilter";
 import {createShockwaveFilter} from "./shockwaveFilter.ts";
+import {createSimpleLightmapFilter} from "./simpleLightmapFilter.ts";
 
 
 /**
@@ -132,6 +133,8 @@ export class FilterFactory {
                 return createRGBSplitFilter(config);
             case 'shockwave':
                 return createShockwaveFilter(config);
+            case 'simpleLightmap':
+                return createSimpleLightmapFilter(config);
             // Additional filters will be added here as they are implemented
             default:
                 throw new Error(`Unsupported filter type: ${config}`);

@@ -40,6 +40,11 @@ export { createNoiseFilter } from './noiseFilter';
 export { createOldFilmFilter } from './oldFilmFilter'
 export { createOutlineFilter } from './outlineFilter'
 export { createPixelateFilter } from './pixelateFilter'
+export { createRadialBlurFilter } from './radialBlurFilter'
+export { createReflectionFilter } from './reflectionFilter'
+export { createRGBSplitFilter } from './rgbSplitFilter'
+export { createShockwaveFilter } from './shockwaveFilter'
+export { createSimpleLightmapFilter } from './simpleLightmapFilter'
 
 // Export filter types
 export * from './types';

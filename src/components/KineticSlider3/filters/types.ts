@@ -44,6 +44,7 @@ export type FilterType =
     | 'reflection'
     | 'rgbSplit'
     | 'shockwave'
+    | 'simpleLightmap'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -702,6 +703,19 @@ export interface ShockwaveFilterConfig extends BaseFilterConfig {
     pulseDuration?: number;   // Duration of one pulse cycle in seconds
 }
 
+/**
+ * Configuration for SimpleLightmapFilter
+ *
+ * The SimpleLightmapFilter creates a lighting effect using a texture as a lightmap
+ * and applying an ambient color.
+ */
+export interface SimpleLightmapFilterConfig extends BaseFilterConfig {
+    type: 'simpleLightmap';
+    lightMap: Texture | string;     // The texture used as lightmap
+    color?: ColorSource;            // Ambient color (default: 0x000000)
+    alpha?: number;                 // Alpha value (default: 1)
+    primaryProperty?: 'alpha' | 'brightness' | 'colorIntensity';  // Property controlled by intensity
+}
 
 /**
  * Union type of all filter configurations
@@ -743,6 +757,7 @@ export type FilterConfig =
     | ReflectionFilterConfig
     | RGBSplitFilterConfig
     | ShockwaveFilterConfig
+    | SimpleLightmapFilterConfig
 
 
 
