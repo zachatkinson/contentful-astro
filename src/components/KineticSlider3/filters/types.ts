@@ -31,6 +31,8 @@ export type FilterType =
     | 'glitch'
     | 'glow'
     | 'godray'
+    | 'grayscale'
+    | 'hsl'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -451,6 +453,33 @@ export interface GodrayFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for GrayscaleFilter
+ *
+ * The GrayscaleFilter converts an image to grayscale (black and white).
+ * This is a simple filter with no specific configuration parameters.
+ * The intensity parameter controls the strength of the grayscale effect.
+ */
+export interface GrayscaleFilterConfig extends BaseFilterConfig {
+    type: 'grayscale';
+}
+
+/**
+ * Configuration for HslAdjustmentFilter
+ *
+ * The HslAdjustmentFilter provides precise control over hue, saturation, and lightness.
+ * It can be used for color correction, creative effects, or colorization.
+ */
+export interface HslAdjustmentFilterConfig extends BaseFilterConfig {
+    type: 'hsl';
+    alpha?: number;          // The amount of alpha (0 to 1, default: 1)
+    colorize?: boolean;      // Whether to colorize the image (default: false)
+    hue?: number;            // The amount of hue in degrees (-180 to 180, default: 0)
+    lightness?: number;      // The amount of lightness (-1 to 1, default: 0)
+    saturation?: number;     // The amount of saturation (-1 to 1, default: 0)
+    primaryProperty?: 'hue' | 'saturation' | 'lightness' | 'alpha'; // Property controlled by intensity
+}
+
+/**
  * Configuration for NoiseFilter
  *
  * NoiseFilter applies random noise to an image.
@@ -491,8 +520,10 @@ export type FilterConfig =
     | EmbossFilterConfig
     | GlitchFilterConfig
     | GlowFilterConfig
-    | NoiseFilterConfig
     | GodrayFilterConfig
+    | GrayscaleFilterConfig
+    | HslAdjustmentFilterConfig
+    | NoiseFilterConfig
 
 
 

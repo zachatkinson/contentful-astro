@@ -31,6 +31,8 @@ export { createEmbossFilter } from './embossFilter'
 export { createGlitchFilter } from './glitchFilter'
 export { createGlowFilter } from './glowFilter'
 export { createGodrayFilter } from './godrayFilter'
+export { createGrayscaleFilter } from './grayscaleFilter'
+export { createHslAdjustmentFilter } from './hslAdjustmentFilter'
 export { createNoiseFilter } from './noiseFilter';
 
 

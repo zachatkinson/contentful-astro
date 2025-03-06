@@ -371,6 +371,21 @@ const godrayFilter = {
 
 }
 
+const grayFilter = {
+    type: 'grayscale',
+        enabled: true,
+    intensity: 10  // 0 = no effect, 10 = full grayscale
+}
+
+
+const coolTint = {
+    type: 'hsl',
+    enabled: true,
+    intensity: 8,      // Controls hue (as set by primaryProperty)
+    hue: -120,         // Blue hue
+    saturation: 0.2,   // Slight saturation increase
+    primaryProperty: 'hue',
+};
 
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
@@ -410,7 +425,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                godrayFilter
+                coolTint
             ]}
             textFilters={[
                 redOutlineGlow

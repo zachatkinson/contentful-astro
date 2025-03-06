@@ -23,8 +23,11 @@ import {createDropShadowFilter} from "./dropShadowFilter";
 import {createEmbossFilter} from "./embossFilter";
 import {createGlitchFilter} from "./glitchFilter";
 import { createGlowFilter } from "./glowFilter";
-import { createNoiseFilter } from "./noiseFilter";
 import {createGodrayFilter} from "./godrayFilter.ts";
+import {createGrayscaleFilter} from "./grayscaleFilter.ts";
+import {createHslAdjustmentFilter} from "./hslAdjustmentFilter.ts";
+import { createNoiseFilter } from "./noiseFilter";
+
 
 
 
@@ -95,6 +98,10 @@ export class FilterFactory {
                 return createGlowFilter(config);
             case 'godray':
                 return createGodrayFilter(config);
+            case 'grayscale':
+                return createGrayscaleFilter(config);
+            case 'hsl':
+                return createHslAdjustmentFilter(config);
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented
