@@ -37,6 +37,7 @@ export type FilterType =
     | 'motionBlur'
     | 'multiColorReplace'
     | 'noise'
+    | 'oldFilm'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -553,6 +554,26 @@ export interface NoiseFilterConfig extends BaseFilterConfig {
     generateNewSeedOnUpdate?: boolean; // Whether to generate a new seed when intensity changes
 }
 
+/**
+ * Configuration for OldFilmFilter
+ *
+ * The OldFilmFilter applies a vintage film effect with noise, scratches,
+ * sepia tone, and vignetting to simulate the look of old film footage.
+ */
+export interface OldFilmFilterConfig extends BaseFilterConfig {
+    type: 'oldFilm';
+    noise?: number;           // Opacity/intensity of the noise effect (0-1, default: 0.3)
+    noiseSize?: number;       // The size of the noise particles (default: 1)
+    scratch?: number;         // How often scratches appear (0-1, default: 0.5)
+    scratchDensity?: number;  // The density of the number of scratches (0-1, default: 0.3)
+    scratchWidth?: number;    // The width of the scratches (default: 1)
+    seed?: number;            // A seed value for random noise generation (default: 0)
+    sepia?: number;           // Amount of sepia effect saturation (0-1, default: 0.3)
+    vignetting?: number;      // Radius of the vignette effect (0-1, default: 0.3)
+    vignettingAlpha?: number; // Opacity of the vignette (0-1, default: 1)
+    vignettingBlur?: number;  // Blur intensity of the vignette (default: 1)
+    primaryProperty?: 'noise' | 'scratch' | 'sepia' | 'vignetting' | 'scratchDensity'; // Property controlled by intensity
+}
 
 
 /**
@@ -588,6 +609,7 @@ export type FilterConfig =
     | MotionBlurFilterConfig
     | MultiColorReplaceFilterConfig
     | NoiseFilterConfig
+    | OldFilmFilterConfig
 
 
 

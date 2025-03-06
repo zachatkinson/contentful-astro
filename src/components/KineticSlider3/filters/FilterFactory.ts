@@ -26,12 +26,11 @@ import { createGlowFilter } from "./glowFilter";
 import {createGodrayFilter} from "./godrayFilter.ts";
 import {createGrayscaleFilter} from "./grayscaleFilter.ts";
 import {createHslAdjustmentFilter} from "./hslAdjustmentFilter.ts";
-import { createNoiseFilter } from "./noiseFilter";
 import {createKawaseBlurFilter} from "./kawaseBlurFilter.ts";
 import {createMotionBlurFilter} from "./motionBlurFilter.ts";
 import {createMultiColorReplaceFilter} from "./multiColorReplaceFilter.ts";
-
-
+import { createNoiseFilter } from "./noiseFilter";
+import { createOldFilmFilter } from "./oldFilmFilter";
 
 
 /**
@@ -113,6 +112,8 @@ export class FilterFactory {
                 return createMultiColorReplaceFilter(config);
             case 'noise':
                 return createNoiseFilter(config);
+            case 'oldFilm':
+                return createOldFilmFilter(config);
             // Additional filters will be added here as they are implemented
             default:
                 throw new Error(`Unsupported filter type: ${config}`);

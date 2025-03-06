@@ -14,7 +14,6 @@ const images = [
     "/images/slides/5.jpg",
 ];
 
-
 const texts:TextPair[] = [
     ["Earth", "Surface gravity‎: ‎9.807 m/s²"],
     ["Mars", "Surface gravity‎: ‎3.711 m/s²"],
@@ -22,6 +21,19 @@ const texts:TextPair[] = [
     ["Mars", "Surface gravity‎: ‎3.711 m/s²"],
     ["Venus", "Surface gravity‎: ‎8.87 m/s²"]
 ];
+
+const oldFilm = {
+
+    type: 'oldFilm',
+    enabled: true,
+    intensity: 7,
+    primaryProperty: 'sepia',
+    scratch: 0.7,
+    scratchDensity: 0.4,
+    vignetting: 0.5,
+    vignettingBlur: 0.8
+
+}
 
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
@@ -52,7 +64,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-
+                oldFilm
             ]}
             textFilters={[
 
