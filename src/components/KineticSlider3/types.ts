@@ -85,15 +85,24 @@ export interface PixiRefs {
     currentIndex: React.MutableRefObject<number>;
 }
 
+
 /**
  * Filter application result containing the filter instance
  */
-export interface FilterApplicationResult {
+export interface FilterResult {
     filter: Filter;
     updateIntensity: (intensity: number) => void;
     reset: () => void;
+    dispose?: () => void;
+
 }
 
+
+export interface ManagedFilter {
+    target: Container;
+    result: FilterResult;
+    config: FilterConfig;
+}
 /**
  * Shared hook parameters containing refs and props
  */
