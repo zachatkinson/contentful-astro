@@ -1,5 +1,5 @@
 import { SimpleLightmapFilter } from 'pixi-filters';
-import { Assets } from 'pixi.js';
+import { Assets, Texture } from 'pixi.js';
 import { type SimpleLightmapFilterConfig, type FilterResult } from './types';
 
 /**
@@ -13,40 +13,42 @@ import { type SimpleLightmapFilterConfig, type FilterResult } from './types';
  * @returns FilterResult with the filter instance and control functions
  */
 export function createSimpleLightmapFilter(config: SimpleLightmapFilterConfig): FilterResult {
-    // Create options object for the filter
-    const options: any = {};
-
-    // Set up initial lightMap
+    // Create initial texture (placeholder or actual)
     let lightMapTexture: any = config.lightMap;
 
-    // If lightMap is a string path, load it as a texture
     if (typeof config.lightMap === 'string') {
-        // Start with an empty texture as placeholder
-        console.log(`Loading lightmap texture from path: ${config.lightMap}`);
+        // For string paths, start with a placeholder
+        lightMapTexture = Texture.EMPTY; // Use empty texture as placeholder
 
-        // Load the texture asynchronously
+        // Load the actual texture asynchronously
         Assets.load(config.lightMap)
             .then(texture => {
                 if (filter) {
-                    console.log('Lightmap texture loaded successfully');
                     filter.lightMap = texture;
                 }
             })
             .catch(error => {
-                console.error(`Failed to load lightmap texture: ${config.lightMap}`, error);
+                console.error(`Failed to load lightMap texture: ${config.lightMap}`, error);
             });
     }
 
-    // Apply configuration values if provided, otherwise use defaults
-    if (config.alpha !== undefined) options.alpha = config.alpha;
-    if (config.color !== undefined) options.color = config.color;
-    if (lightMapTexture) options.lightMap = lightMapTexture;
+    // Convert color to a compatible format for SimpleLightmapFilter
+    // SimpleLightmapFilter expects a number for the color
+    let colorValue: number | undefined;
 
-    // Set the dontFit property (recommended in the docs)
-    options.dontFit = true;
+    if (config.color !== undefined) {
+        // If it's already a number, use it directly
+        if (typeof config.color === 'number') {
+            colorValue = config.color;
+        }
+    }
 
-    // Create the filter with options
-    const filter = new SimpleLightmapFilter(options);
+    // Create the filter with properly typed parameters
+    const filter = new SimpleLightmapFilter(
+        lightMapTexture,          // lightMap texture
+        colorValue || 0x000000,   // ambient color as number (default black)
+        config.alpha              // alpha value
+    );
 
     /**
      * Update the filter's intensity based on the configuration
@@ -57,7 +59,7 @@ export function createSimpleLightmapFilter(config: SimpleLightmapFilterConfig): 
         // Normalize intensity to a 0-10 scale
         const normalizedIntensity = Math.max(0, Math.min(10, intensity));
 
-        // Determine which property to adjust based on config's primaryProperty
+        // Determine which property to adjust based on config
         if (config.primaryProperty) {
             switch (config.primaryProperty) {
                 case 'alpha':
@@ -89,18 +91,17 @@ export function createSimpleLightmapFilter(config: SimpleLightmapFilterConfig): 
     updateIntensity(config.intensity);
 
     /**
-     * Reset the filter to configured state or default values if not specified
+     * Reset the filter to default state
      */
     const reset = (): void => {
-        // Reset alpha to config value or default
+        // Reset alpha to configured value or default
         filter.alpha = config.alpha !== undefined ? config.alpha : 1;
 
-        // Reset color to config value or default
-        filter.color = config.color !== undefined ? config.color : 0x000000;
-
-        // Reset lightMap to config value if it's a texture (not a string path)
-        if (config.lightMap && typeof config.lightMap !== 'string') {
-            filter.lightMap = config.lightMap;
+        // Reset color to configured value or default
+        if (colorValue !== undefined) {
+            filter.color = colorValue;
+        } else {
+            filter.color = 0x000000;
         }
     };
 
