@@ -41,6 +41,7 @@ export type FilterType =
     | 'outline'
     | 'pixelate'
     | 'radialBlur'
+    | 'reflection'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -624,6 +625,31 @@ export interface RadialBlurFilterConfig extends BaseFilterConfig {
     primaryProperty?: 'angle' | 'radius' | 'kernelSize' | 'centerX' | 'centerY'; // Property controlled by intensity
 }
 
+/**
+ * Configuration for ReflectionFilter
+ *
+ * The ReflectionFilter applies a water-like reflection effect with waves.
+ * It can simulate reflections with configurable wave properties and animated movement.
+ */
+export interface ReflectionFilterConfig extends BaseFilterConfig {
+    type: 'reflection';
+    alpha?: Range;               // Starting and ending alpha values [start, end] (default: [1,1])
+    alphaStart?: number;         // Starting alpha value (default: 1)
+    alphaEnd?: number;           // Ending alpha value (default: 1)
+    amplitude?: Range;           // Starting and ending amplitude of waves [start, end] (default: [0,20])
+    amplitudeStart?: number;     // Starting amplitude of waves (default: 0)
+    amplitudeEnd?: number;       // Ending amplitude of waves (default: 20)
+    boundary?: number;           // Vertical position of reflection point (0-1, default: 0.5)
+    mirror?: boolean;            // Whether to reflect the image (true) or just show waves (false) (default: true)
+    waveLength?: Range;          // Starting and ending length of waves [start, end] (default: [30,100])
+    wavelengthStart?: number;    // Starting wavelength of waves (default: 30)
+    wavelengthEnd?: number;      // Ending wavelength of waves (default: 100)
+    time?: number;               // Time for animating position of waves (default: 0)
+    primaryProperty?: 'amplitude' | 'waveLength' | 'boundary' | 'alpha'; // Property controlled by intensity
+    animate?: boolean;           // Whether to animate the waves
+    animationSpeed?: number;     // Speed of animation (time increment per second)
+}
+
 
 /**
  * Union type of all filter configurations
@@ -662,6 +688,7 @@ export type FilterConfig =
     | OutlineFilterConfig
     | PixelateFilterConfig
     | RadialBlurFilterConfig
+    | ReflectionFilterConfig
 
 
 
