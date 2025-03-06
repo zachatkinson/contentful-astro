@@ -40,6 +40,7 @@ import { createShockwaveFilter } from "./shockwaveFilter";
 import { createSimpleLightmapFilter } from "./simpleLightmapFilter";
 import { createSimplexNoiseFilter } from "./simplexNoiseFilter";
 import {createTiltShiftFilter} from "./tiltShiftFilter.ts";
+import {createTwistFilter} from "./twistFilter.ts";
 
 
 /**
@@ -141,6 +142,8 @@ export class FilterFactory {
                 return createSimplexNoiseFilter(config);
             case 'tiltShift':
                 return createTiltShiftFilter(config);
+            case 'twist':
+                return createTwistFilter(config);
             // Additional filters will be added here as they are implemented
             default:
                 throw new Error(`Unsupported filter type: ${config}`);

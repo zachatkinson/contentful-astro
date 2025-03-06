@@ -47,6 +47,7 @@ export type FilterType =
     | 'simpleLightmap'
     | 'simplexNoise'
     | 'tiltShift'
+    | 'twist'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -757,6 +758,21 @@ export interface TiltShiftFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for TwistFilter
+ *
+ * The TwistFilter creates a spiral/twist effect on display objects.
+ * It can be customized with angle, radius, and center position.
+ */
+export interface TwistFilterConfig extends BaseFilterConfig {
+    type: 'twist';
+    angle?: number;                // The angle of the twist (default: 4)
+    radius?: number;               // The radius of the twist (default: 200)
+    offset?: PointData;            // The center position of the twist effect as {x,y}
+    offsetX?: number;              // The x coordinate of the center (default: 0)
+    offsetY?: number;              // The y coordinate of the center (default: 0)
+    primaryProperty?: 'angle' | 'radius' | 'center' | 'offsetX' | 'offsetY'; // Property controlled by intensity
+}
+/**
  * Union type of all filter configurations
  */
 export type FilterConfig =
@@ -799,6 +815,7 @@ export type FilterConfig =
     | SimpleLightmapFilterConfig
     | SimplexNoiseFilterConfig
     | TiltShiftFilterConfig
+    | TwistFilterConfig
 
 
 

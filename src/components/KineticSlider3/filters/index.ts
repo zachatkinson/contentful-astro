@@ -47,5 +47,6 @@ export { createShockwaveFilter } from './shockwaveFilter'
 export { createSimpleLightmapFilter } from './simpleLightmapFilter'
 export { createSimplexNoiseFilter } from './simplexNoiseFilter'
 export { createTiltShiftFilter } from './tiltShiftFilter'
+export { createTwistFilter } from './twistFilter'
 // Export filter types
 export * from './types';
