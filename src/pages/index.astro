@@ -359,6 +359,17 @@ const blueImageGlow = {
     primaryProperty: 'outerStrength'
 };
 
+const godrayFilter = {
+
+    type: 'godray',
+        enabled: true,
+    intensity: 8,
+    angle: 30,
+    animate: true,
+    animationSpeed: 0.02,
+    primaryProperty: 'gain'
+
+}
 
 
 const entries = await contentfulClient.getEntries<BlogPost>({
@@ -399,7 +410,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                blueImageGlow
+                godrayFilter
             ]}
             textFilters={[
                 redOutlineGlow

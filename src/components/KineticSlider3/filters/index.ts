@@ -30,6 +30,7 @@ export { createDropShadowFilter } from './dropShadowFilter'
 export { createEmbossFilter } from './embossFilter'
 export { createGlitchFilter } from './glitchFilter'
 export { createGlowFilter } from './glowFilter'
+export { createGodrayFilter } from './godrayFilter'
 export { createNoiseFilter } from './noiseFilter';
 
 

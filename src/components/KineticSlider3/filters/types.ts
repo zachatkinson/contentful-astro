@@ -30,6 +30,7 @@ export type FilterType =
     | 'emboss'
     | 'glitch'
     | 'glow'
+    | 'godray'
     | 'noise'
 // Additional filter types will be added here as they are implemented
     ;
@@ -428,6 +429,28 @@ export interface GlowFilterConfig extends BaseFilterConfig {
 }
 
 /**
+ * Configuration for GodrayFilter
+ *
+ * The GodrayFilter creates crepuscular rays (light shafts) extending from a bright source.
+ * These rays can be animated and customized for intensity, direction, and density.
+ */
+export interface GodrayFilterConfig extends BaseFilterConfig {
+    type: 'godray';
+    alpha?: number;          // The alpha (opacity) of the rays (0-1, default: 1)
+    angle?: number;          // The angle/light-source of the rays in degrees (default: 30)
+    center?: PointData;      // Focal point for non-parallel rays (default: {x:0, y:0})
+    centerX?: number;        // Focal point X for non-parallel rays (default: 0)
+    centerY?: number;        // Focal point Y for non-parallel rays (default: 0)
+    gain?: number;           // General intensity of the effect (0-1, default: 0.5)
+    lacunarity?: number;     // The density of the fractal noise (default: 2.5)
+    parallel?: boolean;      // If true, rays are parallel; if false, rays emanate from center (default: true)
+    time?: number;           // The current time position for animation (default: 0)
+    primaryProperty?: 'gain' | 'alpha' | 'lacunarity' | 'angle'; // Property controlled by intensity
+    animate?: boolean;       // Whether to animate the rays over time
+    animationSpeed?: number; // Speed of animation (time increment per second)
+}
+
+/**
  * Configuration for NoiseFilter
  *
  * NoiseFilter applies random noise to an image.
@@ -469,6 +492,7 @@ export type FilterConfig =
     | GlitchFilterConfig
     | GlowFilterConfig
     | NoiseFilterConfig
+    | GodrayFilterConfig
 
 
 

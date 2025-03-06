@@ -24,6 +24,7 @@ import {createEmbossFilter} from "./embossFilter";
 import {createGlitchFilter} from "./glitchFilter";
 import { createGlowFilter } from "./glowFilter";
 import { createNoiseFilter } from "./noiseFilter";
+import {createGodrayFilter} from "./godrayFilter.ts";
 
 
 
@@ -92,6 +93,8 @@ export class FilterFactory {
                 return createGlitchFilter(config);
             case 'glow':
                 return createGlowFilter(config);
+            case 'godray':
+                return createGodrayFilter(config);
             case 'noise':
                 return createNoiseFilter(config);
             // Additional filters will be added here as they are implemented
