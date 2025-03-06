@@ -33,16 +33,15 @@ const outlineEffect = {
 };
 
 // Create a pixelate filter configuration
-const reflectionEffect = {
-    type: 'reflection',
+const splitFilter =     {
+    type: 'rgbSplit',
     enabled: true,
-    intensity: 7,
-    boundary: 0.6,
-    mirror: true,
-    animate: true,
-    animationSpeed: 0.5,
-    primaryProperty: 'amplitude'
-};
+    intensity: 5, // 0-10 scale
+    // Optional: configure specific channel behaviors
+    redDirection: 'horizontal',
+    greenDirection: 'vertical',
+    blueDirection: 'diagonal'
+}
 const entries = await contentfulClient.getEntries<BlogPost>({
     content_type: "blogPost",
 })
@@ -72,7 +71,7 @@ const posts = entries.items.map((entry) => {
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
             imageFilters={[
-                reflectionEffect
+                splitFilter
             ]}
             textFilters={[
                 outlineEffect

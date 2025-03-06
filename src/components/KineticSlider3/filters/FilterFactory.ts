@@ -19,22 +19,23 @@ import { createConvolutionFilter } from "./convolutionFilter";
 import { createCrossHatchFilter } from "./crossHatchFilter";
 import { createCRTFilter } from "./crtFilter";
 import { createDotFilter } from "./dotFilter";
-import {createDropShadowFilter} from "./dropShadowFilter";
-import {createEmbossFilter} from "./embossFilter";
-import {createGlitchFilter} from "./glitchFilter";
+import { createDropShadowFilter } from "./dropShadowFilter";
+import { createEmbossFilter } from "./embossFilter";
+import { createGlitchFilter } from "./glitchFilter";
 import { createGlowFilter } from "./glowFilter";
-import {createGodrayFilter} from "./godrayFilter.ts";
-import {createGrayscaleFilter} from "./grayscaleFilter.ts";
-import {createHslAdjustmentFilter} from "./hslAdjustmentFilter.ts";
-import {createKawaseBlurFilter} from "./kawaseBlurFilter.ts";
-import {createMotionBlurFilter} from "./motionBlurFilter.ts";
-import {createMultiColorReplaceFilter} from "./multiColorReplaceFilter.ts";
+import { createGodrayFilter } from "./godrayFilter";
+import { createGrayscaleFilter } from "./grayscaleFilter";
+import { createHslAdjustmentFilter } from "./hslAdjustmentFilter";
+import { createKawaseBlurFilter } from "./kawaseBlurFilter";
+import { createMotionBlurFilter } from "./motionBlurFilter";
+import { createMultiColorReplaceFilter } from "./multiColorReplaceFilter";
 import { createNoiseFilter } from "./noiseFilter";
 import { createOldFilmFilter } from "./oldFilmFilter";
 import { createOutlineFilter } from "./outlineFilter";
-import {createPixelateFilter} from "./pixelateFilter.ts";
-import {createRadialBlurFilter} from "./radialBlurFilter.ts";
-import {createReflectionFilter} from "./reflectionFilter.ts";
+import { createPixelateFilter } from "./pixelateFilter.ts";
+import { createRadialBlurFilter } from "./radialBlurFilter";
+import { createReflectionFilter } from "./reflectionFilter";
+import { createRGBSplitFilter } from "./rgbSplitFilter";
 
 
 /**
@@ -126,6 +127,8 @@ export class FilterFactory {
                 return createRadialBlurFilter(config);
             case 'reflection':
                 return createReflectionFilter(config);
+            case "rgbSplit":
+                return createRGBSplitFilter(config);
             // Additional filters will be added here as they are implemented
             default:
                 throw new Error(`Unsupported filter type: ${config}`);

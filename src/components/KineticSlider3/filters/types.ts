@@ -42,6 +42,7 @@ export type FilterType =
     | 'pixelate'
     | 'radialBlur'
     | 'reflection'
+    | 'rgbSplit'
 
 // Additional filter types will be added here as they are implemented
     ;
@@ -651,6 +652,31 @@ export interface ReflectionFilterConfig extends BaseFilterConfig {
 }
 
 
+
+/**
+ * Configuration for RGBSplitFilter
+ *
+ * The RGBSplitFilter separates the red, green, and blue color channels with
+ * controllable offset values, creating chromatic aberration effects.
+ */
+export interface RGBSplitFilterConfig extends BaseFilterConfig {
+    type: 'rgbSplit';
+    red?: PointData;           // Red channel offset as {x, y} point
+    green?: PointData;         // Green channel offset as {x, y} point
+    blue?: PointData;          // Blue channel offset as {x, y} point
+    redX?: number;             // Red channel x-offset (alternative to point)
+    redY?: number;             // Red channel y-offset (alternative to point)
+    greenX?: number;           // Green channel x-offset (alternative to point)
+    greenY?: number;           // Green channel y-offset (alternative to point)
+    blueX?: number;            // Blue channel x-offset (alternative to point)
+    blueY?: number;            // Blue channel y-offset (alternative to point)
+    primaryProperty?: 'red' | 'green' | 'blue';  // Property controlled by intensity
+    redDirection?: 'horizontal' | 'vertical' | 'diagonal';      // Direction of red channel offset
+    greenDirection?: 'horizontal' | 'vertical' | 'diagonal';    // Direction of green channel offset
+    blueDirection?: 'horizontal' | 'vertical' | 'diagonal';     // Direction of blue channel offset
+}
+
+
 /**
  * Union type of all filter configurations
  */
@@ -689,6 +715,7 @@ export type FilterConfig =
     | PixelateFilterConfig
     | RadialBlurFilterConfig
     | ReflectionFilterConfig
+    | RGBSplitFilterConfig
 
 
 
