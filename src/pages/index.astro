@@ -1,18 +1,11 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import {contentfulClient} from "../lib/contentful";
+import { contentfulClient } from "../lib/contentful";
 import type {BlogPost} from "../lib/blogPost";
 import Hero from '../components/Hero/Hero.astro';
 import AnimatedCallToAction from "../components/AnimatedCallToAction/AnimatedCallToAction.astro";
 import KineticSlider3 from "../components/KineticSlider3/KineticSlider";
-import {
-    type AdjustmentFilterConfig,
-    type AlphaFilterConfig,
-    type TextPair,
-    type BlurFilterConfig,
-    type ColorMatrixFilterConfig,
-    type NoiseFilterConfig
-} from "../components/KineticSlider3/filters";
+import { type TextPair }from "../components/KineticSlider3/filters";
 const images = [
     "/images/slides/1.jpg",
     "/images/slides/2.jpg",
