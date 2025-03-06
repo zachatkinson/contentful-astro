@@ -27,8 +27,8 @@ export function createNoiseFilter(config: NoiseFilterConfig): FilterResult {
      */
     const updateIntensity = (intensity: number): void => {
         // Map the 0-10 intensity scale to 0-1 for the noise property
-        const normalizedIntensity = Math.max(0, Math.min(10, intensity)) / 10;
-        filter.noise = normalizedIntensity;
+       filter.noise = Math.max(0, Math.min(10, intensity)) / 10;
+
 
         // Generate a new seed value for the noise if requested
         if (config.generateNewSeedOnUpdate) {
@@ -58,7 +58,7 @@ export function createNoiseFilter(config: NoiseFilterConfig): FilterResult {
         if (config.seed !== undefined) {
             // If a specific seed was provided in config, use that value
             filter.seed = config.seed;
-        } else if (config.generateNewSeedOnReset === true) {
+        } else if (config.generateNewSeedOnUpdate === true) {
             // Only generate a new seed if explicitly requested
             filter.seed = Math.random();
         } else {
