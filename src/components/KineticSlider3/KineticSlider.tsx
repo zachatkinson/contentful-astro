@@ -135,12 +135,6 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         props: hookProps
     };
 
-    // Use displacement effects
-    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects(baseHookParams);
-
-    // Use filters - call this before any references to its returned functions
-    const { updateFilterIntensities, resetAllFilters } = useFilters(baseHookParams);
-
     // Preload assets including fonts
     useEffect(() => {
         if (typeof window === 'undefined' || !isClient) return;
@@ -245,19 +239,24 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         };
     }, [sliderRef.current, assetsLoaded]);
 
-    // Use slides and get transition function - using the normal HookParams here
-    // We don't need the enhanced params in the component as the useSlides function is updated to handle missing managers
+    // Use displacement effects
+    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects(baseHookParams);
+
+    // Use filters - call this before any references to its returned functions
+    const { updateFilterIntensities, resetAllFilters } = useFilters(baseHookParams);
+
+    // Use slides and get transition function
     const { transitionToSlide } = useSlides(baseHookParams);
 
-    // Use text containers
-    useTextContainers({
+    // Use text containers - must be after useSlides to ensure slides exist
+    const textContainerResult = useTextContainers({
         sliderRef,
         appRef,
         slidesRef,
         textContainersRef,
         currentIndex: currentIndexRef,
         buttonMode,
-        textsRgbEffect: false, // Removed legacy prop, we'll rely on textFilters
+        textsRgbEffect: false,
         texts,
         textTitleColor,
         textTitleSize,
@@ -292,6 +291,12 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         defaultBgFilterScale: 20,
         defaultCursorFilterScale: 10
     });
+
+    // Update current index ref when state changes
+    useEffect(() => {
+        // Update current index ref when state changes
+        currentIndexRef.current = currentSlideIndex;
+    }, [currentSlideIndex]);
 
     // Navigation functions with effect reapplication
     const handleNext = useCallback(() => {
@@ -335,18 +340,6 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             }, 100); // Short delay to allow transition to start
         }
     }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
-
-    // Apply hooks only when appRef is available and ready - NOW updateFilterIntensities is defined before being referenced
-    useEffect(() => {
-        // Skip if app is not initialized
-        if (!appRef.current || !isAppReady) return;
-
-        // Update current index ref when state changes
-        currentIndexRef.current = currentSlideIndex;
-
-        // Note: We no longer need to handle filter updates here as they are now handled directly
-        // in the navigation functions (handleNext/handlePrev)
-    }, [appRef.current, currentSlideIndex, isAppReady]);
 
     // Use navigation
     useNavigation({
