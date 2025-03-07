@@ -60,7 +60,7 @@ class FilterManager {
                     filterInstances.push(result.filter);
                 } else if (Array.isArray(result.filter)) {
                     // If it's an array of filters, add each one
-                    filterInstances.push(...result.filter);
+                    filterInstances.push(...(result.filter as Filter[]));
                 } else {
                     console.warn(`Invalid filter result for ${config.type}`);
                 }
@@ -109,7 +109,7 @@ class FilterManager {
                         filtersToRemove = new Set([result.filter]);
                     } else if (Array.isArray(result.filter)) {
                         // Multiple filters to remove
-                        filtersToRemove = new Set(result.filter);
+                        filtersToRemove = new Set(result.filter as Filter[]);
                     } else {
                         console.warn('Unknown filter type encountered:', result.filter);
                         filtersToRemove = new Set();
