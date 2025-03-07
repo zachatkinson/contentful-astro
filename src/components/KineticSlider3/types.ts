@@ -95,7 +95,7 @@ export interface PixiRefs {
  * Filter application result containing the filter instance
  */
 export interface FilterResult {
-    filter: Filter;
+    filter: Filter | Filter[];
     updateIntensity: (intensity: number) => void;
     reset: () => void;
     dispose?: () => void;

@@ -6,8 +6,7 @@
 import { Filter, Container } from 'pixi.js';
 import { FilterFactory } from '../filters/';
 import { type FilterConfig, type FilterResult } from '../filters/';
-import { type ManagedFilter } from "../types.ts";
-
+import { type ManagedFilter } from "../types";
 
 class FilterManager {
     // Track all created filters by ID
@@ -56,7 +55,15 @@ class FilterManager {
                 });
 
                 // Add to the filter instances array - result.filter is the actual PixiJS Filter instance
-                filterInstances.push(result.filter);
+                // Make sure we're dealing with a single filter instance, not an array
+                if (result.filter instanceof Filter) {
+                    filterInstances.push(result.filter);
+                } else if (Array.isArray(result.filter)) {
+                    // If it's an array of filters, add each one
+                    filterInstances.push(...result.filter);
+                } else {
+                    console.warn(`Invalid filter result for ${config.type}`);
+                }
             } catch (error) {
                 console.error(`Failed to create filter ${config.type}:`, error);
             }
@@ -81,16 +88,45 @@ class FilterManager {
         // Clean up each filter
         targetFilters.forEach(({ target, result }) => {
             // Reset the filter first
-            result.reset();
+            try {
+                result.reset();
 
-            // Call the dispose function if it exists
-            if ('dispose' in result && typeof result.dispose === 'function') {
-                result.dispose();
-            }
+                // Call the dispose function if it exists
+                if ('dispose' in result && typeof result.dispose === 'function') {
+                    result.dispose();
+                }
 
-            // Remove filter from target
-            if (target.filters) {
-                target.filters = target.filters.filter((f: Filter) => f !== result.filter);
+                // Remove filter from target
+                if (target.filters) {
+                    // Get the current filters as an array (it could be a single filter or an array in Pixi v8)
+                    const currentFilters = Array.isArray(target.filters) ? target.filters : [target.filters];
+
+                    // Determine what needs to be removed
+                    let filtersToRemove: Set<Filter>;
+
+                    if (result.filter instanceof Filter) {
+                        // Single filter to remove
+                        filtersToRemove = new Set([result.filter]);
+                    } else if (Array.isArray(result.filter)) {
+                        // Multiple filters to remove
+                        filtersToRemove = new Set(result.filter);
+                    } else {
+                        console.warn('Unknown filter type encountered:', result.filter);
+                        filtersToRemove = new Set();
+                    }
+
+                    // Filter out the filters that need to be removed
+                    const remainingFilters = currentFilters.filter(
+                        (f) => !filtersToRemove.has(f)
+                    );
+
+                    // Update the target's filters
+                    if(remainingFilters.length > 0){
+                        target.filters = remainingFilters;
+                    }
+                }
+            } catch (error) {
+                console.error(`Error cleaning up filter for target ${targetId}:`, error);
             }
         });
 
@@ -110,12 +146,16 @@ class FilterManager {
         const targetFilters = this.filters.get(targetId)!;
 
         targetFilters.forEach(({ result, config }) => {
-            if (active) {
-                // Activate the filter with configured intensity
-                result.updateIntensity(config.intensity);
-            } else {
-                // Reset the filter to inactive state
-                result.reset();
+            try {
+                if (active) {
+                    // Activate the filter with configured intensity
+                    result.updateIntensity(config.intensity);
+                } else {
+                    // Reset the filter to inactive state
+                    result.reset();
+                }
+            } catch (error) {
+                console.error(`Error updating filter intensity for target ${targetId}:`, error);
             }
         });
     }
@@ -144,7 +184,11 @@ class FilterManager {
     resetAllFilters(): void {
         this.filters.forEach(targetFilters => {
             targetFilters.forEach(({ result }) => {
-                result.reset();
+                try {
+                    result.reset();
+                } catch (error) {
+                    console.error("Error resetting filter:", error);
+                }
             });
         });
     }
