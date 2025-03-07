@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import styles from './KineticSlider.module.css';
-import { type KineticSliderProps } from './types';
+import { type KineticSliderProps, type HookParams } from './types';
 import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
 
 // Import hooks directly
@@ -23,46 +23,46 @@ import { preloadKineticSliderAssets } from './utils/assetPreload';
  * KineticSlider component - Creates an interactive image slider with various effects
  */
 const KineticSlider3: React.FC<KineticSliderProps> = ({
-                                                         // Content sources
-                                                         images = [],
-                                                         texts = [],
+                                                          // Content sources
+                                                          images = [],
+                                                          texts = [],
 
-                                                         // Displacement settings
-                                                         backgroundDisplacementSpriteLocation = '/images/background-displace.jpg',
-                                                         cursorDisplacementSpriteLocation = '/images/cursor-displace.png',
-                                                         cursorImgEffect = true,
-                                                         cursorTextEffect = true,
-                                                         cursorScaleIntensity = 0.65,
-                                                         cursorMomentum = 0.14,
+                                                          // Displacement settings
+                                                          backgroundDisplacementSpriteLocation = '/images/background-displace.jpg',
+                                                          cursorDisplacementSpriteLocation = '/images/cursor-displace.png',
+                                                          cursorImgEffect = true,
+                                                          cursorTextEffect = true,
+                                                          cursorScaleIntensity = 0.65,
+                                                          cursorMomentum = 0.14,
 
-                                                         // Text styling
-                                                         textTitleColor = 'white',
-                                                         textTitleSize = 64,
-                                                         mobileTextTitleSize = 40,
-                                                         textTitleLetterspacing = 2,
-                                                         textTitleFontFamily,
-                                                         textSubTitleColor = 'white',
-                                                         textSubTitleSize = 24,
-                                                         mobileTextSubTitleSize = 18,
-                                                         textSubTitleLetterspacing = 1,
-                                                         textSubTitleOffsetTop = 10,
-                                                         mobileTextSubTitleOffsetTop = 5,
-                                                         textSubTitleFontFamily,
+                                                          // Text styling
+                                                          textTitleColor = 'white',
+                                                          textTitleSize = 64,
+                                                          mobileTextTitleSize = 40,
+                                                          textTitleLetterspacing = 2,
+                                                          textTitleFontFamily,
+                                                          textSubTitleColor = 'white',
+                                                          textSubTitleSize = 24,
+                                                          mobileTextSubTitleSize = 18,
+                                                          textSubTitleLetterspacing = 1,
+                                                          textSubTitleOffsetTop = 10,
+                                                          mobileTextSubTitleOffsetTop = 5,
+                                                          textSubTitleFontFamily,
 
-                                                         // Animation settings
-                                                         maxContainerShiftFraction = 0.05,
-                                                         swipeScaleIntensity = 2,
-                                                         transitionScaleIntensity = 30,
+                                                          // Animation settings
+                                                          maxContainerShiftFraction = 0.05,
+                                                          swipeScaleIntensity = 2,
+                                                          transitionScaleIntensity = 30,
 
-                                                         // Navigation settings
-                                                         externalNav = false,
-                                                         navElement = { prev: '.main-nav.prev', next: '.main-nav.next' },
-                                                         buttonMode = false,
+                                                          // Navigation settings
+                                                          externalNav = false,
+                                                          navElement = { prev: '.main-nav.prev', next: '.main-nav.next' },
+                                                          buttonMode = false,
 
-                                                         // Filter configurations
-                                                         imageFilters,
-                                                         textFilters
-                                                     }) => {
+                                                          // Filter configurations
+                                                          imageFilters,
+                                                          textFilters
+                                                      }) => {
     // Core references
     const sliderRef = useRef<HTMLDivElement>(null);
     const [isClient, setIsClient] = useState(false);
@@ -128,19 +128,18 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         textFilters
     };
 
-    // Use displacement effects
-    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects({
+    // Create hook params object that meets the HookParams interface
+    const baseHookParams: HookParams = {
         sliderRef,
         pixi: pixiRefs,
         props: hookProps
-    });
+    };
+
+    // Use displacement effects
+    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects(baseHookParams);
 
     // Use filters - call this before any references to its returned functions
-    const { updateFilterIntensities, resetAllFilters } = useFilters({
-        sliderRef,
-        pixi: pixiRefs,
-        props: hookProps
-    });
+    const { updateFilterIntensities, resetAllFilters } = useFilters(baseHookParams);
 
     // Preload assets including fonts
     useEffect(() => {
@@ -246,12 +245,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         };
     }, [sliderRef.current, assetsLoaded]);
 
-    // Use slides and get transition function
-    const { transitionToSlide } = useSlides({
-        sliderRef,
-        pixi: pixiRefs,
-        props: hookProps
-    });
+    // Use slides and get transition function - using the normal HookParams here
+    // We don't need the enhanced params in the component as the useSlides function is updated to handle missing managers
+    const { transitionToSlide } = useSlides(baseHookParams);
 
     // Use text containers
     useTextContainers({
@@ -404,10 +400,8 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         slidesRef,
         textContainersRef,
         backgroundDisplacementSpriteRef,
-        cursorDisplacementSpriteRef
+        cursorDisplacementSpriteRef,
     });
-
-
 
     // Memoize handlers to prevent unnecessary re-renders
     const handleMouseEnter = useCallback(() => {
@@ -429,7 +423,6 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
         setIsInteracting(true);
     }, [isAppReady, showDisplacementEffects, updateFilterIntensities]);
-
 
     // Mouse leave handler - FIXED to ensure all effects are removed
     const handleMouseLeave = useCallback(() => {

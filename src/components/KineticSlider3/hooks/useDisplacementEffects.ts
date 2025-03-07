@@ -61,8 +61,13 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
                 try {
                     // Try to get from cache first
                     bgTexture = Assets.get(bgDisplacementUrl);
+                    if (!bgTexture) {
+                        // If not in cache, load it
+                        bgTexture = await Assets.load(bgDisplacementUrl);
+                    }
                 } catch (e) {
-                    // If not in cache, load it
+                    console.warn("Error loading from cache, attempting direct load", e);
+                    // If error with cache, load it directly
                     bgTexture = await Assets.load(bgDisplacementUrl);
                 }
 
@@ -72,8 +77,10 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
                 backgroundDisplacementSprite.x = app.screen.width / 2;
                 backgroundDisplacementSprite.y = app.screen.height / 2;
                 backgroundDisplacementSprite.scale.set(2);
-                backgroundDisplacementSprite.alpha = 0;
+                backgroundDisplacementSprite.alpha = 0; // Start transparent
                 pixi.backgroundDisplacementSprite.current = backgroundDisplacementSprite;
+
+                console.log("Background displacement sprite created");
 
                 // Load cursor displacement texture
                 const cursorDisplacementUrl = props.cursorDisplacementSpriteLocation || '/images/cursor-displace.png';
@@ -82,8 +89,13 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
                 try {
                     // Try to get from cache first
                     cursorTexture = Assets.get(cursorDisplacementUrl);
+                    if (!cursorTexture) {
+                        // If not in cache, load it
+                        cursorTexture = await Assets.load(cursorDisplacementUrl);
+                    }
                 } catch (e) {
-                    // If not in cache, load it
+                    console.warn("Error loading from cache, attempting direct load", e);
+                    // If error with cache, load it directly
                     cursorTexture = await Assets.load(cursorDisplacementUrl);
                 }
 
@@ -93,8 +105,10 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
                 cursorDisplacementSprite.x = app.screen.width / 2;
                 cursorDisplacementSprite.y = app.screen.height / 2;
                 cursorDisplacementSprite.scale.set(props.cursorScaleIntensity || 0.65);
-                cursorDisplacementSprite.alpha = 0;
+                cursorDisplacementSprite.alpha = 0; // Start transparent
                 pixi.cursorDisplacementSprite.current = cursorDisplacementSprite;
+
+                console.log("Cursor displacement sprite created");
 
                 // Create displacement filters
                 const backgroundDisplacementFilter = new DisplacementFilter(backgroundDisplacementSprite);

@@ -1,18 +1,28 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { Sprite, Container, Texture } from 'pixi.js';
-import { type EnhancedSprite, type EnhancedHookParams } from '../types';
+import { type EnhancedSprite, type EnhancedHookParams, type HookParams } from '../types';
 import { calculateSpriteScale } from '../utils/calculateSpriteScale';
 import { gsap } from 'gsap';
 
 /**
  * Hook to create and manage slide sprites with proper memory management
+ * This version accepts either EnhancedHookParams or regular HookParams
  */
-export const useSlides = ({ sliderRef, pixi, props, managers, qualityLevel }: EnhancedHookParams) => {
+export const useSlides = (params: HookParams | EnhancedHookParams) => {
+    // Extract the common parts that exist in both types
+    const { sliderRef, pixi, props } = params;
+
     // Reference to track if the parent component is unmounting
     const isUnmountingRef = useRef(false);
 
-    // Use texture and animation managers from the provided managers
-    const { textureManager, animationManager } = managers;
+    // Check if we have enhanced params with managers
+    const hasManagers = 'managers' in params;
+    const managers = hasManagers ? params.managers : undefined;
+    const qualityLevel = hasManagers ? params.qualityLevel : 'high';
+
+    // Use texture and animation managers from the provided managers if available
+    const textureManager = managers?.textureManager;
+    const animationManager = managers?.animationManager;
 
     /**
      * Create slides for each image with optimized texture management
@@ -38,8 +48,10 @@ export const useSlides = ({ sliderRef, pixi, props, managers, qualityLevel }: En
         const cleanup = () => {
             console.log('Cleaning up slides...');
 
-            // Kill all animations for slides
-            animationManager.killModuleAnimations('slides');
+            // Kill all animations for slides if animation manager is available
+            if (animationManager) {
+                animationManager.killModuleAnimations('slides');
+            }
 
             // Track textures that need to be released
             const textureUrls = new Set<string>();
@@ -50,7 +62,7 @@ export const useSlides = ({ sliderRef, pixi, props, managers, qualityLevel }: En
                     // Store the texture URL for later release
                     if (sprite.texture && 'textureCacheIds' in sprite.texture) {
                         const ids = sprite.texture.textureCacheIds;
-                        if (ids && ids.length > 0) {
+                        if (ids && Array.isArray(ids) && ids.length > 0) {
                             ids.forEach(id => textureUrls.add(id));
                         }
                     }
@@ -68,11 +80,12 @@ export const useSlides = ({ sliderRef, pixi, props, managers, qualityLevel }: En
             // Clear the slides array
             pixi.slides.current = [];
 
-            // Now safely release textures using the texture manager
-            // The texture manager handles reference counting
-            textureUrls.forEach(url => {
-                textureManager.releaseTexture(url, isUnmountingRef.current);
-            });
+            // Now safely release textures using the texture manager if available
+            if (textureManager) {
+                textureUrls.forEach(url => {
+                    textureManager.releaseTexture(url, isUnmountingRef.current);
+                });
+            }
         };
 
         // Clean up any existing slides before creating new ones
@@ -83,10 +96,19 @@ export const useSlides = ({ sliderRef, pixi, props, managers, qualityLevel }: En
             try {
                 console.log('Loading slide textures and creating sprites...');
 
-                // Batch load all textures using the texture manager
-                const textures = await Promise.all(
-                    props.images.map(image => textureManager.loadTexture(image))
-                );
+                // Batch load all textures using the texture manager if available
+                let textures: Texture[] = [];
+
+                if (textureManager) {
+                    textures = await Promise.all(
+                        props.images.map(image => textureManager.loadTexture(image))
+                    );
+                } else {
+                    // Fallback to basic Texture loading if texture manager is not available
+                    textures = await Promise.all(
+                        props.images.map(image => Texture.from(image))
+                    );
+                }
 
                 // Create sprites using the loaded textures
                 textures.forEach((texture, index) => {
@@ -185,18 +207,35 @@ export const useSlides = ({ sliderRef, pixi, props, managers, qualityLevel }: En
             qualityLevel === 'medium' ? 0.85 : 1.0;
         const scaleMultiplier = 1 + ((props.transitionScaleIntensity || 30) / 100) * qualityMultiplier;
 
-        // Create a timeline for the transition using animation manager
-        const tl = animationManager.timeline({
-            onComplete: () => {
-                // Hide previous slide after transition completes
-                currentSlide.visible = false;
+        // Create a timeline for the transition using GSAP directly or animation manager if available
+        let tl: gsap.core.Timeline;
 
-                // Hide previous text after transition completes
-                if (currentTextContainer) {
-                    currentTextContainer.visible = false;
+        if (animationManager) {
+            tl = animationManager.timeline({
+                onComplete: () => {
+                    // Hide previous slide after transition completes
+                    currentSlide.visible = false;
+
+                    // Hide previous text after transition completes
+                    if (currentTextContainer) {
+                        currentTextContainer.visible = false;
+                    }
                 }
-            }
-        }, 'slides');
+            }, 'slides');
+        } else {
+            // Use regular GSAP timeline if animation manager is not available
+            tl = gsap.timeline({
+                onComplete: () => {
+                    // Hide previous slide after transition completes
+                    currentSlide.visible = false;
+
+                    // Hide previous text after transition completes
+                    if (currentTextContainer) {
+                        currentTextContainer.visible = false;
+                    }
+                }
+            });
+        }
 
         // Animate the transition with managed animations
         tl.to(currentSlide.scale, {
@@ -286,14 +325,22 @@ export const useSlides = ({ sliderRef, pixi, props, managers, qualityLevel }: En
             });
         };
 
-        // Set up resize handler using event manager
-        const removeResizeListener = managers.eventManager.on(window, 'resize', handleResize);
+        // Set up resize handler using event manager if available or window event directly
+        let cleanup: (() => void) | undefined;
+
+        if (managers?.eventManager) {
+            cleanup = managers.eventManager.on(window, 'resize', handleResize);
+        } else {
+            // Fallback to standard event listener
+            window.addEventListener('resize', handleResize);
+            cleanup = () => window.removeEventListener('resize', handleResize);
+        }
 
         // Initial sizing
         handleResize();
 
-        return removeResizeListener;
-    }, [pixi.app.current, pixi.slides.current, managers.eventManager]);
+        return cleanup;
+    }, [pixi.app.current, pixi.slides.current, managers?.eventManager]);
 
     return {
         transitionToSlide,

@@ -63,76 +63,6 @@ export const useFilters = (
         }
     }, []);
 
-    // Initialize filters
-    useEffect(() => {
-        // Skip if app or stage not ready
-        if (!pixi.app.current || !pixi.app.current.stage) {
-            return;
-        }
-
-        // Wait until slides and text containers are created
-        if (!pixi.slides.current.length || !pixi.textContainers.current.length) {
-            return;
-        }
-
-        // Avoid reinitializing filters if already done
-        if (filtersInitializedRef.current) {
-            return;
-        }
-
-        try {
-            // Use provided filter configurations or defaults
-            const imageFilters = props.imageFilters
-                ? (Array.isArray(props.imageFilters) ? props.imageFilters : [props.imageFilters])
-                : [{ type: 'rgb-split', enabled: true, intensity: 15 }]; // Default RGB split filter
-
-            const textFilters = props.textFilters
-                ? (Array.isArray(props.textFilters) ? props.textFilters : [props.textFilters])
-                : [{ type: 'rgb-split', enabled: true, intensity: 5 }]; // Default RGB split filter
-
-            // Apply filters to slides and text containers with initial creation
-            // This will add the filter instances but not activate them yet
-            applyFiltersToObjects(pixi.slides.current, imageFilters as FilterConfig[], 'slide-');
-            applyFiltersToObjects(pixi.textContainers.current, textFilters as FilterConfig[], 'text-');
-
-            // Ensure all filters are in an inactive state initially
-            Object.keys(filterMapRef.current).forEach(id => {
-                const entry = filterMapRef.current[id];
-                entry.filters.forEach(filter => {
-                    try {
-                        // Reset each filter to ensure it starts in inactive state
-                        filter.reset();
-                    } catch (error) {
-                        console.error(`Error initializing filter for ${id}:`, error);
-                    }
-                });
-            });
-
-            // Mark as initialized in inactive state
-            filtersInitializedRef.current = true;
-            filtersActiveRef.current = false;
-        } catch (error) {
-            console.error("Error setting up filters:", error);
-        }
-
-        return () => {
-            // Clean up all filters
-            disposeAllFilters();
-
-            // Reset state
-            filterMapRef.current = {};
-            filtersInitializedRef.current = false;
-            filtersActiveRef.current = false;
-        };
-    }, [
-        pixi.app.current,
-        pixi.slides.current,
-        pixi.textContainers.current,
-        props.imageFilters,
-        props.textFilters,
-        disposeFilter
-    ]);
-
     // Function to dispose all filters and clean up resources
     const disposeAllFilters = useCallback(() => {
         // Run all registered dispose handlers
@@ -181,11 +111,16 @@ export const useFilters = (
         idPrefix: string
     ) => {
         if (!objects.length) {
+            console.log(`No objects provided for ${idPrefix} filters`);
             return;
         }
 
+        console.log(`Applying filters to ${objects.length} ${idPrefix} objects`);
+        console.log(`Filter configs:`, filterConfigs);
+
         objects.forEach((object, index) => {
             const id = `${idPrefix}${index}`;
+            console.log(`Processing filters for ${id}`);
 
             // Create filter entries if they don't exist
             if (!filterMapRef.current[id]) {
@@ -216,6 +151,7 @@ export const useFilters = (
                 .filter(config => config.enabled)
                 .map(config => {
                     try {
+                        console.log(`Creating ${config.type} filter with intensity ${config.intensity}`);
                         const result = FilterFactory.createFilter(config);
 
                         // Create a dispose function for this filter
@@ -265,14 +201,102 @@ export const useFilters = (
             // Add the custom filters
             const customFilters = activeFilters.map(result => result.filter);
 
+            // Print filter count for debugging
+            console.log(`Setting ${baseFilters.length + customFilters.length} filters on ${id}:`,
+                `${baseFilters.length} base filters, ${customFilters.length} custom filters`);
+
             // Set the combined filters on the object
             object.filters = [...baseFilters, ...customFilters];
         });
     }, [pixi, props.cursorImgEffect, disposeFilter]);
 
+    // Initialize filters
+    useEffect(() => {
+        // Skip if app or stage not ready
+        if (!pixi.app.current || !pixi.app.current.stage) {
+            console.log("App or stage not ready for filters");
+            return;
+        }
+
+        // Wait until slides and text containers are created
+        if (!pixi.slides.current.length || !pixi.textContainers.current.length) {
+            console.log("Slides or text containers not ready for filters");
+            return;
+        }
+
+        // Avoid reinitializing filters if already done
+        if (filtersInitializedRef.current) {
+            console.log("Filters already initialized");
+            return;
+        }
+
+        console.log("Initializing filters...");
+
+        try {
+            // Use provided filter configurations or defaults
+            const imageFiltersConfig = props.imageFilters
+                ? (Array.isArray(props.imageFilters) ? props.imageFilters : [props.imageFilters])
+                : [{ type: 'rgbSplit', enabled: true, intensity: 5 }]; // Default RGB split filter
+
+            const textFiltersConfig = props.textFilters
+                ? (Array.isArray(props.textFilters) ? props.textFilters : [props.textFilters])
+                : [{ type: 'outline', enabled: true, intensity: 5 }]; // Default outline filter
+
+            console.log("Image filters config:", imageFiltersConfig);
+            console.log("Text filters config:", textFiltersConfig);
+
+            // Apply filters to slides and text containers with initial creation
+            applyFiltersToObjects(pixi.slides.current, imageFiltersConfig as FilterConfig[], 'slide-');
+            applyFiltersToObjects(pixi.textContainers.current, textFiltersConfig as FilterConfig[], 'text-');
+
+            // Ensure all filters are in an inactive state initially
+            Object.keys(filterMapRef.current).forEach(id => {
+                const entry = filterMapRef.current[id];
+                entry.filters.forEach(filter => {
+                    try {
+                        // Reset each filter to ensure it starts in inactive state
+                        filter.reset();
+                    } catch (error) {
+                        console.error(`Error initializing filter for ${id}:`, error);
+                    }
+                });
+            });
+
+            // Mark as initialized in inactive state
+            filtersInitializedRef.current = true;
+            filtersActiveRef.current = false;
+
+            console.log("Filters initialized successfully");
+        } catch (error) {
+            console.error("Error setting up filters:", error);
+        }
+
+        return () => {
+            // Clean up all filters
+            disposeAllFilters();
+
+            // Reset state
+            filterMapRef.current = {};
+            filtersInitializedRef.current = false;
+            filtersActiveRef.current = false;
+        };
+    }, [
+        pixi.app.current,
+        pixi.slides.current,
+        pixi.textContainers.current,
+        props.imageFilters,
+        props.textFilters,
+        disposeFilter,
+        applyFiltersToObjects,
+        disposeAllFilters
+    ]);
+
     // Function to reset all filters to inactive state
     const resetAllFilters = useCallback(() => {
+        console.log("Resetting all filters");
+
         if (!filtersInitializedRef.current) {
+            console.log("Filters not initialized yet, skipping reset");
             return;
         }
 
@@ -320,6 +344,7 @@ export const useFilters = (
     const updateFilterIntensities = useCallback((active: boolean, forceUpdate = false) => {
         // Skip if filters haven't been initialized yet
         if (!filtersInitializedRef.current) {
+            console.log("Filters not initialized yet, skipping intensity update");
             return;
         }
 
@@ -327,6 +352,8 @@ export const useFilters = (
         if (filtersActiveRef.current === active && !forceUpdate) {
             return;
         }
+
+        console.log(`Updating filter intensities: active=${active}, forceUpdate=${forceUpdate}`);
 
         // Update filter active state
         filtersActiveRef.current = active;
@@ -361,9 +388,13 @@ export const useFilters = (
 
                 // Set the combined filters on the object
                 target.filters = [...baseFilters, ...customFilters];
+
+                console.log(`Applied ${baseFilters.length + customFilters.length} filters to slide`);
             } catch (error) {
                 console.error(`Error reapplying filter array to ${currentSlideId}:`, error);
             }
+        } else {
+            console.warn(`No filter data found for ${currentSlideId}`);
         }
 
         // Similarly for text filters
@@ -383,9 +414,13 @@ export const useFilters = (
 
                 // Set the combined filters on the object
                 target.filters = [...baseFilters, ...customFilters];
+
+                console.log(`Applied ${baseFilters.length + customFilters.length} filters to text`);
             } catch (error) {
                 console.error(`Error reapplying filter array to ${currentTextId}:`, error);
             }
+        } else {
+            console.warn(`No filter data found for ${currentTextId}`);
         }
 
         // Now activate the filter intensities
@@ -395,6 +430,7 @@ export const useFilters = (
                 try {
                     // Use the filter's own update intensity function with the stored initial intensity
                     filter.updateIntensity(filter.initialIntensity);
+                    console.log(`Activated slide filter with intensity ${filter.initialIntensity}`);
                 } catch (error) {
                     console.error(`Error activating slide filter:`, error);
                 }
@@ -407,6 +443,7 @@ export const useFilters = (
                 try {
                     // Use the filter's own update intensity function with the stored initial intensity
                     filter.updateIntensity(filter.initialIntensity);
+                    console.log(`Activated text filter with intensity ${filter.initialIntensity}`);
                 } catch (error) {
                     console.error(`Error activating text filter:`, error);
                 }

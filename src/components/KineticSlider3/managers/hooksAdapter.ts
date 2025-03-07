@@ -13,7 +13,7 @@ import EventManager from './eventManager';
 import PerformanceMonitor, { QualityLevel } from './performanceMonitor';
 
 // Import original hook types
-import { PixiRefs, KineticSliderProps, HookParams } from '../types';
+import { type PixiRefs, type KineticSliderProps, type HookParams } from '../types';
 
 // Combined interface for all managers
 export interface ManagerRefs {
@@ -39,8 +39,12 @@ export function createHookCompatProxy(
     managers: ManagerRefs,
     qualityLevel: QualityLevel
 ): EnhancedHookParams {
+    // Create a ref to a dummy element to satisfy the sliderRef type
+    // The actual DOM element should be provided elsewhere
+    const dummySliderRef = { current: null } as React.RefObject<HTMLDivElement | null>;
+
     return {
-        sliderRef: pixiRefs.app, // This should be the slider DOM element ref, not app
+        sliderRef: dummySliderRef, // Use dummy ref for type compatibility
         pixi: pixiRefs,
         props: {} as KineticSliderProps, // Will be populated before passing to hooks
         managers,

@@ -79,15 +79,24 @@ const useTextContainers = ({
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
 
-        if (!appRef.current || !slidesRef.current.length || !texts.length) return;
+        if (!appRef.current || !slidesRef.current.length || !texts.length) {
+            console.log('Cannot create text containers - missing app, slides, or texts');
+            console.log({
+                app: !!appRef.current,
+                slidesLength: slidesRef.current.length,
+                textsLength: texts.length
+            });
+            return;
+        }
 
         const app = appRef.current;
-        const stage = app.stage.children[0] as Container || app.stage;
+        const stage = app.stage.children[0] instanceof Container ? app.stage.children[0] as Container : app.stage;
 
         // Clear existing text containers
         textContainersRef.current.forEach(container => {
             if (container.parent) {
                 container.parent.removeChild(container);
+                container.destroy({ children: true });
             }
         });
         textContainersRef.current = [];
@@ -106,76 +115,96 @@ const useTextContainers = ({
 
         // Create new text containers for each text pair
         texts.forEach((textPair, index) => {
-            const [title, subtitle] = textPair;
-            const textContainer = new Container();
-            textContainer.x = app.screen.width / 2;
-            textContainer.y = app.screen.height / 2;
+            try {
+                const [title, subtitle] = textPair;
+                const textContainer = new Container();
+                textContainer.x = app.screen.width / 2;
+                textContainer.y = app.screen.height / 2;
+                textContainer.name = `text-container-${index}`;
 
-            // Create title text
-            const titleStyle = new TextStyle({
-                fill: textTitleColor,
-                fontSize: computedTitleSize,
-                letterSpacing: textTitleLetterspacing,
-                fontWeight: 'bold',
-                align: 'center',
-                fontFamily: titleFontFamily
-            });
-            const titleText = new Text({ text: title, style: titleStyle });
-            titleText.anchor.set(0.5, 0);
-            titleText.y = 0;
-
-            // Create subtitle text
-            const subtitleStyle = new TextStyle({
-                fill: textSubTitleColor,
-                fontSize: computedSubTitleSize,
-                letterSpacing: textSubTitleLetterspacing,
-                align: 'center',
-                fontFamily: subtitleFontFamily
-            });
-            const subText = new Text({text: subtitle, style: subtitleStyle});
-            subText.anchor.set(0.5, 0);
-            subText.y = titleText.height + computedSubTitleOffset;
-
-            textContainer.addChild(titleText, subText);
-            textContainer.pivot.y = textContainer.height / 2;
-
-            // Set initial state - only show the first container
-            textContainer.alpha = index === 0 ? 1 : 0;
-
-            // IMPORTANT: Set visibility property for all but the first text container
-            textContainer.visible = index === 0;
-
-            // Enable button mode if specified
-            if (buttonMode) {
-                textContainer.eventMode = 'static'; // Modern PIXI.js interaction system
-                textContainer.cursor = 'pointer';
-
-                textContainer.on('pointerover', () => {
-                    gsap.to(titleText.scale, { x: 1.1, y: 1.1, duration: 0.2 });
+                // Create title text
+                const titleStyle = new TextStyle({
+                    fill: textTitleColor || '#ffffff',
+                    fontSize: computedTitleSize,
+                    letterSpacing: textTitleLetterspacing,
+                    fontWeight: 'bold',
+                    align: 'center',
+                    fontFamily: titleFontFamily
                 });
 
-                textContainer.on('pointerout', () => {
-                    gsap.to(titleText.scale, { x: 1, y: 1, duration: 0.2 });
+                const titleText = new Text({
+                    text: title || 'Title',
+                    style: titleStyle
+                });
+                titleText.anchor.set(0.5, 0);
+                titleText.y = 0;
+                titleText.name = `title-${index}`;
+
+                // Create subtitle text
+                const subtitleStyle = new TextStyle({
+                    fill: textSubTitleColor || '#ffffff',
+                    fontSize: computedSubTitleSize,
+                    letterSpacing: textSubTitleLetterspacing,
+                    align: 'center',
+                    fontFamily: subtitleFontFamily
                 });
 
-                textContainer.on('pointerdown', () => {
-                    // Move to next slide if clicked
-                    const nextIndex = (currentIndex.current + 1) % slidesRef.current.length;
-                    // Dispatch a custom event that can be caught by other components
-                    window.dispatchEvent(new CustomEvent('slideChange', { detail: { nextIndex } }));
+                const subText = new Text({
+                    text: subtitle || 'Subtitle',
+                    style: subtitleStyle
                 });
+                subText.anchor.set(0.5, 0);
+                subText.y = titleText.height + computedSubTitleOffset;
+                subText.name = `subtitle-${index}`;
+
+                // Add texts to container
+                textContainer.addChild(titleText);
+                textContainer.addChild(subText);
+                textContainer.pivot.y = textContainer.height / 2;
+
+                // Set initial state - only show the first container
+                textContainer.alpha = index === 0 ? 1 : 0;
+                textContainer.visible = index === 0;
+
+                // Enable button mode if specified
+                if (buttonMode) {
+                    textContainer.eventMode = 'static'; // Modern PIXI.js interaction system
+                    textContainer.cursor = 'pointer';
+
+                    textContainer.on('pointerover', () => {
+                        gsap.to(titleText.scale, { x: 1.1, y: 1.1, duration: 0.2 });
+                    });
+
+                    textContainer.on('pointerout', () => {
+                        gsap.to(titleText.scale, { x: 1, y: 1, duration: 0.2 });
+                    });
+
+                    textContainer.on('pointerdown', () => {
+                        // Move to next slide if clicked
+                        const nextIndex = (currentIndex.current + 1) % slidesRef.current.length;
+                        // Dispatch a custom event that can be caught by other components
+                        window.dispatchEvent(new CustomEvent('slideChange', { detail: { nextIndex } }));
+                    });
+                }
+
+                // Add to stage and store reference
+                stage.addChild(textContainer);
+                textContainersRef.current.push(textContainer);
+
+                console.log(`Created text container ${index}: "${title}" / "${subtitle}"`);
+            } catch (error) {
+                console.error(`Error creating text container ${index}:`, error);
             }
-
-            // Add to stage and store reference
-            stage.addChild(textContainer);
-            textContainersRef.current.push(textContainer);
         });
+
+        console.log(`Created ${textContainersRef.current.length} text containers`);
 
         return () => {
             // Cleanup
             textContainersRef.current.forEach(container => {
                 if (container.parent) {
                     container.parent.removeChild(container);
+                    container.destroy({ children: true });
                 }
             });
             textContainersRef.current = [];
