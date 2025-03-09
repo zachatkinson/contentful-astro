@@ -267,23 +267,37 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         // Cleanup on unmount
         return () => {
             if (appRef.current) {
-                if (sliderRef.current) {
-                    const canvas = sliderRef.current.querySelector('canvas');
-                    if (canvas) {
-                        sliderRef.current.removeChild(canvas);
-                    }
-                }
-                appRef.current.destroy(true);
-                appRef.current = null;
+                // NEW: First set state flags to prevent further operations
                 setIsAppReady(false);
-
-                // Reset initialization states
                 setAppInitialized(false);
                 setSlidesInitialized(false);
                 setTextInitialized(false);
                 setFiltersInitialized(false);
-                setDisplacementInitialized(false);
                 setFullyInitialized(false);
+
+                // NEW: Wait briefly for any in-progress operations to complete
+                setTimeout(() => {
+                    if (sliderRef.current) {
+                        const canvas = sliderRef.current.querySelector('canvas');
+                        if (canvas) {
+                            sliderRef.current.removeChild(canvas);
+                        }
+                    }
+
+                    // NEW: Properly destroy the application
+                    try {
+                        if(appRef.current) {
+                            // Stop the ticker first to prevent further updates
+                            appRef.current.ticker.stop();
+
+                            // Destroy the app with proper options
+                            appRef.current.destroy(true, {children: true});
+                            appRef.current = null;
+                        }
+                    } catch (error) {
+                        console.error("Error during PixiJS cleanup:", error);
+                    }
+                }, 50);
             }
         };
     }, [sliderRef.current, assetsLoaded, handleInitialization]);

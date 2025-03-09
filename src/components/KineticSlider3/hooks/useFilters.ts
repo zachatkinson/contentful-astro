@@ -46,7 +46,17 @@ export const useFilters = (
 
                     // Add safety check for shader internal properties
                     try {
-                        filterInstance.shader.destroy();
+                        // NEW: Check for _ownedBindGroups before accessing it
+                        if (filterInstance.shader._ownedBindGroups) {
+                            filterInstance.shader.destroy();
+                        } else {
+                            // If _ownedBindGroups is null, use an alternative cleanup approach
+                            console.log('Using alternative shader cleanup approach');
+                            if (filterInstance.shader.program && typeof filterInstance.shader.program.destroy === 'function') {
+                                filterInstance.shader.program.destroy();
+                            }
+                            filterInstance.shader = null;
+                        }
                     } catch (shaderError) {
                         console.warn('Error destroying shader, continuing filter disposal:', shaderError);
                     }
@@ -62,6 +72,10 @@ export const useFilters = (
                     if (filterInstance.state && typeof filterInstance.state.unbind === 'function') {
                         filterInstance.state.unbind();
                     }
+
+                    // NEW: Nullify critical properties to help garbage collection
+                    if (filterInstance.shader) filterInstance.shader = null;
+                    if (filterInstance.state) filterInstance.state = null;
                 }
                 return;
             }
@@ -266,15 +280,18 @@ export const useFilters = (
             return;
         }
 
-        // Avoid reinitializing filters if already done
+        // NEW: Add a strong guard against reinitialization
         if (filtersInitializedRef.current) {
-            console.log("Filters already initialized");
+            console.log("Filters already initialized, skipping initialization");
             return;
         }
 
         console.log("Initializing filters...");
 
         try {
+            // NEW: Set initialized flag at the start to prevent concurrent initializations
+            filtersInitializedRef.current = true;
+
             // Use provided filter configurations or defaults
             const imageFiltersConfig = props.imageFilters
                 ? (Array.isArray(props.imageFilters) ? props.imageFilters : [props.imageFilters])
@@ -324,10 +341,6 @@ export const useFilters = (
                 }
             });
 
-            // Mark as initialized in inactive state
-            filtersInitializedRef.current = true;
-            filtersActiveRef.current = false;
-
             // Signal to parent component that filters are initialized
             if (typeof onInitialized === 'function') {
                 onInitialized('filters');
@@ -335,6 +348,8 @@ export const useFilters = (
 
             console.log("Filters initialized successfully");
         } catch (error) {
+            // NEW: Reset the initialized flag if initialization fails
+            filtersInitializedRef.current = false;
             console.error("Error setting up filters:", error);
         }
 
@@ -348,11 +363,10 @@ export const useFilters = (
             filtersActiveRef.current = false;
         };
     }, [
+        // NEW: Simplify dependencies to prevent unnecessary re-runs
         pixi.app.current,
-        pixi.slides.current,
-        pixi.textContainers.current,
-        props.imageFilters,
-        props.textFilters,
+        pixi.slides.current.length > 0,
+        pixi.textContainers.current.length > 0,
         disposeFilter,
         applyFiltersToObjects,
         disposeAllFilters,
