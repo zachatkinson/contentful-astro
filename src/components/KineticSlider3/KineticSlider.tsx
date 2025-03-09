@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import styles from './KineticSlider.module.css';
 import { type KineticSliderProps } from './types';
 import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
+import ResourceManager from './managers/ResourceManager';
 
 // Import hooks directly
 import { useDisplacementEffects } from './hooks';
@@ -23,46 +24,46 @@ import { preloadKineticSliderAssets } from './utils/assetPreload';
  * KineticSlider component - Creates an interactive image slider with various effects
  */
 const KineticSlider3: React.FC<KineticSliderProps> = ({
-                                                         // Content sources
-                                                         images = [],
-                                                         texts = [],
+                                                          // Content sources
+                                                          images = [],
+                                                          texts = [],
 
-                                                         // Displacement settings
-                                                         backgroundDisplacementSpriteLocation = '/images/background-displace.jpg',
-                                                         cursorDisplacementSpriteLocation = '/images/cursor-displace.png',
-                                                         cursorImgEffect = true,
-                                                         cursorTextEffect = true,
-                                                         cursorScaleIntensity = 0.65,
-                                                         cursorMomentum = 0.14,
+                                                          // Displacement settings
+                                                          backgroundDisplacementSpriteLocation = '/images/background-displace.jpg',
+                                                          cursorDisplacementSpriteLocation = '/images/cursor-displace.png',
+                                                          cursorImgEffect = true,
+                                                          cursorTextEffect = true,
+                                                          cursorScaleIntensity = 0.65,
+                                                          cursorMomentum = 0.14,
 
-                                                         // Text styling
-                                                         textTitleColor = 'white',
-                                                         textTitleSize = 64,
-                                                         mobileTextTitleSize = 40,
-                                                         textTitleLetterspacing = 2,
-                                                         textTitleFontFamily,
-                                                         textSubTitleColor = 'white',
-                                                         textSubTitleSize = 24,
-                                                         mobileTextSubTitleSize = 18,
-                                                         textSubTitleLetterspacing = 1,
-                                                         textSubTitleOffsetTop = 10,
-                                                         mobileTextSubTitleOffsetTop = 5,
-                                                         textSubTitleFontFamily,
+                                                          // Text styling
+                                                          textTitleColor = 'white',
+                                                          textTitleSize = 64,
+                                                          mobileTextTitleSize = 40,
+                                                          textTitleLetterspacing = 2,
+                                                          textTitleFontFamily,
+                                                          textSubTitleColor = 'white',
+                                                          textSubTitleSize = 24,
+                                                          mobileTextSubTitleSize = 18,
+                                                          textSubTitleLetterspacing = 1,
+                                                          textSubTitleOffsetTop = 10,
+                                                          mobileTextSubTitleOffsetTop = 5,
+                                                          textSubTitleFontFamily,
 
-                                                         // Animation settings
-                                                         maxContainerShiftFraction = 0.05,
-                                                         swipeScaleIntensity = 2,
-                                                         transitionScaleIntensity = 30,
+                                                          // Animation settings
+                                                          maxContainerShiftFraction = 0.05,
+                                                          swipeScaleIntensity = 2,
+                                                          transitionScaleIntensity = 30,
 
-                                                         // Navigation settings
-                                                         externalNav = false,
-                                                         navElement = { prev: '.main-nav.prev', next: '.main-nav.next' },
-                                                         buttonMode = false,
+                                                          // Navigation settings
+                                                          externalNav = false,
+                                                          navElement = { prev: '.main-nav.prev', next: '.main-nav.next' },
+                                                          buttonMode = false,
 
-                                                         // Filter configurations
-                                                         imageFilters,
-                                                         textFilters
-                                                     }) => {
+                                                          // Filter configurations
+                                                          imageFilters,
+                                                          textFilters
+                                                      }) => {
     // Core references
     const sliderRef = useRef<HTMLDivElement>(null);
     const [isClient, setIsClient] = useState(false);
@@ -71,6 +72,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     const [isAppReady, setIsAppReady] = useState(false);
     const [assetsLoaded, setAssetsLoaded] = useState(false);
     const cursorActiveRef = useRef<boolean>(false);
+
+    // Create ResourceManager instance with unique ID
+    const resourceManagerRef = useRef<ResourceManager | null>(null);
 
     // Set up Pixi app
     const appRef = useRef<Application | null>(null);
@@ -85,6 +89,23 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     // Client-side initialization
     useEffect(() => {
         setIsClient(true);
+    }, []);
+
+    // Initialize ResourceManager on mount
+    useEffect(() => {
+        const componentId = `kinetic-slider-${Math.random().toString(36).substring(2, 9)}`;
+        resourceManagerRef.current = new ResourceManager(componentId);
+
+        return () => {
+            // Mark as unmounting to prevent new resource allocation
+            if (resourceManagerRef.current) {
+                console.log("Component unmounting - disposing all resources");
+                resourceManagerRef.current.markUnmounting();
+                // Dispose all tracked resources
+                resourceManagerRef.current.dispose();
+                resourceManagerRef.current = null;
+            }
+        };
     }, []);
 
     // Create a pixi refs object for hooks
@@ -128,19 +149,19 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         textFilters
     };
 
-    // Use displacement effects
-    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects({
+    // Enhanced hook params with resource manager
+    const hookParams = {
         sliderRef,
         pixi: pixiRefs,
-        props: hookProps
-    });
+        props: hookProps,
+        resourceManager: resourceManagerRef.current
+    };
+
+    // Use displacement effects
+    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects(hookParams);
 
     // Use filters - call this before any references to its returned functions
-    const { updateFilterIntensities, resetAllFilters } = useFilters({
-        sliderRef,
-        pixi: pixiRefs,
-        props: hookProps
-    });
+    const { updateFilterIntensities, resetAllFilters } = useFilters(hookParams);
 
     // Preload assets including fonts
     useEffect(() => {
@@ -207,6 +228,11 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                     resizeTo: sliderRef.current || undefined,
                 });
 
+                // Track the application with the resource manager
+                if (resourceManagerRef.current) {
+                    resourceManagerRef.current.trackDisplayObject(app);
+                }
+
                 // Add canvas to DOM
                 if (sliderRef.current) {
                     sliderRef.current.appendChild(app.canvas);
@@ -218,6 +244,11 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                 // Create main container
                 const stage = new Container();
                 app.stage.addChild(stage);
+
+                // Track the stage with the resource manager
+                if (resourceManagerRef.current) {
+                    resourceManagerRef.current.trackDisplayObject(stage);
+                }
 
                 // Set app as ready
                 setIsAppReady(true);
@@ -239,7 +270,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                         sliderRef.current.removeChild(canvas);
                     }
                 }
-                appRef.current.destroy(true);
+
+                // Note: We don't need to manually destroy the app here
+                // as the ResourceManager will handle it during disposal
                 appRef.current = null;
                 setIsAppReady(false);
             }
@@ -247,12 +280,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     }, [sliderRef.current, assetsLoaded]);
 
     // Use slides and get transition function
-    const { transitionToSlide } = useSlides({
-        sliderRef,
-        pixi: pixiRefs,
-        props: hookProps
-    });
+    const { transitionToSlide } = useSlides(hookParams);
 
+    // Use text containers
     // Use text containers
     useTextContainers({
         sliderRef,
@@ -261,7 +291,6 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         textContainersRef,
         currentIndex: currentIndexRef,
         buttonMode,
-        textsRgbEffect: false, // Removed legacy prop, we'll rely on textFilters
         texts,
         textTitleColor,
         textTitleSize,
@@ -274,12 +303,13 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         textSubTitleLetterspacing,
         textSubTitleOffsetTop,
         mobileTextSubTitleOffsetTop,
-        textSubTitleFontFamily
+        textSubTitleFontFamily,
+        resourceManager: resourceManagerRef.current
     });
 
     // Use mouse tracking
     useMouseTracking({
-        sliderRef,
+        ...hookParams,
         backgroundDisplacementSpriteRef,
         cursorDisplacementSpriteRef,
         cursorImgEffect,
@@ -406,8 +436,6 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         backgroundDisplacementSpriteRef,
         cursorDisplacementSpriteRef
     });
-
-
 
     // Memoize handlers to prevent unnecessary re-renders
     const handleMouseEnter = useCallback(() => {

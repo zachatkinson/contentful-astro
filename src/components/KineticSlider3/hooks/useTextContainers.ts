@@ -3,6 +3,7 @@ import { Application, Container, Text, TextStyle, Sprite } from 'pixi.js';
 import { gsap } from 'gsap';
 import { type TextPair } from '../types';
 import { parseFontStack } from '../utils/fontUtils';
+import ResourceManager from '../managers/ResourceManager';
 
 interface UseTextContainersProps {
     sliderRef: RefObject<HTMLDivElement | null>;
@@ -11,7 +12,6 @@ interface UseTextContainersProps {
     textContainersRef: RefObject<Container[]>;
     currentIndex: RefObject<number>;
     buttonMode: boolean;
-    textsRgbEffect: boolean; // We'll keep this parameter for compatibility but ignore it
     texts: TextPair[];
     textTitleColor: string;
     textTitleSize: number;
@@ -25,6 +25,7 @@ interface UseTextContainersProps {
     textSubTitleOffsetTop: number;
     mobileTextSubTitleOffsetTop: number;
     textSubTitleFontFamily?: string;
+    resourceManager?: ResourceManager | null;
 }
 
 // Default font fallbacks
@@ -72,7 +73,8 @@ const useTextContainers = ({
                                textSubTitleLetterspacing,
                                textSubTitleOffsetTop,
                                mobileTextSubTitleOffsetTop,
-                               textSubTitleFontFamily
+                               textSubTitleFontFamily,
+                               resourceManager
                            }: UseTextContainersProps) => {
     // Create text containers
     useEffect(() => {
@@ -111,6 +113,11 @@ const useTextContainers = ({
             textContainer.x = app.screen.width / 2;
             textContainer.y = app.screen.height / 2;
 
+            // Track the container with ResourceManager if available
+            if (resourceManager) {
+                resourceManager.trackDisplayObject(textContainer);
+            }
+
             // Create title text
             const titleStyle = new TextStyle({
                 fill: textTitleColor,
@@ -124,6 +131,11 @@ const useTextContainers = ({
             titleText.anchor.set(0.5, 0);
             titleText.y = 0;
 
+            // Track the text object with ResourceManager if available
+            if (resourceManager) {
+                resourceManager.trackDisplayObject(titleText);
+            }
+
             // Create subtitle text
             const subtitleStyle = new TextStyle({
                 fill: textSubTitleColor,
@@ -135,6 +147,11 @@ const useTextContainers = ({
             const subText = new Text({text: subtitle, style: subtitleStyle});
             subText.anchor.set(0.5, 0);
             subText.y = titleText.height + computedSubTitleOffset;
+
+            // Track the text object with ResourceManager if available
+            if (resourceManager) {
+                resourceManager.trackDisplayObject(subText);
+            }
 
             textContainer.addChild(titleText, subText);
             textContainer.pivot.y = textContainer.height / 2;
@@ -171,15 +188,8 @@ const useTextContainers = ({
             textContainersRef.current.push(textContainer);
         });
 
-        return () => {
-            // Cleanup
-            textContainersRef.current.forEach(container => {
-                if (container.parent) {
-                    container.parent.removeChild(container);
-                }
-            });
-            textContainersRef.current = [];
-        };
+        // No manual cleanup necessary as ResourceManager will handle it
+        // during component unmount
     }, [
         appRef.current,
         texts,
@@ -195,7 +205,8 @@ const useTextContainers = ({
         textSubTitleOffsetTop,
         mobileTextSubTitleOffsetTop,
         textSubTitleFontFamily,
-        buttonMode
+        buttonMode,
+        resourceManager
     ]);
 
     // Handle window resize for text containers
