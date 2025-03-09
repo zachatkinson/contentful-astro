@@ -1,7 +1,7 @@
-import { useEffect, type RefObject } from 'react';
-import { Application, Container, Text, TextStyle, Sprite } from 'pixi.js';
+import React, { useEffect } from 'react';
+import { Text, TextStyle, Container } from 'pixi.js';
 import { gsap } from 'gsap';
-import {type TextPair, type UseTextContainersProps} from '../types';
+import { useKineticSlider } from '../context/KineticSliderContext';
 import { parseFontStack } from '../utils/fontUtils';
 
 // Default font fallbacks
@@ -30,29 +30,36 @@ function prepareFontFamily(fontStack?: string, defaultStack = DEFAULT_TITLE_FONT
 /**
  * Hook to create and manage text containers for slide titles and subtitles
  */
-const useTextContainers = ({
-                               sliderRef,
-                               appRef,
-                               slidesRef,
-                               textContainersRef,
-                               currentIndex,
-                               buttonMode,
-                               textsRgbEffect,
-                               texts,
-                               textTitleColor,
-                               textTitleSize,
-                               mobileTextTitleSize,
-                               textTitleLetterspacing,
-                               textTitleFontFamily,
-                               textSubTitleColor,
-                               textSubTitleSize,
-                               mobileTextSubTitleSize,
-                               textSubTitleLetterspacing,
-                               textSubTitleOffsetTop,
-                               mobileTextSubTitleOffsetTop,
-                               textSubTitleFontFamily,
-                               onInitialized
-                           }: UseTextContainersProps) => {
+const useTextContainers = () => {
+    // Use the KineticSlider context instead of receiving props directly
+    const {
+        sliderRef,
+        pixiRefs,
+        props,
+        handleInitialization
+    } = useKineticSlider();
+
+    // Extract references for clarity
+    const { app: appRef, slides: slidesRef, textContainers: textContainersRef, currentIndex } = pixiRefs;
+
+    // Extract text styling props
+    const {
+        buttonMode = false,
+        texts = [],
+        textTitleColor = '#ffffff',
+        textTitleSize = 36,
+        mobileTextTitleSize = 24,
+        textTitleLetterspacing = 0,
+        textTitleFontFamily,
+        textSubTitleColor = '#ffffff',
+        textSubTitleSize = 16,
+        mobileTextSubTitleSize = 14,
+        textSubTitleLetterspacing = 0,
+        textSubTitleOffsetTop = 10,
+        mobileTextSubTitleOffsetTop = 6,
+        textSubTitleFontFamily,
+    } = props;
+
     // Create text containers
     useEffect(() => {
         // Skip during server-side rendering
@@ -103,7 +110,7 @@ const useTextContainers = ({
 
                 // Create title text
                 const titleStyle = new TextStyle({
-                    fill: textTitleColor || '#ffffff',
+                    fill: textTitleColor,
                     fontSize: computedTitleSize,
                     letterSpacing: textTitleLetterspacing,
                     fontWeight: 'bold',
@@ -121,7 +128,7 @@ const useTextContainers = ({
 
                 // Create subtitle text
                 const subtitleStyle = new TextStyle({
-                    fill: textSubTitleColor || '#ffffff',
+                    fill: textSubTitleColor,
                     fontSize: computedSubTitleSize,
                     letterSpacing: textSubTitleLetterspacing,
                     align: 'center',
@@ -141,7 +148,7 @@ const useTextContainers = ({
                 textContainer.addChild(subText);
                 textContainer.pivot.y = textContainer.height / 2;
 
-                // IMPORTANT CHANGE: Set initial visibility properties
+                // IMPORTANT: Set initial visibility properties
                 // All text containers are now visible, but only current has alpha=1
                 textContainer.alpha = index === 0 ? 1 : 0;
                 textContainer.visible = true; // Always visible, even for non-current slides
@@ -191,9 +198,7 @@ const useTextContainers = ({
         console.log(`Created ${textContainersRef.current.length} text containers`);
 
         // Signal to parent component that text containers are initialized
-        if (typeof onInitialized === 'function') {
-            onInitialized('text');
-        }
+        handleInitialization('text');
 
         return () => {
             // Cleanup
@@ -206,6 +211,7 @@ const useTextContainers = ({
             textContainersRef.current = [];
         };
     }, [
+        // Dependencies updated to use context values
         appRef.current,
         texts,
         textTitleColor,
@@ -221,7 +227,7 @@ const useTextContainers = ({
         mobileTextSubTitleOffsetTop,
         textSubTitleFontFamily,
         buttonMode,
-        onInitialized
+        handleInitialization
     ]);
 
     // Handle window resize for text containers
@@ -292,6 +298,7 @@ const useTextContainers = ({
             window.removeEventListener('resize', handleResize);
         };
     }, [
+        // Dependencies updated to use context values
         sliderRef.current,
         appRef.current,
         textTitleSize,
