@@ -1,33 +1,28 @@
-import { useEffect } from 'react';
+import { useEffect, type RefObject } from 'react';
+import { Sprite } from 'pixi.js';
 import { gsap } from 'gsap';
-import { useKineticSlider } from '../context/KineticSliderContext';
+
+interface UseMouseTrackingProps {
+    sliderRef: RefObject<HTMLDivElement | null>;
+    backgroundDisplacementSpriteRef: RefObject<Sprite | null>;
+    cursorDisplacementSpriteRef: RefObject<Sprite | null>;
+    cursorImgEffect: boolean;
+    cursorMomentum: number;
+}
 
 /**
  * Hook to handle mouse movement tracking for displacement sprites
  */
-const useMouseTracking = () => {
-    // Use the KineticSlider context instead of receiving props directly
-    const {
-        sliderRef,
-        pixiRefs,
-        props
-    } = useKineticSlider();
-
-    // Extract necessary props for clarity
-    const { cursorImgEffect = false, cursorMomentum = 0.14 } = props;
-
-    // Extract sprite references
-    const {
-        backgroundDisplacementSprite: backgroundDisplacementSpriteRef,
-        cursorDisplacementSprite: cursorDisplacementSpriteRef
-    } = pixiRefs;
-
+const useMouseTracking = ({
+                              sliderRef,
+                              backgroundDisplacementSpriteRef,
+                              cursorDisplacementSpriteRef,
+                              cursorImgEffect,
+                              cursorMomentum
+                          }: UseMouseTrackingProps) => {
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined' || !sliderRef.current) return;
-
-        // Skip if displacement sprites are not set up
-        if (!backgroundDisplacementSpriteRef.current) return;
 
         const node = sliderRef.current;
 

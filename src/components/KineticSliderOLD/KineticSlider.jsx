@@ -91,7 +91,7 @@ const KineticSliderOld = ({
         })();
     }, []);
 
-    const sliderRef = useRef<HTMLDivElement | null>(null);
+    const sliderRef = useRef(null);
     const appRef = useRef(null);
     const currentIndex = useRef(0);
 
@@ -115,61 +115,158 @@ const KineticSliderOld = ({
 
     // Initialize Pixi.
     useEffect(() => {
-        if (typeof window === 'undefined' || !sliderRef.current || appRef.current || !assetsLoaded) return;
-
+        if (typeof window === "undefined") return;
         const initPixi = async () => {
-            try {
-                console.log("Loading PixiJS dependencies...");
-                // Load all dependencies first
-                const { gsap, pixi, pixiPlugin } = await loadKineticSliderDependencies();
+            if (!sliderRef.current) return;
+            await Assets.load([
+                ...images,
+                backgroundDisplacementSpriteLocation,
+                cursorDisplacementSpriteLocation,
+            ]);
 
-                // Only register plugins in browser
-                if (typeof window !== 'undefined' && pixiPlugin) {
-                    // Register GSAP plugins
-                    gsap.registerPlugin(pixiPlugin);
+            const app = new Application();
+            await app.init({
+                width: sliderRef.current.clientWidth,
+                height: sliderRef.current.clientHeight,
+                backgroundAlpha: 0,
+                resizeTo: sliderRef.current,
+            });
+            sliderRef.current.appendChild(app.canvas);
+            appRef.current = app;
+            const stage = new Container();
+            app.stage.addChild(stage);
 
-                    // Check if we have the actual plugin (not the mock)
-                    if (pixiPlugin.registerPIXI) {
-                        pixiPlugin.registerPIXI(pixi);
-                    }
+            // Background displacement sprite.
+            const backgroundDisplacementSprite = new Sprite(
+                Texture.from(backgroundDisplacementSpriteLocation)
+            );
+            backgroundDisplacementSprite.anchor.set(0.5);
+            backgroundDisplacementSprite.x = app.screen.width / 2;
+            backgroundDisplacementSprite.y = app.screen.height / 2;
+            backgroundDisplacementSprite.scale.set(2);
+            backgroundDisplacementSprite.alpha = 0;
+            backgroundDisplacementSpriteRef.current = backgroundDisplacementSprite;
+
+            // Cursor displacement sprite.
+            const cursorDisplacementSprite = new Sprite(
+                Texture.from(cursorDisplacementSpriteLocation)
+            );
+            cursorDisplacementSprite.anchor.set(0.5);
+            cursorDisplacementSprite.x = app.screen.width / 2;
+            cursorDisplacementSprite.y = app.screen.height / 2;
+            cursorDisplacementSprite.scale.set(cursorScaleIntensity);
+            cursorDisplacementSprite.alpha = 0;
+            cursorDisplacementSpriteRef.current = cursorDisplacementSprite;
+
+            // Create displacement filters.
+            const backgroundDisplacementFilter = new DisplacementFilter(
+                backgroundDisplacementSprite
+            );
+            const cursorDisplacementFilter = new DisplacementFilter(
+                cursorDisplacementSprite
+            );
+            bgDispFilterRef.current = backgroundDisplacementFilter;
+            cursorDispFilterRef.current = cursorDisplacementFilter;
+            bgDispFilterRef.current.scale.set(0);
+            cursorDispFilterRef.current.scale.set(0);
+
+            // Build slides and text containers.
+            slidesRef.current = [];
+            textContainersRef.current = [];
+            images.forEach((image, i) => {
+                const sprite = new Sprite(Texture.from(image));
+                sprite.anchor.set(0.5);
+                sprite.x = app.screen.width / 2;
+                sprite.y = app.screen.height / 2;
+                const containerWidth = app.screen.width;
+                const containerHeight = app.screen.height;
+                const imageAspect = sprite.texture.width / sprite.texture.height;
+                const containerAspect = containerWidth / containerHeight;
+                if (imageAspect > containerAspect) {
+                    sprite.scale.set(containerHeight / sprite.texture.height);
+                } else {
+                    sprite.scale.set(containerWidth / sprite.texture.width);
                 }
+                sprite.baseScale = sprite.scale.x;
+                sprite.alpha = 0;
+                stage.addChild(sprite);
 
-                console.log("Creating Pixi.js application...");
+                const filtersArray = [bgDispFilterRef.current];
+                if (cursorImgEffect) filtersArray.push(cursorDispFilterRef.current);
+                if (imagesRgbEffect) {
+                    const rgbFilter = new RGBSplitFilter({
+                        red: {x: 0, y: 0},
+                        green: {x: 0, y: 0},
+                        blue: {x: 0, y: 0},
+                    });
+                    filtersArray.push(rgbFilter);
+                }
+                sprite.filters = filtersArray;
+                slidesRef.current.push(sprite);
 
-                // Create Pixi application
-                const app = new Application();
-                await app.init({
-                    width: sliderRef.current?.clientWidth || 800,
-                    height: sliderRef.current?.clientHeight || 600,
-                    backgroundAlpha: 0,
-                    resizeTo: sliderRef.current || undefined,
+                const textContainer = new Container();
+                textContainer.x = app.screen.width / 2;
+                textContainer.y = app.screen.height / 2;
+                const [title, subtitle] = texts[i] || ["", ""];
+                // Compute responsive title and subtitle sizes.
+                const computedTitleSize = window.innerWidth < 768 ? mobileTextTitleSize : textTitleSize;
+                const computedSubTitleSize = window.innerWidth < 768 ? mobileTextSubTitleSize : textSubTitleSize;
+                const computedSubTitleOffset = window.innerWidth < 768 ? mobileTextSubTitleOffsetTop : textSubTitleOffsetTop;
+                const titleStyle = new TextStyle({
+                    fill: textTitleColor,
+                    fontSize: computedTitleSize,
+                    letterSpacing: textTitleLetterspacing,
+                    fontWeight: "bold",
+                    align: "center",
+                    fontFamily: "Vamos",
                 });
-
-                // Add canvas to DOM
-                if (sliderRef.current) {
-                    sliderRef.current.appendChild(app.canvas);
+                const titleText = new Text({text: title, style: titleStyle});
+                titleText.anchor.set(0.5, 0);
+                titleText.y = 0;
+                const subtitleStyle = new TextStyle({
+                    fill: textSubTitleColor,
+                    fontSize: computedSubTitleSize,
+                    letterSpacing: textSubTitleLetterspacing,
+                    align: "center",
+                });
+                const subText = new Text({text: subtitle, style: subtitleStyle});
+                subText.anchor.set(0.5, 0);
+                subText.y = titleText.height + computedSubTitleOffset;
+                textContainer.addChild(titleText, subText);
+                textContainer.pivot.y = textContainer.height / 2;
+                textContainer.alpha = 0;
+                if (textsRgbEffect) {
+                    const textRgbFilter = new RGBSplitFilter({
+                        red: {x: 0, y: 0},
+                        green: {x: 0, y: 0},
+                        blue: {x: 0, y: 0},
+                    });
+                    textContainer.filters = [textRgbFilter];
                 }
+                // Enable button mode if specified.
+                if (buttonMode) {
+                    textContainer.interactive = true;
+                    textContainer.buttonMode = true;
+                    textContainer.on("pointerover", () =>
+                        gsap.to(titleText, {scale: 1.1, duration: 0.2})
+                    );
+                    textContainer.on("pointerout", () =>
+                        gsap.to(titleText, {scale: 1, duration: 0.2})
+                    );
+                    textContainer.on("pointerdown", () => {
+                        handleNext();
+                    });
+                }
+                stage.addChild(textContainer);
+                textContainersRef.current.push(textContainer);
+            });
 
-                // Store reference
-                appRef.current = app;
-
-                // Create main container
-                const stage = new Container();
-                app.stage.addChild(stage);
-
-                // Set app as ready
-                setAppInitialized(true); // Signal that app is initialized
-                setIsAppReady(true);
-
-                console.log("Pixi.js application initialized");
-            } catch (error) {
-                console.error("Failed to initialize Pixi.js application:", error);
-            }
+            slidesRef.current[0].alpha = 1;
+            textContainersRef.current[0].alpha = 1;
+            stage.addChild(backgroundDisplacementSprite, cursorDisplacementSprite);
         };
 
-
         initPixi();
-
     }, [
         images,
         texts,
@@ -692,7 +789,7 @@ const KineticSliderOld = ({
                     ease: "expo.out",
                 });
                 const maxSubtitleShift = containerWidth * 0.15;
-                const subtitleRawShiftX = offsetX * 1.0;
+                const subtitleRawShiftX = offsetX;
                 const subtitleShiftX = Math.max(Math.min(subtitleRawShiftX, maxSubtitleShift), -maxSubtitleShift);
                 gsap.to(activeTextContainer.children[1], {
                     x: subtitleShiftX,

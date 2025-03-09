@@ -1,38 +1,27 @@
-import { useEffect, useCallback, useRef } from 'react';
-import { Sprite, Container, Texture } from 'pixi.js';
-import { gsap } from 'gsap';
-import { useKineticSlider } from '../context/KineticSliderContext';
+import { useEffect, useCallback } from 'react';
+import { Sprite, Container, Assets } from 'pixi.js';
+import { type EnhancedSprite, type HookParams } from '../types';
 import { calculateSpriteScale } from '../utils/calculateSpriteScale';
-import type { EnhancedSprite } from '../types';
+import gsap from 'gsap';
 
 /**
- * Hook to create and manage slide sprites with proper memory management
+ * Hook to create and manage slide sprites
  */
-export const useSlides = () => {
-    // Use the KineticSlider context instead of receiving props and refs
-    const {
-        sliderRef,
-        pixiRefs: pixi,
-        props,
-        handleInitialization
-    } = useKineticSlider();
-
-    // Reference to track if the parent component is unmounting
-    const isUnmountingRef = useRef(false);
-
-    /**
-     * Create slides for each image with optimized texture management
-     */
+export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
+    // Create slides for each image
     useEffect(() => {
         if (!pixi.app.current || !pixi.app.current.stage) {
+            console.log("App or stage not available for slides, deferring initialization");
             return;
         }
 
         // Check if we have images to display
         if (!props.images.length) {
+            console.warn("No images provided for slides");
             return;
         }
 
+        console.log("Creating slides for", props.images.length, "images");
         const app = pixi.app.current;
 
         // Get the stage container - either the first child or the stage itself
@@ -40,54 +29,34 @@ export const useSlides = () => {
             ? app.stage.children[0] as Container
             : app.stage;
 
-        // Cleanup function for this effect
-        const cleanup = () => {
-            console.log('Cleaning up slides...');
+        // Clear existing slides
+        pixi.slides.current.forEach(sprite => {
+            if (sprite && sprite.parent) {
+                sprite.parent.removeChild(sprite);
+            }
+        });
+        pixi.slides.current = [];
 
-            // Track textures that need to be released
-            const textureUrls = new Set<string>();
-
-            // Cleanup sprites
-            pixi.slides.current.forEach(sprite => {
-                if (sprite) {
-                    // Store the texture URL for later release
-                    if (sprite.texture && 'textureCacheIds' in sprite.texture) {
-                        const ids = sprite.texture.textureCacheIds;
-                        if (ids && Array.isArray(ids) && ids.length > 0) {
-                            ids.forEach(id => textureUrls.add(id));
-                        }
-                    }
-
-                    // Remove from parent
-                    if (sprite.parent) {
-                        sprite.parent.removeChild(sprite);
-                    }
-
-                    // Destroy the sprite without destroying the texture
-                    sprite.destroy();
-                }
-            });
-
-            // Clear the slides array
-            pixi.slides.current = [];
-        };
-
-        // Clean up any existing slides before creating new ones
-        cleanup();
-
-        // Load all the textures and create sprites
-        const setupSlides = async () => {
+        // Preload all images using Assets manager
+        const loadSlides = async () => {
             try {
-                console.log('Loading slide textures and creating sprites...');
+                // First, check if images are already in cache
+                const imagesToLoad = props.images.filter(image => !Assets.cache.has(image));
 
-                // Batch load all textures using standard Texture loading
-                const textures = await Promise.all(
-                    props.images.map(image => Texture.from(image))
-                );
+                // Load any images not in cache
+                if (imagesToLoad.length > 0) {
+                    console.log(`Loading ${imagesToLoad.length} uncached images...`);
+                    await Assets.load(imagesToLoad);
+                }
 
-                // Create sprites using the loaded textures
-                textures.forEach((texture, index) => {
+                // Create slides for each image
+                props.images.forEach((image, index) => {
                     try {
+                        console.log(`Creating slide from image: ${image}`);
+
+                        // Get texture from cache
+                        const texture = Assets.get(image);
+
                         // Create the sprite
                         const sprite = new Sprite(texture) as EnhancedSprite;
                         sprite.anchor.set(0.5);
@@ -96,9 +65,12 @@ export const useSlides = () => {
 
                         // Set initial state - only show the first slide
                         sprite.alpha = index === 0 ? 1 : 0;
+
+                        // IMPORTANT: Set visibility for non-active slides to false
+                        // This will prevent them from being rendered at all
                         sprite.visible = index === 0;
 
-                        // Calculate scale based on dimensions
+                        // Calculate scale
                         const scaleResult = calculateSpriteScale(
                             texture.width,
                             texture.height,
@@ -107,6 +79,7 @@ export const useSlides = () => {
                         );
 
                         // Apply the calculated scale
+                        // Handle both old and new return types of calculateSpriteScale
                         if (typeof scaleResult === 'number') {
                             sprite.scale.set(scaleResult);
                             sprite.baseScale = scaleResult;
@@ -118,33 +91,32 @@ export const useSlides = () => {
                         // Add to stage and store reference
                         stage.addChild(sprite);
                         pixi.slides.current.push(sprite);
+
+                        console.log(`Created slide ${index} for ${image}`);
                     } catch (error) {
-                        console.error(`Error creating slide for ${props.images[index]}:`, error);
+                        console.error(`Error creating slide for ${image}:`, error);
                     }
                 });
-
-                console.log(`Created ${pixi.slides.current.length} slides`);
-
-                // Signal to parent component that slides are initialized
-                handleInitialization('slides');
             } catch (error) {
                 console.error("Error loading slide images:", error);
             }
         };
 
-        // Setup the slides
-        setupSlides();
+        loadSlides();
 
-        // Return cleanup function
         return () => {
-            // Set unmounting flag for proper texture cleanup
-            isUnmountingRef.current = true;
-            cleanup();
+            // Cleanup
+            pixi.slides.current.forEach(sprite => {
+                if (sprite && sprite.parent) {
+                    sprite.parent.removeChild(sprite);
+                }
+            });
+            pixi.slides.current = [];
         };
-    }, [pixi.app.current, props.images, handleInitialization]);
+    }, [pixi.app.current, props.images]);
 
     /**
-     * Transition to a specific slide with optimized animation tracking
+     * Transition to a specific slide
      * @param nextIndex - Index of the slide to transition to
      */
     const transitionToSlide = useCallback((nextIndex: number) => {
@@ -154,74 +126,40 @@ export const useSlides = () => {
         }
 
         if (nextIndex < 0 || nextIndex >= pixi.slides.current.length) {
-            console.warn(`Invalid slide index: ${nextIndex}. Valid range: 0-${pixi.slides.current.length - 1}`);
+            console.warn(`Invalid slide index: ${nextIndex}`);
             return;
         }
 
+        console.log(`Transitioning to slide ${nextIndex}`);
+
+        const tl = gsap.timeline();
         const currentIndex = pixi.currentIndex.current;
-
-        // Skip if trying to transition to the same slide
-        if (currentIndex === nextIndex) {
-            console.log(`Already at slide ${nextIndex}, skipping transition`);
-            return;
-        }
-
-        console.log(`Transitioning from slide ${currentIndex} to ${nextIndex}`);
-
         const currentSlide = pixi.slides.current[currentIndex];
         const nextSlide = pixi.slides.current[nextIndex];
 
         // Handle text containers if available
-        const hasTextContainers = pixi.textContainers.current &&
-            pixi.textContainers.current.length > 0 &&
-            pixi.textContainers.current.length === pixi.slides.current.length;
-
-        const currentTextContainer = hasTextContainers ? pixi.textContainers.current[currentIndex] : null;
-        const nextTextContainer = hasTextContainers ? pixi.textContainers.current[nextIndex] : null;
+        const currentTextContainer = pixi.textContainers.current[currentIndex];
+        const nextTextContainer = pixi.textContainers.current[nextIndex];
 
         // Ensure next slide is loaded
         if (!nextSlide || !nextSlide.texture) {
-            console.error("Next slide or texture is not available");
+            console.warn(`Slide ${nextIndex} is not ready for transition`);
             return;
         }
 
-        // Make both slides visible during transition
+        // IMPORTANT: Make both slides visible during transition
         currentSlide.visible = true;
         nextSlide.visible = true;
 
-        // IMPORTANT CHANGE: Only apply alpha=0 to the slide, not the text container
+        // Ensure next elements start invisible (alpha = 0)
         nextSlide.alpha = 0;
-
         if (nextTextContainer) {
-            // IMPORTANT CHANGE: Make sure next text starts fully visible
-            nextTextContainer.alpha = 1; // Start with full opacity
-            nextTextContainer.visible = true; // Make sure it's visible
+            nextTextContainer.alpha = 0;
+            nextTextContainer.visible = true; // Make next text visible before transition
         }
 
         // Calculate scale based on transition intensity
-        const scaleMultiplier = 1 + ((props.transitionScaleIntensity || 30) / 100);
-
-        // Create a timeline for the transition
-        const tl = gsap.timeline({
-            onComplete: () => {
-                // Hide previous slide after transition completes
-                currentSlide.visible = false;
-
-                // IMPORTANT CHANGE: Don't hide or change alpha of previous text container
-                if (currentTextContainer) {
-                    currentTextContainer.visible = true; // Keep it visible but not shown
-                    currentTextContainer.alpha = 1; // Keep it transparent
-                }
-
-                // IMPORTANT CHANGE: Ensure the next text container remains visible and at full alpha
-                if (nextTextContainer) {
-                    nextTextContainer.visible = true;
-                    nextTextContainer.alpha = 1;
-                }
-
-                console.log(`Transition to slide ${nextIndex} complete`);
-            }
-        });
+        const scaleMultiplier = 1 + (props.transitionScaleIntensity || 30) / 100;
 
         // Animate the transition
         tl.to(currentSlide.scale, {
@@ -244,6 +182,10 @@ export const useSlides = () => {
                 alpha: 0,
                 duration: 1,
                 ease: 'power2.out',
+                onComplete: () => {
+                    // IMPORTANT: Hide previous slide after transition completes
+                    currentSlide.visible = false;
+                }
             }, 0)
             .to(nextSlide, {
                 alpha: 1,
@@ -251,80 +193,33 @@ export const useSlides = () => {
                 ease: 'power2.out',
             }, 0);
 
-        // IMPORTANT CHANGE: Only animate the slide opacity, not the text container
+        // Also animate text containers if available
         if (currentTextContainer && nextTextContainer) {
             tl.to(currentTextContainer, {
-                alpha: 0, // Fade out current text
+                alpha: 0,
                 duration: 1,
                 ease: 'power2.out',
+                onComplete: () => {
+                    // IMPORTANT: Hide previous text after transition completes
+                    currentTextContainer.visible = false;
+                }
             }, 0)
                 .to(nextTextContainer, {
-                    alpha: 1, // Fade in next text
+                    alpha: 1,
                     duration: 1,
                     ease: 'power2.out'
                 }, 0);
-        } else {
-            console.warn(`Text containers not available for transition: current=${!!currentTextContainer}, next=${!!nextTextContainer}`);
         }
 
         // Update current index
         pixi.currentIndex.current = nextIndex;
 
+        console.log(`Current slide is now ${nextIndex}`);
+
         return tl;
     }, [pixi.slides.current, pixi.textContainers.current, pixi.currentIndex, props.transitionScaleIntensity]);
 
-    /**
-     * Update slides based on window resize
-     */
-    useEffect(() => {
-        if (!pixi.app.current || !pixi.slides.current.length) return;
-
-        const app = pixi.app.current;
-
-        const handleResize = () => {
-            pixi.slides.current.forEach((sprite) => {
-                if (!sprite.texture) return;
-
-                // Recalculate scale based on new dimensions
-                const texture = sprite.texture;
-                const containerWidth = app.screen.width;
-                const containerHeight = app.screen.height;
-
-                const scaleResult = calculateSpriteScale(
-                    texture.width,
-                    texture.height,
-                    containerWidth,
-                    containerHeight
-                );
-
-                // Apply the new scale
-                if (typeof scaleResult === 'number') {
-                    sprite.scale.set(scaleResult);
-                    sprite.baseScale = scaleResult;
-                } else {
-                    sprite.scale.set(scaleResult.scale);
-                    sprite.baseScale = scaleResult.baseScale;
-                }
-
-                // Center the sprite
-                sprite.x = containerWidth / 2;
-                sprite.y = containerHeight / 2;
-            });
-        };
-
-        // Set up resize handler using standard window event
-        window.addEventListener('resize', handleResize);
-
-        // Initial sizing
-        handleResize();
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, [pixi.app.current, pixi.slides.current]);
-
     return {
-        transitionToSlide,
-        slidesReady: pixi.slides.current.length > 0
+        transitionToSlide
     };
 };

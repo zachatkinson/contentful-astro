@@ -1,189 +1,133 @@
-// src/components/KineticSlider3/hooks/useFilters.ts
 import { useEffect, useRef, useCallback } from 'react';
-import { Container } from 'pixi.js';
+import { Container, Sprite } from 'pixi.js';
 import { type FilterConfig } from '../filters/';
 import { FilterFactory } from '../filters/';
-import { useKineticSlider } from '../context/KineticSliderContext';
+import { type HookParams } from '../types';
+
+// Define a more specific type for the target objects we're applying filters to
+type FilterableObject = Sprite | Container;
 
 // Type to represent a map of objects to their applied filters and control functions
 interface FilterMap {
     [id: string]: {
-        target: Container;
+        target: FilterableObject;
         filters: {
             instance: any;
             updateIntensity: (intensity: number) => void;
             reset: () => void;
-            initialIntensity: number;
-            dispose?: () => void; // Added disposal function
+            initialIntensity: number; // Add initialIntensity property
         }[];
     };
 }
 
+
 /**
  * Hook to manage filters for slides and text containers
  */
-export const useFilters = () => {
-    // Use KineticSlider context instead of props and refs
-    const {
-        instanceId,
-        pixiRefs,
-        props,
-        handleInitialization
-    } = useKineticSlider();
-
+export const useFilters = (
+    { sliderRef, pixi, props }: HookParams
+) => {
     // Keep track of applied filters for easy updating
     const filterMapRef = useRef<FilterMap>({});
     const filtersInitializedRef = useRef<boolean>(false);
     const filtersActiveRef = useRef<boolean>(false);
-    const disposeHandlersRef = useRef<Array<() => void>>([]);
 
-    // Function to safely dispose a filter instance
-    const disposeFilter = useCallback((filterInstance: any) => {
-        if (!filterInstance) return;
+    // Initialize filters
+    useEffect(() => {
+        // Skip if app or stage not ready
+        if (!pixi.app.current || !pixi.app.current.stage) {
+            console.log("App or stage not available for filters, deferring initialization");
+            return;
+        }
+
+        // Wait until slides and text containers are created
+        if (!pixi.slides.current.length || !pixi.textContainers.current.length) {
+            console.log("Waiting for slides and text containers to be available for filters");
+            return;
+        }
+
+        // Avoid reinitializing filters if already done
+        if (filtersInitializedRef.current) {
+            console.log("Filters already initialized, skipping");
+            return;
+        }
+
+        console.log("Setting up filters...");
 
         try {
-            // Try standard destroy method with safety checks
-            if (typeof filterInstance.destroy === 'function') {
-                // Check for PIXI v8 shader with potential null properties
-                if (filterInstance.shader) {
-                    // SHADER ERROR FIX: Add extra safety with _ownedBindGroups
+            // Use provided filter configurations or defaults
+            const imageFilters = props.imageFilters
+                ? (Array.isArray(props.imageFilters) ? props.imageFilters : [props.imageFilters])
+                : [{ type: 'rgb-split', enabled: true, intensity: 15 }]; // Default RGB split filter
+
+            const textFilters = props.textFilters
+                ? (Array.isArray(props.textFilters) ? props.textFilters : [props.textFilters])
+                : [{ type: 'rgb-split', enabled: true, intensity: 5 }]; // Default RGB split filter
+
+            console.log(`Applying ${imageFilters.length} image filters and ${textFilters.length} text filters`);
+
+            // Apply filters to slides and text containers with initial creation
+            // This will add the filter instances but not activate them yet
+            applyFiltersToObjects(pixi.slides.current, imageFilters as FilterConfig[], 'slide-');
+            applyFiltersToObjects(pixi.textContainers.current, textFilters as FilterConfig[], 'text-');
+
+            // Ensure all filters are in an inactive state initially
+            Object.keys(filterMapRef.current).forEach(id => {
+                const entry = filterMapRef.current[id];
+                entry.filters.forEach(filter => {
                     try {
-                        // First nullify problematic properties
-                        if (filterInstance.shader._ownedBindGroups) {
-                            filterInstance.shader._ownedBindGroups = null;
-                        }
-
-                        // Then destroy the shader with proper error handling
-                        if (typeof filterInstance.shader.destroy === 'function') {
-                            filterInstance.shader.destroy();
-                        }
-
-                        // Finally nullify the shader reference
-                        filterInstance.shader = null;
-                    } catch (shaderError) {
-                        console.warn(`[${instanceId}] Error destroying shader, nullifying references:`, shaderError);
-                        // Force nullify shader references to help GC
-                        if (filterInstance.shader.program) {
-                            filterInstance.shader.program = null;
-                        }
-                        filterInstance.shader = null;
-                    }
-                }
-
-                // Use a try-catch specifically for the destroy call
-                try {
-                    filterInstance.destroy();
-                } catch (destroyError) {
-                    console.warn(`[${instanceId}] Error in filter.destroy(), trying alternative cleanup:`, destroyError);
-
-                    // Perform manual cleanup if destroy fails
-                    if (filterInstance.state && typeof filterInstance.state.unbind === 'function') {
-                        filterInstance.state.unbind();
-                    }
-
-                    // Nullify critical properties to help garbage collection
-                    if (filterInstance.state) filterInstance.state = null;
-                }
-                return;
-            }
-
-            // Try dispose method for custom filters
-            if (typeof filterInstance.dispose === 'function') {
-                filterInstance.dispose();
-                return;
-            }
-
-            // For filters with resources, try to clean them up
-            if (filterInstance.resources) {
-                Object.values(filterInstance.resources).forEach((resource: any) => {
-                    if (resource && typeof resource.destroy === 'function') {
-                        try {
-                            resource.destroy();
-                        } catch (resourceError) {
-                            console.warn(`[${instanceId}] Error destroying filter resource:`, resourceError);
-                        }
+                        // Reset each filter to ensure it starts in inactive state
+                        filter.reset();
+                    } catch (error) {
+                        console.error(`Error initializing filter for ${id}:`, error);
                     }
                 });
-            }
+            });
+
+            // Mark as initialized in inactive state
+            filtersInitializedRef.current = true;
+            filtersActiveRef.current = false;
+
+            console.log("Filters initialized successfully (inactive state)");
         } catch (error) {
-            console.error(`[${instanceId}] Error disposing filter:`, error);
+            console.error("Error setting up filters:", error);
         }
-    }, [instanceId]);
 
-    // Function to dispose all filters and clean up resources
-    const disposeAllFilters = useCallback(() => {
-        // Empty the handlers first in case of errors
-        const disposalHandlers = [...disposeHandlersRef.current];
-        disposeHandlersRef.current = [];
-
-        // Run all registered dispose handlers
-        disposalHandlers.forEach(handler => {
-            try {
-                handler();
-            } catch (error) {
-                console.error(`[${instanceId}] Error in filter dispose handler:`, error);
-            }
-        });
-
-        // Get all filter keys for cleanup
-        const filterKeys = Object.keys(filterMapRef.current);
-
-        // Process each key
-        filterKeys.forEach(key => {
-            try {
+        return () => {
+            // Clean up all filters
+            Object.keys(filterMapRef.current).forEach(key => {
                 const entry = filterMapRef.current[key];
-
-                // Remove filters from target first
                 if (entry.target) {
-                    try {
-                        entry.target.filters = [];
-                    } catch (targetError) {
-                        console.warn(`[${instanceId}] Error clearing filters from target ${key}:`, targetError);
-                    }
+                    entry.target.filters = []; // Set to empty array instead of null
                 }
-
-                // Dispose each filter
-                if (entry.filters && Array.isArray(entry.filters)) {
-                    entry.filters.forEach(filter => {
-                        try {
-                            // Call custom dispose if available
-                            if (filter.dispose) {
-                                filter.dispose();
-                            }
-
-                            // Dispose the filter instance
-                            disposeFilter(filter.instance);
-                        } catch (error) {
-                            console.error(`[${instanceId}] Error disposing filter for ${key}:`, error);
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error(`[${instanceId}] Error cleaning up filters for ${key}:`, error);
-            }
-        });
-
-        // Clear the filter map
-        filterMapRef.current = {};
-    }, [disposeFilter, instanceId]);
+            });
+            filterMapRef.current = {};
+            filtersInitializedRef.current = false;
+            filtersActiveRef.current = false;
+            console.log("Filters cleaned up");
+        };
+    }, [
+        pixi.app.current,
+        pixi.slides.current,
+        pixi.textContainers.current,
+        props.imageFilters,
+        props.textFilters
+    ]);
 
     // Apply the configured filters to an array of objects
     const applyFiltersToObjects = useCallback((
-        objects: Container[],
+        objects: FilterableObject[],
         filterConfigs: FilterConfig[],
         idPrefix: string
     ) => {
         if (!objects.length) {
-            console.log(`[${instanceId}] No objects provided for ${idPrefix} filters`);
+            console.warn(`No ${idPrefix} objects available to apply filters`);
             return;
         }
 
-        console.log(`[${instanceId}] Applying filters to ${objects.length} ${idPrefix} objects`);
-        console.log(`[${instanceId}] Filter configs:`, filterConfigs);
-
         objects.forEach((object, index) => {
             const id = `${idPrefix}${index}`;
-            console.log(`[${instanceId}] Processing filters for ${id}`);
+            console.log(`Applying filters to ${id}`);
 
             // Create filter entries if they don't exist
             if (!filterMapRef.current[id]) {
@@ -194,19 +138,6 @@ export const useFilters = () => {
             }
 
             // Clear existing filters
-            filterMapRef.current[id].filters.forEach(filter => {
-                try {
-                    // Call custom dispose if available
-                    if (filter.dispose) {
-                        filter.dispose();
-                    }
-
-                    // Dispose the filter instance
-                    disposeFilter(filter.instance);
-                } catch (error) {
-                    console.error(`[${instanceId}] Error disposing filter:`, error);
-                }
-            });
             filterMapRef.current[id].filters = [];
 
             // Create the new filters with error handling
@@ -214,199 +145,77 @@ export const useFilters = () => {
                 .filter(config => config.enabled)
                 .map(config => {
                     try {
-                        console.log(`[${instanceId}] Creating ${config.type} filter with intensity ${config.intensity}`);
+                        console.log(`Creating ${config.type} filter for ${id}`);
                         const result = FilterFactory.createFilter(config);
-
-                        // Create a dispose function for this filter
-                        const dispose = () => {
-                            // Reset filter state first (important for some filter types)
-                            result.reset();
-                            // Then dispose the filter instance
-                            disposeFilter(result.filter);
-                        };
-
-                        // Register the dispose handler
-                        disposeHandlersRef.current.push(dispose);
-
-                        // Return enhanced result with initialIntensity and dispose
+                        // Add initialIntensity to the result
                         return {
                             ...result,
-                            initialIntensity: config.intensity,
-                            dispose
+                            initialIntensity: config.intensity
                         };
                     } catch (error) {
-                        console.error(`[${instanceId}] Failed to create ${config.type} filter:`, error);
+                        console.error(`Failed to create ${config.type} filter:`, error);
                         return null;
                     }
                 })
                 .filter((result): result is NonNullable<typeof result> => result !== null);
+
+            // Check if we have any valid filters
+            if (activeFilters.length === 0) {
+                console.warn(`No valid filters created for ${id}`);
+            }
 
             // Store the filter data and assign to the object
             filterMapRef.current[id].filters = activeFilters.map(result => ({
                 instance: result.filter,
                 updateIntensity: result.updateIntensity,
                 reset: result.reset,
-                initialIntensity: result.initialIntensity,
-                dispose: result.dispose
+                initialIntensity: result.initialIntensity // Store the initial intensity
             }));
 
             // Apply base displacement filter if it exists
             const baseFilters = [];
-            if (pixiRefs.bgDispFilter.current) {
-                baseFilters.push(pixiRefs.bgDispFilter.current);
+            if (pixi.bgDispFilter.current) {
+                baseFilters.push(pixi.bgDispFilter.current);
             }
 
             // Apply cursor displacement filter if enabled
-            if (props.cursorImgEffect && pixiRefs.cursorDispFilter.current && idPrefix === 'slide-') {
-                baseFilters.push(pixiRefs.cursorDispFilter.current);
+            if (props.cursorImgEffect && pixi.cursorDispFilter.current && idPrefix === 'slide-') {
+                baseFilters.push(pixi.cursorDispFilter.current);
             }
 
             // Add the custom filters
             const customFilters = activeFilters.map(result => result.filter);
 
-            // Print filter count for debugging
-            console.log(`[${instanceId}] Setting ${baseFilters.length + customFilters.length} filters on ${id}:`,
-                `${baseFilters.length} base filters, ${customFilters.length} custom filters`);
-
             // Set the combined filters on the object
             object.filters = [...baseFilters, ...customFilters];
+
+            console.log(`Applied ${customFilters.length} custom filters to ${id} (initial state: inactive)`);
         });
-    }, [instanceId, pixiRefs, props.cursorImgEffect, disposeFilter]);
-
-    // Initialize filters
-    useEffect(() => {
-        // Skip if app or stage not ready
-        if (!pixiRefs.app.current || !pixiRefs.app.current.stage) {
-            console.log(`[${instanceId}] App or stage not ready for filters`);
-            return;
-        }
-
-        // Wait until slides and text containers are created
-        if (!pixiRefs.slides.current.length || !pixiRefs.textContainers.current.length) {
-            console.log(`[${instanceId}] Slides or text containers not ready for filters`);
-            return;
-        }
-
-        // Avoid reinitializing filters if already done
-        if (filtersInitializedRef.current) {
-            console.log(`[${instanceId}] Filters already initialized, skipping initialization`);
-            return;
-        }
-
-        console.log(`[${instanceId}] Initializing filters...`);
-
-        try {
-            // Set flag BEFORE any operations
-            filtersInitializedRef.current = true;
-
-            // Use provided filter configurations or defaults
-            const imageFiltersConfig = props.imageFilters
-                ? (Array.isArray(props.imageFilters) ? props.imageFilters : [props.imageFilters])
-                : [{ type: 'zoomBlur', enabled: true, intensity: 2 }]; // Default zoom blur filter
-
-            const textFiltersConfig = props.textFilters
-                ? (Array.isArray(props.textFilters) ? props.textFilters : [props.textFilters])
-                : [{ type: 'outline', enabled: true, intensity: 5 }]; // Default outline filter
-
-            console.log(`[${instanceId}] Image filters config:`, imageFiltersConfig);
-            console.log(`[${instanceId}] Text filters config:`, textFiltersConfig);
-
-            // Apply filters to slides and text containers with initial creation
-            applyFiltersToObjects(pixiRefs.slides.current, imageFiltersConfig as FilterConfig[], 'slide-');
-            applyFiltersToObjects(pixiRefs.textContainers.current, textFiltersConfig as FilterConfig[], 'text-');
-
-            // IMPORTANT: Force all filters to be inactive initially
-            Object.keys(filterMapRef.current).forEach(id => {
-                const entry = filterMapRef.current[id];
-
-                // First call reset on each filter
-                entry.filters.forEach(filter => {
-                    try {
-                        filter.reset();
-                    } catch (error) {
-                        console.error(`[${instanceId}] Error resetting filter for ${id}:`, error);
-                    }
-                });
-
-                // Also remove any actual filter instances from the target objects
-                // This ensures no visual effect until explicitly enabled
-                try {
-                    const baseFilters = [];
-                    // Only keep the base displacement filters but with zero scale
-                    if (pixiRefs.bgDispFilter.current) {
-                        pixiRefs.bgDispFilter.current.scale.x = 0;
-                        pixiRefs.bgDispFilter.current.scale.y = 0;
-                        baseFilters.push(pixiRefs.bgDispFilter.current);
-                    }
-
-                    if (entry.target.filters) {
-                        // Just apply the base filters with zero effect
-                        entry.target.filters = [...baseFilters];
-                    }
-                } catch (filterError) {
-                    console.error(`[${instanceId}] Error cleaning up filters for ${id}:`, filterError);
-                }
-            });
-
-            // Signal to parent component that filters are initialized
-            handleInitialization('filters');
-
-            console.log(`[${instanceId}] Filters initialized successfully`);
-        } catch (error) {
-            // Reset flag if initialization fails
-            filtersInitializedRef.current = false;
-            console.error(`[${instanceId}] Error setting up filters:`, error);
-        }
-
-        return () => {
-            // Only clean up if we're the one who initialized
-            if (filtersInitializedRef.current) {
-                console.log(`[${instanceId}] Cleaning up filters on unmount`);
-
-                // Clean up all filters
-                disposeAllFilters();
-
-                // Reset state
-                filterMapRef.current = {};
-                filtersInitializedRef.current = false;
-                filtersActiveRef.current = false;
-            }
-        };
-    }, [
-        instanceId,
-        pixiRefs.app.current,
-        pixiRefs.slides.current.length > 0,
-        pixiRefs.textContainers.current.length > 0,
-        props.imageFilters,
-        props.textFilters,
-        pixiRefs.bgDispFilter,
-        props.cursorImgEffect,
-        applyFiltersToObjects,
-        disposeAllFilters,
-        handleInitialization
-    ]);
+    }, [pixi, props.cursorImgEffect]);
 
     // Function to reset all filters to inactive state
     const resetAllFilters = useCallback(() => {
-        console.log(`[${instanceId}] Resetting all filters`);
-
         if (!filtersInitializedRef.current) {
-            console.log(`[${instanceId}] Filters not initialized yet, skipping reset`);
+            console.log("Filters not initialized yet, skipping reset");
             return;
         }
+
+        console.log("Resetting ALL filters to inactive state - hard reset");
 
         // First, mark as inactive to prevent race conditions
         filtersActiveRef.current = false;
 
-        // Reset all object filters
+        // Reset all object filters with extra logging
         Object.keys(filterMapRef.current).forEach(id => {
             const entry = filterMapRef.current[id];
+            console.log(`Resetting filters for ${id}`);
 
-            entry.filters.forEach((filter) => {
+            entry.filters.forEach((filter, index) => {
                 try {
+                    console.log(`Resetting filter ${index} for ${id}`);
                     filter.reset();
                 } catch (error) {
-                    console.error(`[${instanceId}] Error resetting filter for ${id}:`, error);
+                    console.error(`Error resetting filter ${index} for ${id}:`, error);
                 }
             });
 
@@ -415,48 +224,41 @@ export const useFilters = () => {
                 const baseFilters = [];
 
                 // Add base displacement filters if they exist, but with zero scales
-                if (pixiRefs.bgDispFilter.current) {
+                if (pixi.bgDispFilter.current) {
                     // Make sure scale is set to zero
-                    if (pixiRefs.bgDispFilter.current.scale) {
-                        pixiRefs.bgDispFilter.current.scale.x = 0;
-                        pixiRefs.bgDispFilter.current.scale.y = 0;
+                    if (pixi.bgDispFilter.current.scale) {
+                        pixi.bgDispFilter.current.scale.x = 0;
+                        pixi.bgDispFilter.current.scale.y = 0;
                     }
-                    baseFilters.push(pixiRefs.bgDispFilter.current);
+                    baseFilters.push(pixi.bgDispFilter.current);
                 }
 
                 // Only keep the base displacement filters but with zero scale
                 // so they exist but have no visual effect
                 if (entry.target.filters) {
-                    // IMPORTANT CHANGE: Only apply this to slides, not text containers
-                    // This ensures text containers remain visible
-                    if (id.startsWith('slide-')) {
-                        entry.target.filters = [...baseFilters];
-                    } else if (id.startsWith('text-')) {
-                        // For text, keep the filters but make sure they're not affecting visibility
-                        // This is usually handled by the reset() call above
-                        // We don't change the filters array to avoid removing necessary filters
-                    }
+                    entry.target.filters = [...baseFilters];
                 }
             } catch (filterError) {
-                console.error(`[${instanceId}] Error cleaning up filters for ${id}:`, filterError);
+                console.error(`Error cleaning up filters for ${id}:`, filterError);
             }
         });
-    }, [instanceId, pixiRefs.bgDispFilter]);
+    }, [pixi.bgDispFilter]);
 
     // Update filter intensities for hover effects
     const updateFilterIntensities = useCallback((active: boolean, forceUpdate = false) => {
         // Skip if filters haven't been initialized yet
         if (!filtersInitializedRef.current) {
-            console.log(`[${instanceId}] Filters not initialized yet, skipping intensity update`);
+            console.log("Filters not initialized yet, skipping intensity update");
             return;
         }
 
-        // If current state matches requested state and not forced, don't do anything
+        console.log(`${active ? 'Activating' : 'Deactivating'} filter intensities${forceUpdate ? ' (FORCED)' : ''}`);
+
+        // If current state matches requested state and not forced, don't do anything to avoid flickering
         if (filtersActiveRef.current === active && !forceUpdate) {
+            console.log(`Filters already in ${active ? 'active' : 'inactive'} state, skipping update`);
             return;
         }
-
-        console.log(`[${instanceId}] Updating filter intensities: active=${active}, forceUpdate=${forceUpdate}`);
 
         // Update filter active state
         filtersActiveRef.current = active;
@@ -467,8 +269,10 @@ export const useFilters = () => {
             return;
         }
 
-        const currentSlideId = `slide-${pixiRefs.currentIndex.current}`;
-        const currentTextId = `text-${pixiRefs.currentIndex.current}`;
+        const currentSlideId = `slide-${pixi.currentIndex.current}`;
+        const currentTextId = `text-${pixi.currentIndex.current}`;
+
+        console.log(`Activating filters for slide ${currentSlideId} and text ${currentTextId}`);
 
         // First, make sure we have the right filter arrays applied to the objects
         // This ensures proper filter application after a slide change
@@ -479,11 +283,11 @@ export const useFilters = () => {
 
                 // Collect base filters
                 const baseFilters = [];
-                if (pixiRefs.bgDispFilter.current) {
-                    baseFilters.push(pixiRefs.bgDispFilter.current);
+                if (pixi.bgDispFilter.current) {
+                    baseFilters.push(pixi.bgDispFilter.current);
                 }
-                if (props.cursorImgEffect && pixiRefs.cursorDispFilter.current) {
-                    baseFilters.push(pixiRefs.cursorDispFilter.current);
+                if (props.cursorImgEffect && pixi.cursorDispFilter.current) {
+                    baseFilters.push(pixi.cursorDispFilter.current);
                 }
 
                 // Get the custom filters
@@ -492,12 +296,10 @@ export const useFilters = () => {
                 // Set the combined filters on the object
                 target.filters = [...baseFilters, ...customFilters];
 
-                console.log(`[${instanceId}] Applied ${baseFilters.length + customFilters.length} filters to slide`);
+                console.log(`Reapplied filter array to slide ${currentSlideId} with ${customFilters.length} custom filters`);
             } catch (error) {
-                console.error(`[${instanceId}] Error reapplying filter array to ${currentSlideId}:`, error);
+                console.error(`Error reapplying filter array to ${currentSlideId}:`, error);
             }
-        } else {
-            console.warn(`[${instanceId}] No filter data found for ${currentSlideId}`);
         }
 
         // Similarly for text filters
@@ -508,8 +310,8 @@ export const useFilters = () => {
 
                 // Collect base filters
                 const baseFilters = [];
-                if (pixiRefs.bgDispFilter.current) {
-                    baseFilters.push(pixiRefs.bgDispFilter.current);
+                if (pixi.bgDispFilter.current) {
+                    baseFilters.push(pixi.bgDispFilter.current);
                 }
 
                 // Get the custom filters
@@ -518,61 +320,47 @@ export const useFilters = () => {
                 // Set the combined filters on the object
                 target.filters = [...baseFilters, ...customFilters];
 
-                // IMPORTANT CHANGE: Make sure text container is always visible
-                if (target.alpha === 0) {
-                    target.alpha = 1;
-                }
-                if (!target.visible) {
-                    target.visible = true;
-                }
-
-                console.log(`[${instanceId}] Applied ${baseFilters.length + customFilters.length} filters to text`);
+                console.log(`Reapplied filter array to text ${currentTextId} with ${customFilters.length} custom filters`);
             } catch (error) {
-                console.error(`[${instanceId}] Error reapplying filter array to ${currentTextId}:`, error);
+                console.error(`Error reapplying filter array to ${currentTextId}:`, error);
             }
-        } else {
-            console.warn(`[${instanceId}] No filter data found for ${currentTextId}`);
         }
 
         // Now activate the filter intensities
         // Update slide filters
         if (filterMapRef.current[currentSlideId]) {
-            filterMapRef.current[currentSlideId].filters.forEach((filter) => {
+            filterMapRef.current[currentSlideId].filters.forEach((filter, index) => {
                 try {
                     // Use the filter's own update intensity function with the stored initial intensity
-                    filter.updateIntensity(filter.initialIntensity);
-                    console.log(`[${instanceId}] Activated slide filter with intensity ${filter.initialIntensity}`);
+                    console.log(`Activating slide filter ${index} for ${currentSlideId} with intensity ${filter.initialIntensity}`);
+                    filter.updateIntensity(filter.initialIntensity); // Use initial intensity instead of hardcoded 15
                 } catch (error) {
-                    console.error(`[${instanceId}] Error activating slide filter:`, error);
+                    console.error(`Error activating slide filter ${index}:`, error);
                 }
             });
+        } else {
+            console.warn(`No filters found for ${currentSlideId}`);
         }
 
         // Update text filters
         if (filterMapRef.current[currentTextId]) {
-            filterMapRef.current[currentTextId].filters.forEach((filter) => {
+            filterMapRef.current[currentTextId].filters.forEach((filter, index) => {
                 try {
                     // Use the filter's own update intensity function with the stored initial intensity
-                    filter.updateIntensity(filter.initialIntensity);
-                    console.log(`[${instanceId}] Activated text filter with intensity ${filter.initialIntensity}`);
+                    console.log(`Activating text filter ${index} for ${currentTextId} with intensity ${filter.initialIntensity}`);
+                    filter.updateIntensity(filter.initialIntensity); // Use initial intensity instead of hardcoded 5
                 } catch (error) {
-                    console.error(`[${instanceId}] Error activating text filter:`, error);
+                    console.error(`Error activating text filter ${index}:`, error);
                 }
             });
+        } else {
+            console.warn(`No filters found for ${currentTextId}`);
         }
-    }, [
-        instanceId,
-        pixiRefs.currentIndex,
-        pixiRefs.bgDispFilter,
-        pixiRefs.cursorDispFilter,
-        props.cursorImgEffect,
-        resetAllFilters
-    ]);
+    }, [pixi.currentIndex, pixi.bgDispFilter, pixi.cursorDispFilter, props.cursorImgEffect, resetAllFilters]);
 
     return {
         updateFilterIntensities,
         resetAllFilters,
-        disposeAllFilters,
         isInitialized: filtersInitializedRef.current,
         isActive: filtersActiveRef.current
     };

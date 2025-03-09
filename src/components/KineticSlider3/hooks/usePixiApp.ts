@@ -1,132 +1,182 @@
-// src/components/KineticSlider3/hooks/usePixiApp.ts - Fixed TypeScript error
-
 import { useEffect, useRef } from 'react';
-import { Application } from 'pixi.js';
-import { useKineticSlider } from '../context/KineticSliderContext';
+import { Application, Container, Assets } from 'pixi.js';
+import { type PixiRefs } from '../types';
+import { gsap } from 'gsap';
+
+/**
+ * Helper function to load fonts for the slider
+ * @param fontPath - Path to the font file
+ * @returns Promise that resolves when the font is loaded
+ */
+const loadFont = async (fontPath: string): Promise<boolean> => {
+    try {
+        // Try to load the font
+        await Assets.load(fontPath);
+        console.log(`Successfully loaded font from ${fontPath}`);
+        return true;
+    } catch (error) {
+        console.warn(`Failed to load font from ${fontPath}`, error);
+        return false;
+    }
+};
 
 /**
  * Custom hook to initialize and manage a Pixi Application
- * Simplified for Pixi.js v8 with better error handling
+ *
+ * @param sliderRef - Reference to the slider DOM element
+ * @param images - Array of image URLs to preload
+ * @param displacementImages - Array of displacement image URLs to preload
+ * @returns Object containing Pixi application references and initialization status
  */
-export const usePixiApp = () => {
-    // Get context values for updating references
-    const {
-        sliderRef,
-        pixiRefs,
-        setters
-    } = useKineticSlider();
+export const usePixiApp = (
+    sliderRef: React.RefObject<HTMLDivElement | null>,
+    images: string[],
+    displacementImages: string[]
+): { pixiRefs: PixiRefs; isInitialized: boolean } => {
+    const appRef = useRef<Application | null>(null);
+    const slidesRef = useRef<any[]>([]);
+    const textContainersRef = useRef<Container[]>([]);
+    const backgroundDisplacementSpriteRef = useRef<any>(null);
+    const cursorDisplacementSpriteRef = useRef<any>(null);
+    const bgDispFilterRef = useRef<any>(null);
+    const cursorDispFilterRef = useRef<any>(null);
+    const currentIndex = useRef<number>(0);
 
-    // Initialize Pixi Application
+    // Track initialization status
+    const isInitialized = useRef<boolean>(false);
+
+    // Initialize Pixi and GSAP
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
 
-        // Skip if already initialized or no slider element
-        if (pixiRefs.app.current || !sliderRef.current) return;
-
-        console.log('Starting Pixi.js application initialization');
-        console.log('Slider dimensions:', {
-            width: sliderRef.current.clientWidth,
-            height: sliderRef.current.clientHeight
-        });
-
-        const createApp = async () => {
+        const initPixi = async () => {
             try {
-                // Create a simple canvas element directly
-                console.log('Creating canvas element');
-                const canvas = document.createElement('canvas');
+                // Skip if already initialized
+                if (isInitialized.current) return;
 
-                // Set canvas dimensions to match slider
-                canvas.width = sliderRef.current?.clientWidth || 800;
-                canvas.height = sliderRef.current?.clientHeight || 600;
+                // Skip if sliderRef is not available
+                if (!sliderRef.current) {
+                    console.warn("Slider element reference not available");
+                    return;
+                }
 
-                // Create the Pixi Application
-                console.log('Creating Pixi.js Application with canvas');
-                const app = new Application();
+                console.log("Initializing Pixi.js...");
 
-                // Initialize with very minimal options for maximum compatibility
-                await app.init({
-                    canvas, // Use our pre-created canvas element
-                    backgroundAlpha: 0,
-                    antialias: true
+                // Dynamically import PixiPlugin and register it with GSAP
+                const { default: PixiPlugin } = await import('gsap/PixiPlugin');
+                gsap.registerPlugin(PixiPlugin);
+
+                PixiPlugin.registerPIXI({
+                    Application,
+                    Container,
+                    // Add other PIXI classes as needed for GSAP animation
                 });
 
-                console.log('Pixi application initialization successful');
+                // Font loading with better error handling
+                try {
+                    // Try loading our default font
+                    const defaultFontPath = '/fonts/Vamos.woff2';
 
-                // Append the canvas to the slider element
-                if (sliderRef.current) {
-                    sliderRef.current.appendChild(canvas);
-                    console.log('Canvas appended to slider element');
+                    // Determine font paths - try multiple options for better compatibility
+                    const fontPaths = [
+                        '/fonts/Vamos.woff2',      // Standard public path
+                        '/public/fonts/Vamos.woff2', // Dev path
+                        './fonts/Vamos.woff2',     // Relative path
+                        'Vamos.woff2'              // Bare filename (use as last resort)
+                    ];
 
-                    // Add basic styling to position the canvas correctly
-                    canvas.style.position = 'absolute';
-                    canvas.style.top = '0';
-                    canvas.style.left = '0';
-                }
+                    console.log("Attempting to load default font Vamos.woff2...");
 
-                // Store the app reference in context
-                pixiRefs.app.current = app;
-
-                // Signal that app is ready
-                console.log('Application ready - updating state');
-                setters.setIsAppReady(true);
-
-            } catch (error: unknown) {
-                // Properly type the error
-                console.error('Error creating Pixi application:', error);
-
-                // Extract error message with proper type handling
-                const errorMessage = error instanceof Error
-                    ? error.message
-                    : 'Unknown error';
-
-                // Create fallback canvas if Pixi fails
-                if (sliderRef.current) {
-                    console.log('Creating fallback canvas');
-                    const fallbackCanvas = document.createElement('canvas');
-                    fallbackCanvas.width = sliderRef.current.clientWidth;
-                    fallbackCanvas.height = sliderRef.current.clientHeight;
-                    fallbackCanvas.style.position = 'absolute';
-                    fallbackCanvas.style.top = '0';
-                    fallbackCanvas.style.left = '0';
-
-                    // Draw error message on canvas
-                    const ctx = fallbackCanvas.getContext('2d');
-                    if (ctx) {
-                        ctx.fillStyle = '#333';
-                        ctx.fillRect(0, 0, fallbackCanvas.width, fallbackCanvas.height);
-                        ctx.fillStyle = 'white';
-                        ctx.font = '14px Arial';
-                        ctx.fillText('WebGL initialization failed', 20, 30);
-                        ctx.fillText('Error: ' + errorMessage, 20, 50);
+                    // Try to load the font using different paths
+                    let fontLoaded = false;
+                    for (const fontPath of fontPaths) {
+                        const success = await loadFont(fontPath);
+                        if (success) {
+                            fontLoaded = true;
+                            break;
+                        }
                     }
 
-                    sliderRef.current.appendChild(fallbackCanvas);
-
-                    // Create a simple fake app object to prevent errors
-                    const fakeApp = {
-                        stage: { addChild: () => {} },
-                        renderer: { render: () => {} },
-                        destroy: () => {}
-                    };
-
-                    // Store the fake app reference
-                    pixiRefs.app.current = fakeApp as any;
-
-                    // Signal that app is ready (even though it's a fallback)
-                    setters.setIsAppReady(true);
+                    if (!fontLoaded) {
+                        console.warn("Could not load Vamos font. Will use system fonts as fallback.");
+                    }
+                } catch (fontError) {
+                    console.warn("Font loading error:", fontError);
+                    // Continue without the font
                 }
+
+                // Mark as initialized
+                isInitialized.current = true;
+
+                console.log("Pixi.js initialization complete");
+            } catch (error) {
+                console.error("Error initializing Pixi.js:", error);
             }
         };
 
-        createApp();
+        initPixi();
+    }, [sliderRef]);
 
-        // Clean up function
+    // Create the Pixi application
+    useEffect(() => {
+        // Skip during server-side rendering
+        if (typeof window === 'undefined') return;
+
+        // Only proceed if initialized but app not yet created
+        if (!isInitialized.current || !sliderRef.current || appRef.current) return;
+
+        const createPixiApp = async () => {
+            try {
+                console.log("Creating Pixi application...");
+
+                // Preload all required assets with proper error handling
+                const assetsToLoad = [...images, ...displacementImages];
+                for (const asset of assetsToLoad) {
+                    try {
+                        await Assets.load(asset);
+                    } catch (assetError) {
+                        console.warn(`Failed to load asset: ${asset}`, assetError);
+                        // Continue with other assets
+                    }
+                }
+
+                // Create and initialize the Pixi application
+                const app = new Application();
+                await app.init({
+                    width: sliderRef.current?.clientWidth || 800,
+                    height: sliderRef.current?.clientHeight || 600,
+                    backgroundAlpha: 0,
+                    resizeTo: sliderRef.current || undefined,
+                });
+
+                // Append the canvas to the slider element
+                if (sliderRef.current && app.canvas instanceof HTMLCanvasElement) {
+                    sliderRef.current.appendChild(app.canvas);
+
+                    // Add a class to the canvas for potential styling
+                    app.canvas.classList.add('kinetic-slider-canvas');
+                }
+
+                // Store the app reference
+                appRef.current = app;
+
+                // Create the main stage container
+                const stage = new Container();
+                app.stage.addChild(stage);
+
+                console.log("Pixi application created successfully");
+            } catch (error) {
+                console.error("Failed to create Pixi application:", error);
+            }
+        };
+
+        createPixiApp();
+
+        // Cleanup function to destroy the app
         return () => {
-            if (pixiRefs.app.current) {
-                console.log('Cleaning up Pixi application');
-
-                // Remove canvas from DOM if it exists
+            if (appRef.current) {
+                // Find and remove the canvas element
                 if (sliderRef.current) {
                     const canvas = sliderRef.current.querySelector('canvas');
                     if (canvas) {
@@ -135,15 +185,26 @@ export const usePixiApp = () => {
                 }
 
                 // Destroy the app
-                try {
-                    pixiRefs.app.current.destroy();
-                } catch (error: unknown) {
-                    console.error('Error destroying Pixi application:', error);
-                }
+                appRef.current.destroy(true);
+                appRef.current = null;
 
-                pixiRefs.app.current = null;
-                setters.setIsAppReady(false);
+                console.log("Pixi application destroyed");
             }
         };
-    }, [sliderRef.current]);
+    }, [sliderRef, images, displacementImages, isInitialized.current]);
+
+    // Return refs for use in other hooks
+    return {
+        pixiRefs: {
+            app: appRef,
+            slides: slidesRef,
+            textContainers: textContainersRef,
+            backgroundDisplacementSprite: backgroundDisplacementSpriteRef,
+            cursorDisplacementSprite: cursorDisplacementSpriteRef,
+            bgDispFilter: bgDispFilterRef,
+            cursorDispFilter: cursorDispFilterRef,
+            currentIndex
+        },
+        isInitialized: isInitialized.current
+    };
 };

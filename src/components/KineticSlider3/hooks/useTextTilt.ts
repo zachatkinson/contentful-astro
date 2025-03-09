@@ -1,22 +1,28 @@
-import { useEffect } from "react";
+import { useEffect, type RefObject } from "react";
+import { Container, DisplacementFilter } from "pixi.js";
 import { gsap } from "gsap";
-import { useKineticSlider } from '../context/KineticSliderContext';
 
-/**
- * Hook to create a parallax tilt effect on text based on mouse position
- */
-const useTextTilt = () => {
-    // Use the KineticSlider context instead of receiving props directly
-    const {
-        sliderRef,
-        pixiRefs,
-        props
-    } = useKineticSlider();
+interface UseTextTiltProps {
+    sliderRef: RefObject<HTMLDivElement | null>;
+    textContainersRef: RefObject<Container[]>;
+    currentIndex: RefObject<number>;
+    cursorTextEffect: boolean;
+    maxContainerShiftFraction: number;
+    bgDispFilterRef: RefObject<DisplacementFilter | null>;
+    cursorDispFilterRef: RefObject<DisplacementFilter | null>;
+    cursorImgEffect: boolean;
+}
 
-    // Extract necessary props and refs
-    const { textContainers: textContainersRef, currentIndex, bgDispFilter: bgDispFilterRef, cursorDispFilter: cursorDispFilterRef } = pixiRefs;
-    const { cursorTextEffect = false, maxContainerShiftFraction = 0.05, cursorImgEffect = false } = props;
-
+const useTextTilt = ({
+                         sliderRef,
+                         textContainersRef,
+                         currentIndex,
+                         cursorTextEffect,
+                         maxContainerShiftFraction,
+                         bgDispFilterRef,
+                         cursorDispFilterRef,
+                         cursorImgEffect,
+                     }: UseTextTiltProps) => {
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
@@ -118,13 +124,13 @@ const useTextTilt = () => {
             if (tiltTimeout) clearTimeout(tiltTimeout);
         };
     }, [
-        sliderRef.current,
-        textContainersRef.current,
-        currentIndex.current,
+        sliderRef,
+        textContainersRef,
+        currentIndex,
         cursorTextEffect,
         maxContainerShiftFraction,
-        bgDispFilterRef.current,
-        cursorDispFilterRef.current,
+        bgDispFilterRef,
+        cursorDispFilterRef,
         cursorImgEffect,
     ]);
 };

@@ -1,24 +1,26 @@
-import { useEffect } from "react";
+import { useEffect, type RefObject } from "react";
+import { Sprite } from "pixi.js";
 import { gsap } from "gsap";
-import { useKineticSlider } from '../context/KineticSliderContext';
 
-/**
- * Hook to handle mouse drag interactions for slide navigation
- */
-const useMouseDrag = () => {
-    // Use the KineticSlider context instead of receiving props directly
-    const {
-        sliderRef,
-        pixiRefs,
-        props,
-        actions
-    } = useKineticSlider();
+interface UseMouseDragProps {
+    sliderRef: RefObject<HTMLDivElement | null>;
+    slidesRef: RefObject<Sprite[]>;
+    currentIndex: RefObject<number>;
+    swipeScaleIntensity: number;
+    swipeDistance: number;
+    onSwipeLeft: () => void;
+    onSwipeRight: () => void;
+}
 
-    // Extract necessary props and refs
-    const { slides: slidesRef, currentIndex } = pixiRefs;
-    const { swipeScaleIntensity = 0.3, swipeDistance = 100 } = props;
-    const { goNext, goPrev } = actions;
-
+const useMouseDrag = ({
+                          sliderRef,
+                          slidesRef,
+                          currentIndex,
+                          swipeScaleIntensity,
+                          swipeDistance,
+                          onSwipeLeft,
+                          onSwipeRight,
+                      }: UseMouseDragProps) => {
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
@@ -68,9 +70,9 @@ const useMouseDrag = () => {
             }
             if (Math.abs(deltaX) > swipeDistance) {
                 if (deltaX < 0) {
-                    goNext();
+                    onSwipeLeft();
                 } else {
-                    goPrev();
+                    onSwipeRight();
                 }
             }
         };
@@ -102,13 +104,13 @@ const useMouseDrag = () => {
             slider.removeEventListener("mouseleave", handleMouseLeave);
         };
     }, [
-        sliderRef.current,
-        slidesRef.current,
-        currentIndex.current,
+        sliderRef,
+        slidesRef,
+        currentIndex,
         swipeScaleIntensity,
         swipeDistance,
-        goNext,
-        goPrev,
+        onSwipeLeft,
+        onSwipeRight,
     ]);
 };
 

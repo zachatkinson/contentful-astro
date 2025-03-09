@@ -65,38 +65,25 @@ export function identifyCustomFonts(parsedFonts: string[]): string[] {
  * @returns Path to the font file if found, null otherwise
  */
 export async function findFontFile(fontName: string, extensions = FONT_EXTENSIONS): Promise<string | null> {
-    // Check if we're in development mode
-    const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV === true;
-    console.log(`Current environment: ${isDev ? 'development' : 'production'}`);
-
-    // Create organized paths based on environment
+    // List of paths to try - check both case-sensitive and lowercase versions
     const fontPaths = [];
-
-    // Development mode paths (with /public prefix)
-    if (isDev) {
-        for (const ext of extensions) {
-            fontPaths.push(`/public/fonts/${fontName}${ext}`);
-            fontPaths.push(`/public/fonts/${fontName.toLowerCase()}${ext}`);
-        }
-    }
-
-    // Production mode paths (without /public prefix) - try these in both modes
     for (const ext of extensions) {
+        // Original case
         fontPaths.push(`/fonts/${fontName}${ext}`);
+        // Lowercase version
         fontPaths.push(`/fonts/${fontName.toLowerCase()}${ext}`);
     }
 
-    // Add additional fallbacks
     const additionalPaths = [];
     for (const ext of extensions) {
-        additionalPaths.push(`./fonts/${fontName}${ext}`);
-        additionalPaths.push(`${fontName}${ext}`);
+        // Original case
+        additionalPaths.push(`/public/fonts/${fontName}${ext}`);
+        // Lowercase version
+        additionalPaths.push(`/public/fonts/${fontName.toLowerCase()}${ext}`);
     }
 
-    // Combine paths with the environment-appropriate paths first
+    // Combine paths
     const allPaths = [...fontPaths, ...additionalPaths];
-
-    console.log(`Attempting to load font '${fontName}' from paths:`, allPaths);
 
     // Try each path
     for (const path of allPaths) {

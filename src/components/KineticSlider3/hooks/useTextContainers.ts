@@ -1,8 +1,31 @@
-import React, { useEffect } from 'react';
-import { Text, TextStyle, Container } from 'pixi.js';
+import { useEffect, type RefObject } from 'react';
+import { Application, Container, Text, TextStyle, Sprite } from 'pixi.js';
 import { gsap } from 'gsap';
-import { useKineticSlider } from '../context/KineticSliderContext';
+import { type TextPair } from '../types';
 import { parseFontStack } from '../utils/fontUtils';
+
+interface UseTextContainersProps {
+    sliderRef: RefObject<HTMLDivElement | null>;
+    appRef: RefObject<Application | null>;
+    slidesRef: RefObject<Sprite[]>;
+    textContainersRef: RefObject<Container[]>;
+    currentIndex: RefObject<number>;
+    buttonMode: boolean;
+    textsRgbEffect: boolean; // We'll keep this parameter for compatibility but ignore it
+    texts: TextPair[];
+    textTitleColor: string;
+    textTitleSize: number;
+    mobileTextTitleSize: number;
+    textTitleLetterspacing: number;
+    textTitleFontFamily?: string;
+    textSubTitleColor: string;
+    textSubTitleSize: number;
+    mobileTextSubTitleSize: number;
+    textSubTitleLetterspacing: number;
+    textSubTitleOffsetTop: number;
+    mobileTextSubTitleOffsetTop: number;
+    textSubTitleFontFamily?: string;
+}
 
 // Default font fallbacks
 const DEFAULT_TITLE_FONT = 'Georgia, Times, "Times New Roman", serif';
@@ -30,59 +53,41 @@ function prepareFontFamily(fontStack?: string, defaultStack = DEFAULT_TITLE_FONT
 /**
  * Hook to create and manage text containers for slide titles and subtitles
  */
-const useTextContainers = () => {
-    // Use the KineticSlider context instead of receiving props directly
-    const {
-        sliderRef,
-        pixiRefs,
-        props,
-        handleInitialization
-    } = useKineticSlider();
-
-    // Extract references for clarity
-    const { app: appRef, slides: slidesRef, textContainers: textContainersRef, currentIndex } = pixiRefs;
-
-    // Extract text styling props
-    const {
-        buttonMode = false,
-        texts = [],
-        textTitleColor = '#ffffff',
-        textTitleSize = 36,
-        mobileTextTitleSize = 24,
-        textTitleLetterspacing = 0,
-        textTitleFontFamily,
-        textSubTitleColor = '#ffffff',
-        textSubTitleSize = 16,
-        mobileTextSubTitleSize = 14,
-        textSubTitleLetterspacing = 0,
-        textSubTitleOffsetTop = 10,
-        mobileTextSubTitleOffsetTop = 6,
-        textSubTitleFontFamily,
-    } = props;
-
+const useTextContainers = ({
+                               sliderRef,
+                               appRef,
+                               slidesRef,
+                               textContainersRef,
+                               currentIndex,
+                               buttonMode,
+                               texts,
+                               textTitleColor,
+                               textTitleSize,
+                               mobileTextTitleSize,
+                               textTitleLetterspacing,
+                               textTitleFontFamily,
+                               textSubTitleColor,
+                               textSubTitleSize,
+                               mobileTextSubTitleSize,
+                               textSubTitleLetterspacing,
+                               textSubTitleOffsetTop,
+                               mobileTextSubTitleOffsetTop,
+                               textSubTitleFontFamily
+                           }: UseTextContainersProps) => {
     // Create text containers
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
 
-        // Don't check slidesRef.current.length - text containers should be created even if slides aren't ready yet
-        if (!appRef.current || !texts.length) {
-            console.log('Cannot create text containers - missing app or texts');
-            console.log({
-                app: !!appRef.current,
-                textsLength: texts.length
-            });
-            return;
-        }
+        if (!appRef.current || !slidesRef.current.length || !texts.length) return;
 
         const app = appRef.current;
-        const stage = app.stage.children[0] instanceof Container ? app.stage.children[0] as Container : app.stage;
+        const stage = app.stage.children[0] as Container || app.stage;
 
         // Clear existing text containers
         textContainersRef.current.forEach(container => {
             if (container.parent) {
                 container.parent.removeChild(container);
-                container.destroy({ children: true });
             }
         });
         textContainersRef.current = [];
@@ -101,117 +106,81 @@ const useTextContainers = () => {
 
         // Create new text containers for each text pair
         texts.forEach((textPair, index) => {
-            try {
-                const [title, subtitle] = textPair;
-                const textContainer = new Container();
-                textContainer.x = app.screen.width / 2;
-                textContainer.y = app.screen.height / 2;
-                textContainer.label = `text-container-${index}`;
+            const [title, subtitle] = textPair;
+            const textContainer = new Container();
+            textContainer.x = app.screen.width / 2;
+            textContainer.y = app.screen.height / 2;
 
-                // Create title text
-                const titleStyle = new TextStyle({
-                    fill: textTitleColor,
-                    fontSize: computedTitleSize,
-                    letterSpacing: textTitleLetterspacing,
-                    fontWeight: 'bold',
-                    align: 'center',
-                    fontFamily: titleFontFamily
+            // Create title text
+            const titleStyle = new TextStyle({
+                fill: textTitleColor,
+                fontSize: computedTitleSize,
+                letterSpacing: textTitleLetterspacing,
+                fontWeight: 'bold',
+                align: 'center',
+                fontFamily: titleFontFamily
+            });
+            const titleText = new Text({ text: title, style: titleStyle });
+            titleText.anchor.set(0.5, 0);
+            titleText.y = 0;
+
+            // Create subtitle text
+            const subtitleStyle = new TextStyle({
+                fill: textSubTitleColor,
+                fontSize: computedSubTitleSize,
+                letterSpacing: textSubTitleLetterspacing,
+                align: 'center',
+                fontFamily: subtitleFontFamily
+            });
+            const subText = new Text({text: subtitle, style: subtitleStyle});
+            subText.anchor.set(0.5, 0);
+            subText.y = titleText.height + computedSubTitleOffset;
+
+            textContainer.addChild(titleText, subText);
+            textContainer.pivot.y = textContainer.height / 2;
+
+            // Set initial state - only show the first container
+            textContainer.alpha = index === 0 ? 1 : 0;
+
+            // IMPORTANT: Set visibility property for all but the first text container
+            textContainer.visible = index === 0;
+
+            // Enable button mode if specified
+            if (buttonMode) {
+                textContainer.eventMode = 'static'; // Modern PIXI.js interaction system
+                textContainer.cursor = 'pointer';
+
+                textContainer.on('pointerover', () => {
+                    gsap.to(titleText.scale, { x: 1.1, y: 1.1, duration: 0.2 });
                 });
 
-                const titleText = new Text({
-                    text: title || 'Title',
-                    style: titleStyle
-                });
-                titleText.anchor.set(0.5, 0);
-                titleText.y = 0;
-                titleText.label = `title-${index}`;
-
-                // Create subtitle text
-                const subtitleStyle = new TextStyle({
-                    fill: textSubTitleColor,
-                    fontSize: computedSubTitleSize,
-                    letterSpacing: textSubTitleLetterspacing,
-                    align: 'center',
-                    fontFamily: subtitleFontFamily
+                textContainer.on('pointerout', () => {
+                    gsap.to(titleText.scale, { x: 1, y: 1, duration: 0.2 });
                 });
 
-                const subText = new Text({
-                    text: subtitle || 'Subtitle',
-                    style: subtitleStyle
+                textContainer.on('pointerdown', () => {
+                    // Move to next slide if clicked
+                    const nextIndex = (currentIndex.current + 1) % slidesRef.current.length;
+                    // Dispatch a custom event that can be caught by other components
+                    window.dispatchEvent(new CustomEvent('slideChange', { detail: { nextIndex } }));
                 });
-                subText.anchor.set(0.5, 0);
-                subText.y = titleText.height + computedSubTitleOffset;
-                subText.label = `subtitle-${index}`;
-
-                // Add texts to container
-                textContainer.addChild(titleText);
-                textContainer.addChild(subText);
-                textContainer.pivot.y = textContainer.height / 2;
-
-                // IMPORTANT: Set initial visibility properties
-                // All text containers are now visible, but only current has alpha=1
-                textContainer.alpha = index === 0 ? 1 : 0;
-                textContainer.visible = true; // Always visible, even for non-current slides
-
-                // Enable button mode if specified
-                if (buttonMode) {
-                    textContainer.eventMode = 'static'; // Modern PIXI.js interaction system
-                    textContainer.cursor = 'pointer';
-
-                    textContainer.on('pointerover', () => {
-                        gsap.to(titleText.scale, { x: 1.1, y: 1.1, duration: 0.2 });
-                    });
-
-                    textContainer.on('pointerout', () => {
-                        gsap.to(titleText.scale, { x: 1, y: 1, duration: 0.2 });
-                    });
-
-                    textContainer.on('pointerdown', () => {
-                        // Move to next slide if clicked
-                        const nextIndex = (currentIndex.current + 1) % slidesRef.current.length;
-                        // Dispatch a custom event that can be caught by other components
-                        window.dispatchEvent(new CustomEvent('slideChange', { detail: { nextIndex } }));
-                    });
-                }
-
-                // IMPORTANT: Log details about the text container
-                console.log(`Created text container ${index}:`, {
-                    title: title || 'Title',
-                    subtitle: subtitle || 'Subtitle',
-                    width: textContainer.width,
-                    height: textContainer.height,
-                    x: textContainer.x,
-                    y: textContainer.y,
-                    alpha: textContainer.alpha,
-                    visible: textContainer.visible
-                });
-
-                // Add to stage and store reference
-                stage.addChild(textContainer);
-                textContainersRef.current.push(textContainer);
-
-            } catch (error) {
-                console.error(`Error creating text container ${index}:`, error);
             }
+
+            // Add to stage and store reference
+            stage.addChild(textContainer);
+            textContainersRef.current.push(textContainer);
         });
-
-        console.log(`Created ${textContainersRef.current.length} text containers`);
-
-        // Signal to parent component that text containers are initialized
-        handleInitialization('text');
 
         return () => {
             // Cleanup
             textContainersRef.current.forEach(container => {
                 if (container.parent) {
                     container.parent.removeChild(container);
-                    container.destroy({ children: true });
                 }
             });
             textContainersRef.current = [];
         };
     }, [
-        // Dependencies updated to use context values
         appRef.current,
         texts,
         textTitleColor,
@@ -226,8 +195,7 @@ const useTextContainers = () => {
         textSubTitleOffsetTop,
         mobileTextSubTitleOffsetTop,
         textSubTitleFontFamily,
-        buttonMode,
-        handleInitialization
+        buttonMode
     ]);
 
     // Handle window resize for text containers
@@ -298,7 +266,6 @@ const useTextContainers = () => {
             window.removeEventListener('resize', handleResize);
         };
     }, [
-        // Dependencies updated to use context values
         sliderRef.current,
         appRef.current,
         textTitleSize,

@@ -1,141 +1,493 @@
-// src/components/KineticSlider3/KineticSlider.tsx - Updated version
-
-import React, { useEffect, useState } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import styles from './KineticSlider.module.css';
 import { type KineticSliderProps } from './types';
-import { SharedResourceProvider } from './context/SharedResourceContext';
-import { KineticSliderProvider, useKineticSlider } from './context/KineticSliderContext';
+import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
 
-// Main implementation using context
-const KineticSliderInner: React.FC = () => {
-    const {
-        sliderRef,
-        pixiRefs,
-        props,
-        states,
-        setters,
-        instanceId
-    } = useKineticSlider();
+// Import hooks directly
+import { useDisplacementEffects } from './hooks';
+import { useFilters } from './hooks';
+import { useSlides } from './hooks';
+import { useTextContainers } from './hooks/';
+import { useMouseTracking } from './hooks/';
+import { useIdleTimer } from './hooks/';
+import { useNavigation } from './hooks/';
+import { useExternalNav } from './hooks/';
+import { useTouchSwipe } from './hooks/';
+import { useMouseDrag } from './hooks/';
+import { useTextTilt } from './hooks/';
+import { useResizeHandler } from './hooks/';
+import { loadKineticSliderDependencies } from './ImportHelpers';
+import { preloadKineticSliderAssets } from './utils/assetPreload';
 
-    // Debug state for troubleshooting
-    const [debug, setDebug] = useState<string>('Initializing...');
+/**
+ * KineticSlider component - Creates an interactive image slider with various effects
+ */
+const KineticSlider3: React.FC<KineticSliderProps> = ({
+                                                         // Content sources
+                                                         images = [],
+                                                         texts = [],
 
-    // Add a useEffect to monitor initialization steps
+                                                         // Displacement settings
+                                                         backgroundDisplacementSpriteLocation = '/images/background-displace.jpg',
+                                                         cursorDisplacementSpriteLocation = '/images/cursor-displace.png',
+                                                         cursorImgEffect = true,
+                                                         cursorTextEffect = true,
+                                                         cursorScaleIntensity = 0.65,
+                                                         cursorMomentum = 0.14,
+
+                                                         // Text styling
+                                                         textTitleColor = 'white',
+                                                         textTitleSize = 64,
+                                                         mobileTextTitleSize = 40,
+                                                         textTitleLetterspacing = 2,
+                                                         textTitleFontFamily,
+                                                         textSubTitleColor = 'white',
+                                                         textSubTitleSize = 24,
+                                                         mobileTextSubTitleSize = 18,
+                                                         textSubTitleLetterspacing = 1,
+                                                         textSubTitleOffsetTop = 10,
+                                                         mobileTextSubTitleOffsetTop = 5,
+                                                         textSubTitleFontFamily,
+
+                                                         // Animation settings
+                                                         maxContainerShiftFraction = 0.05,
+                                                         swipeScaleIntensity = 2,
+                                                         transitionScaleIntensity = 30,
+
+                                                         // Navigation settings
+                                                         externalNav = false,
+                                                         navElement = { prev: '.main-nav.prev', next: '.main-nav.next' },
+                                                         buttonMode = false,
+
+                                                         // Filter configurations
+                                                         imageFilters,
+                                                         textFilters
+                                                     }) => {
+    // Core references
+    const sliderRef = useRef<HTMLDivElement>(null);
+    const [isClient, setIsClient] = useState(false);
+    const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+    const [isInteracting, setIsInteracting] = useState(false);
+    const [isAppReady, setIsAppReady] = useState(false);
+    const [assetsLoaded, setAssetsLoaded] = useState(false);
+    const cursorActiveRef = useRef<boolean>(false);
+
+    // Set up Pixi app
+    const appRef = useRef<Application | null>(null);
+    const slidesRef = useRef<Sprite[]>([]);
+    const textContainersRef = useRef<Container[]>([]);
+    const backgroundDisplacementSpriteRef = useRef<Sprite | null>(null);
+    const cursorDisplacementSpriteRef = useRef<Sprite | null>(null);
+    const bgDispFilterRef = useRef<DisplacementFilter | null>(null);
+    const cursorDispFilterRef = useRef<DisplacementFilter | null>(null);
+    const currentIndexRef = useRef<number>(0);
+
+    // Client-side initialization
     useEffect(() => {
-        console.log('KineticSlider initialization state:', {
-            isAppReady: states.isAppReady,
-            isAssetsLoaded: states.isAssetsLoaded,
-            isSlidesInitialized: states.isSlidesInitialized,
-            isTextInitialized: states.isTextInitialized,
-            isFiltersInitialized: states.isFiltersInitialized,
-            isFullyInitialized: states.isFullyInitialized,
-            instanceId
-        });
+        setIsClient(true);
+    }, []);
 
-        // Update debug state for visibility in the DOM
-        setDebug(`App: ${states.isAppReady ? '✅' : '❌'}, Assets: ${states.isAssetsLoaded ? '✅' : '❌'}, Slides: ${states.isSlidesInitialized ? '✅' : '❌'}, Text: ${states.isTextInitialized ? '✅' : '❌'}, Filters: ${states.isFiltersInitialized ? '✅' : '❌'}`);
+    // Create a pixi refs object for hooks
+    const pixiRefs = {
+        app: appRef,
+        slides: slidesRef,
+        textContainers: textContainersRef,
+        backgroundDisplacementSprite: backgroundDisplacementSpriteRef,
+        cursorDisplacementSprite: cursorDisplacementSpriteRef,
+        bgDispFilter: bgDispFilterRef,
+        cursorDispFilter: cursorDispFilterRef,
+        currentIndex: currentIndexRef
+    };
 
-        // Check if paths to resources are correct
-        if (!states.isAssetsLoaded) {
-            console.log('Checking resource paths:', {
-                images: props.images,
-                bgDisplacement: props.backgroundDisplacementSpriteLocation,
-                cursorDisplacement: props.cursorDisplacementSpriteLocation
-            });
+    // Props object for hooks
+    const hookProps = {
+        images,
+        texts,
+        backgroundDisplacementSpriteLocation,
+        cursorDisplacementSpriteLocation,
+        cursorImgEffect,
+        cursorTextEffect,
+        cursorScaleIntensity,
+        cursorMomentum,
+        textTitleColor,
+        textTitleSize,
+        mobileTextTitleSize,
+        textTitleLetterspacing,
+        textTitleFontFamily,
+        textSubTitleColor,
+        textSubTitleSize,
+        mobileTextSubTitleSize,
+        textSubTitleLetterspacing,
+        textSubTitleOffsetTop,
+        mobileTextSubTitleOffsetTop,
+        textSubTitleFontFamily,
+        maxContainerShiftFraction,
+        swipeScaleIntensity,
+        transitionScaleIntensity,
+        imageFilters,
+        textFilters
+    };
 
-            // Verify at least one image exists
-            const checkFirstImage = async () => {
-                try {
-                    const response = await fetch(props.images[0], {method: 'HEAD'});
-                    console.log(`First image check (${props.images[0]}):`, response.ok ? 'exists' : 'missing');
-                } catch (error) {
-                    console.error('Error checking image:', error);
-                }
-            };
+    // Use displacement effects
+    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects({
+        sliderRef,
+        pixi: pixiRefs,
+        props: hookProps
+    });
 
-            checkFirstImage();
-        }
+    // Use filters - call this before any references to its returned functions
+    const { updateFilterIntensities, resetAllFilters } = useFilters({
+        sliderRef,
+        pixi: pixiRefs,
+        props: hookProps
+    });
+
+    // Preload assets including fonts
+    useEffect(() => {
+        if (typeof window === 'undefined' || !isClient) return;
+
+        const loadAssets = async () => {
+            try {
+                console.log("Preloading assets and fonts...");
+                await preloadKineticSliderAssets(
+                    images,
+                    backgroundDisplacementSpriteLocation,
+                    cursorDisplacementSpriteLocation,
+                    textTitleFontFamily,
+                    textSubTitleFontFamily
+                );
+                setAssetsLoaded(true);
+                console.log("Assets and fonts preloaded successfully");
+            } catch (error) {
+                console.error("Failed to preload assets:", error);
+                // Continue anyway so the component doesn't totally fail
+                setAssetsLoaded(true);
+            }
+        };
+
+        loadAssets();
     }, [
-        states.isAppReady,
-        states.isAssetsLoaded,
-        states.isSlidesInitialized,
-        states.isTextInitialized,
-        states.isFiltersInitialized,
-        states.isFullyInitialized
+        isClient,
+        images,
+        backgroundDisplacementSpriteLocation,
+        cursorDisplacementSpriteLocation,
+        textTitleFontFamily,
+        textSubTitleFontFamily
     ]);
 
-    // Mouse handlers
-    const handleMouseEnter = () => {
-        // Implementation using context
-        console.log('Mouse enter');
-    };
+    // Initialize Pixi.js application
+    useEffect(() => {
+        if (typeof window === 'undefined' || !sliderRef.current || appRef.current || !assetsLoaded) return;
 
-    const handleMouseLeave = () => {
-        // Implementation using context
-        console.log('Mouse leave');
-    };
+        const initPixi = async () => {
+            try {
+                console.log("Loading PixiJS dependencies...");
+                // Load all dependencies first
+                const { gsap, pixi, pixiPlugin } = await loadKineticSliderDependencies();
 
+                // Only register plugins in browser
+                if (typeof window !== 'undefined' && pixiPlugin) {
+                    // Register GSAP plugins
+                    gsap.registerPlugin(pixiPlugin);
+
+                    // Check if we have the actual plugin (not the mock)
+                    if (pixiPlugin.registerPIXI) {
+                        pixiPlugin.registerPIXI(pixi);
+                    }
+                }
+
+                console.log("Creating Pixi.js application...");
+
+                // Create Pixi application
+                const app = new Application();
+                await app.init({
+                    width: sliderRef.current?.clientWidth || 800,
+                    height: sliderRef.current?.clientHeight || 600,
+                    backgroundAlpha: 0,
+                    resizeTo: sliderRef.current || undefined,
+                });
+
+                // Add canvas to DOM
+                if (sliderRef.current) {
+                    sliderRef.current.appendChild(app.canvas);
+                }
+
+                // Store reference
+                appRef.current = app;
+
+                // Create main container
+                const stage = new Container();
+                app.stage.addChild(stage);
+
+                // Set app as ready
+                setIsAppReady(true);
+
+                console.log("Pixi.js application initialized");
+            } catch (error) {
+                console.error("Failed to initialize Pixi.js application:", error);
+            }
+        };
+
+        initPixi();
+
+        // Cleanup on unmount
+        return () => {
+            if (appRef.current) {
+                if (sliderRef.current) {
+                    const canvas = sliderRef.current.querySelector('canvas');
+                    if (canvas) {
+                        sliderRef.current.removeChild(canvas);
+                    }
+                }
+                appRef.current.destroy(true);
+                appRef.current = null;
+                setIsAppReady(false);
+            }
+        };
+    }, [sliderRef.current, assetsLoaded]);
+
+    // Use slides and get transition function
+    const { transitionToSlide } = useSlides({
+        sliderRef,
+        pixi: pixiRefs,
+        props: hookProps
+    });
+
+    // Use text containers
+    useTextContainers({
+        sliderRef,
+        appRef,
+        slidesRef,
+        textContainersRef,
+        currentIndex: currentIndexRef,
+        buttonMode,
+        textsRgbEffect: false, // Removed legacy prop, we'll rely on textFilters
+        texts,
+        textTitleColor,
+        textTitleSize,
+        mobileTextTitleSize,
+        textTitleLetterspacing,
+        textTitleFontFamily,
+        textSubTitleColor,
+        textSubTitleSize,
+        mobileTextSubTitleSize,
+        textSubTitleLetterspacing,
+        textSubTitleOffsetTop,
+        mobileTextSubTitleOffsetTop,
+        textSubTitleFontFamily
+    });
+
+    // Use mouse tracking
+    useMouseTracking({
+        sliderRef,
+        backgroundDisplacementSpriteRef,
+        cursorDisplacementSpriteRef,
+        cursorImgEffect,
+        cursorMomentum
+    });
+
+    // Use idle timer
+    useIdleTimer({
+        sliderRef,
+        cursorActive: cursorActiveRef,
+        bgDispFilterRef,
+        cursorDispFilterRef,
+        cursorImgEffect,
+        defaultBgFilterScale: 20,
+        defaultCursorFilterScale: 10
+    });
+
+    // Navigation functions with effect reapplication
+    const handleNext = useCallback(() => {
+        if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
+        const nextIndex = (currentSlideIndex + 1) % slidesRef.current.length;
+
+        // First transition the slide
+        transitionToSlide(nextIndex);
+        setCurrentSlideIndex(nextIndex);
+
+        // If the cursor is currently over the slider (we're interacting),
+        // reapply effects after a short delay to allow for transition
+        if (isInteracting) {
+            setTimeout(() => {
+                console.log("Reapplying effects after slide change (next)");
+                // Ensure displacement effects are shown
+                showDisplacementEffects();
+                // Reapply filter effects to the new slide with force update
+                updateFilterIntensities(true, true);
+            }, 100); // Short delay to allow transition to start
+        }
+    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
+
+    const handlePrev = useCallback(() => {
+        if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
+        const prevIndex = (currentSlideIndex - 1 + slidesRef.current.length) % slidesRef.current.length;
+
+        // First transition the slide
+        transitionToSlide(prevIndex);
+        setCurrentSlideIndex(prevIndex);
+
+        // If the cursor is currently over the slider (we're interacting),
+        // reapply effects after a short delay to allow for transition
+        if (isInteracting) {
+            setTimeout(() => {
+                console.log("Reapplying effects after slide change (prev)");
+                // Ensure displacement effects are shown
+                showDisplacementEffects();
+                // Reapply filter effects to the new slide with force update
+                updateFilterIntensities(true, true);
+            }, 100); // Short delay to allow transition to start
+        }
+    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
+
+    // Apply hooks only when appRef is available and ready - NOW updateFilterIntensities is defined before being referenced
+    useEffect(() => {
+        // Skip if app is not initialized
+        if (!appRef.current || !isAppReady) return;
+
+        // Update current index ref when state changes
+        currentIndexRef.current = currentSlideIndex;
+
+        // Note: We no longer need to handle filter updates here as they are now handled directly
+        // in the navigation functions (handleNext/handlePrev)
+    }, [appRef.current, currentSlideIndex, isAppReady]);
+
+    // Use navigation
+    useNavigation({
+        onNext: handleNext,
+        onPrev: handlePrev,
+        enableKeyboardNav: true
+    });
+
+    // Use external navigation if enabled
+    useExternalNav({
+        externalNav,
+        navElement,
+        handleNext,
+        handlePrev
+    });
+
+    // Use touch swipe
+    useTouchSwipe({
+        sliderRef,
+        onSwipeLeft: handleNext,
+        onSwipeRight: handlePrev
+    });
+
+    // Use mouse drag
+    useMouseDrag({
+        sliderRef,
+        slidesRef,
+        currentIndex: currentIndexRef,
+        swipeScaleIntensity,
+        swipeDistance: typeof window !== 'undefined' ? window.innerWidth * 0.2 : 200,
+        onSwipeLeft: handleNext,
+        onSwipeRight: handlePrev
+    });
+
+    // Use text tilt
+    useTextTilt({
+        sliderRef,
+        textContainersRef,
+        currentIndex: currentIndexRef,
+        cursorTextEffect,
+        maxContainerShiftFraction,
+        bgDispFilterRef,
+        cursorDispFilterRef,
+        cursorImgEffect
+    });
+
+    // Use resize handler
+    useResizeHandler({
+        sliderRef,
+        appRef,
+        slidesRef,
+        textContainersRef,
+        backgroundDisplacementSpriteRef,
+        cursorDisplacementSpriteRef
+    });
+
+
+
+    // Memoize handlers to prevent unnecessary re-renders
+    const handleMouseEnter = useCallback(() => {
+        if (!isAppReady) return;
+        console.log("Mouse entered the slider - activating all effects");
+
+        // Update cursor active state
+        cursorActiveRef.current = true;
+
+        // Show displacement effects first
+        showDisplacementEffects();
+
+        // Force update all filter intensities for the active slide with a slight delay
+        // to ensure proper initialization and avoid filter stacking issues
+        setTimeout(() => {
+            console.log("Applying filters after slight delay to ensure proper initialization");
+            updateFilterIntensities(true, true); // Force update to ensure proper application
+        }, 50); // Short timeout to ensure displacement is applied first
+
+        setIsInteracting(true);
+    }, [isAppReady, showDisplacementEffects, updateFilterIntensities]);
+
+
+    // Mouse leave handler - FIXED to ensure all effects are removed
+    const handleMouseLeave = useCallback(() => {
+        if (!isAppReady) return;
+        console.log("Mouse left the slider - deactivating ALL effects");
+        cursorActiveRef.current = false;
+
+        // Ensure displacement effects are hidden
+        hideDisplacementEffects();
+
+        // Force immediate reset of all filters
+        if (resetAllFilters) {
+            resetAllFilters();
+        }
+
+        // Also ensure any transition or navigation effects are reset
+        setTimeout(() => {
+            // Double-check reset after a short delay to catch any lingering effects
+            if (resetAllFilters) {
+                resetAllFilters();
+            }
+            // Reset the filter intensities state
+            updateFilterIntensities(false);
+        }, 10);
+
+        setIsInteracting(false);
+    }, [isAppReady, hideDisplacementEffects, resetAllFilters, updateFilterIntensities]);
+
+    // Render component
     return (
         <div
             className={styles.kineticSlider}
             ref={sliderRef}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            data-kinetic-slider-id={instanceId}
-            data-initialized={states.isFullyInitialized ? 'true' : 'false'}
         >
-            {/* Debug info during development */}
-            {!states.isFullyInitialized && (
-                <div className={styles.debugInfo} style={{position: 'absolute', top: 0, left: 0, background: 'rgba(0,0,0,0.8)', color: 'white', padding: '10px', zIndex: 100, fontSize: '12px'}}>
-                    {debug}
-                </div>
-            )}
-
-            {/* Display loading indicator when app is not ready or assets not loaded */}
-            {(!states.isAppReady || !states.isAssetsLoaded) && (
+            {/* Placeholder while loading */}
+            {(!isAppReady || !assetsLoaded) && (
                 <div className={styles.placeholder}>
                     <div className={styles.loadingIndicator}>
                         <div className={styles.spinner}></div>
-                        <div>Loading slider... {!states.isAppReady ? '(App initializing)' : '(Loading assets)'}</div>
+                        <div>Loading slider...</div>
                     </div>
                 </div>
             )}
 
-            {/* Navigation buttons */}
-            {!props.externalNav && states.isAppReady && (
+            {/* Navigation buttons - only render on client and if external nav is not enabled */}
+            {!externalNav && isClient && (
                 <nav>
-                    <button className={styles.prev}>Prev</button>
-                    <button className={styles.next}>Next</button>
+                    <button onClick={handlePrev} className={styles.prev}>
+                        Prev
+                    </button>
+                    <button onClick={handleNext} className={styles.next}>
+                        Next
+                    </button>
                 </nav>
             )}
         </div>
-    );
-};
-
-// Wrapper component that provides context
-const KineticSlider3: React.FC<KineticSliderProps> = (props) => {
-    // Add fallback for images and displacement sprites
-    const enhancedProps = {
-        ...props,
-        images: props.images || [],
-        backgroundDisplacementSpriteLocation: props.backgroundDisplacementSpriteLocation || '/images/background-displace.jpg',
-        cursorDisplacementSpriteLocation: props.cursorDisplacementSpriteLocation || '/images/cursor-displace.png'
-    };
-
-    // Log initial props to help debug
-    console.log('KineticSlider3 initializing with props:', {
-        imageCount: enhancedProps.images.length,
-        textCount: enhancedProps.texts?.length,
-        bgDisplacement: enhancedProps.backgroundDisplacementSpriteLocation,
-        cursorDisplacement: enhancedProps.cursorDisplacementSpriteLocation
-    });
-
-    return (
-        <SharedResourceProvider>
-            <KineticSliderProvider props={enhancedProps}>
-                <KineticSliderInner />
-            </KineticSliderProvider>
-        </SharedResourceProvider>
     );
 };
 
