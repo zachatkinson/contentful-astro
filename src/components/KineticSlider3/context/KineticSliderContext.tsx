@@ -57,38 +57,40 @@ export const KineticSliderProvider: React.FC<{
     // Track component unmounting to prevent cleanup errors
     const componentUnmounting = useRef(false);
 
-    // FIX: Generate stable IDs for SSR compatibility
-    const instanceIdRef = useRef<string | null>(null);
-    // Use a placeholder ID for server rendering, and generate a real one on client only
-    const instanceId = instanceIdRef.current ||
-        (typeof window !== 'undefined'
-            ? `ks-${Math.random().toString(36).substring(2, 9)}`
-            : 'ks-server-placeholder');
+    // FIXED: Use a stable ID approach for SSR compatibility
+    // Always start with server placeholder during initial render
+    const [instanceId, setInstanceId] = useState('ks-server-placeholder');
 
     const { registerInstance, unregisterInstance } = useSharedResources();
 
-    // Initialize instanceId on client-side only
+    // Initialize instanceId on client-side only after hydration
     useEffect(() => {
-        if (!instanceIdRef.current && typeof window !== 'undefined') {
-            instanceIdRef.current = `ks-${Math.random().toString(36).substring(2, 9)}`;
-        }
-    }, []);
+        if (typeof window !== 'undefined') {
+            // Use setTimeout to ensure this happens after hydration is complete
+            const timer = setTimeout(() => {
+                const newId = `ks-${Math.random().toString(36).substring(2, 9)}`;
+                setInstanceId(newId);
+                registerInstance(newId);
+            }, 0);
 
-    // Register this instance with stable dependencies
+            return () => {
+                clearTimeout(timer);
+            };
+        }
+    }, [registerInstance]);
+
+    // Handle component unmounting
     useEffect(() => {
-        if (instanceIdRef.current) {
-            registerInstance(instanceIdRef.current);
-        }
-
         return () => {
             // Set unmounting flag to prevent issues during cleanup
             componentUnmounting.current = true;
 
-            if (instanceIdRef.current) {
-                unregisterInstance(instanceIdRef.current);
+            // Only unregister if we've actually registered (client-side only)
+            if (typeof window !== 'undefined' && instanceId !== 'ks-server-placeholder') {
+                unregisterInstance(instanceId);
             }
         };
-    }, [registerInstance, unregisterInstance]);
+    }, [instanceId, unregisterInstance]);
 
     // Create refs
     const sliderRef = useRef<HTMLDivElement | null>(null);
@@ -152,7 +154,7 @@ export const KineticSliderProvider: React.FC<{
     return (
         <KineticSliderContext.Provider
             value={{
-                instanceId: instanceIdRef.current || instanceId,
+                instanceId,
                 sliderRef,
                 pixiRefs: {
                     app: appRef,
