@@ -1,23 +1,25 @@
-import { useEffect, type RefObject } from "react";
-import { Application, Sprite, Container } from "pixi.js";
+import { useEffect } from "react";
+import { useKineticSlider } from '../context/KineticSliderContext';
 
-interface ResizeHandlerProps {
-    sliderRef: RefObject<HTMLDivElement | null>;
-    appRef: RefObject<Application | null>;
-    slidesRef: RefObject<Sprite[]>;
-    textContainersRef: RefObject<Container[]>;
-    backgroundDisplacementSpriteRef: RefObject<Sprite | null>;
-    cursorDisplacementSpriteRef: RefObject<Sprite | null>;
-}
+/**
+ * Hook to handle window resize events for properly scaling and positioning PixiJS elements
+ */
+const useResizeHandler = () => {
+    // Use the KineticSlider context instead of receiving props directly
+    const {
+        sliderRef,
+        pixiRefs
+    } = useKineticSlider();
 
-const useResizeHandler = ({
-                              sliderRef,
-                              appRef,
-                              slidesRef,
-                              textContainersRef,
-                              backgroundDisplacementSpriteRef,
-                              cursorDisplacementSpriteRef,
-                          }: ResizeHandlerProps) => {
+    // Extract necessary references from pixiRefs
+    const {
+        app: appRef,
+        slides: slidesRef,
+        textContainers: textContainersRef,
+        backgroundDisplacementSprite: backgroundDisplacementSpriteRef,
+        cursorDisplacementSprite: cursorDisplacementSpriteRef
+    } = pixiRefs;
+
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
@@ -28,10 +30,10 @@ const useResizeHandler = ({
             const containerWidth = sliderRef.current.clientWidth;
             const containerHeight = sliderRef.current.clientHeight;
 
-            // Resize the renderer.
+            // Resize the renderer
             app.renderer.resize(containerWidth, containerHeight);
 
-            // Update each slide's position and scale.
+            // Update each slide's position and scale
             slidesRef.current.forEach((sprite) => {
                 if (!sprite.texture) return;
                 const imageAspect = sprite.texture.width / sprite.texture.height;
@@ -41,19 +43,19 @@ const useResizeHandler = ({
                 } else {
                     sprite.scale.set(containerWidth / sprite.texture.width);
                 }
-                // Optionally store the base scale on the sprite.
+                // Store the base scale on the sprite
                 (sprite as any).baseScale = sprite.scale.x;
                 sprite.x = containerWidth / 2;
                 sprite.y = containerHeight / 2;
             });
 
-            // Update each text container's position.
+            // Update each text container's position
             textContainersRef.current.forEach((container) => {
                 container.x = containerWidth / 2;
                 container.y = containerHeight / 2;
             });
 
-            // Update displacement sprites positions.
+            // Update displacement sprites positions
             if (backgroundDisplacementSpriteRef.current) {
                 backgroundDisplacementSpriteRef.current.x = containerWidth / 2;
                 backgroundDisplacementSpriteRef.current.y = containerHeight / 2;
@@ -65,17 +67,17 @@ const useResizeHandler = ({
         };
 
         window.addEventListener("resize", handleResize);
-        // Call handleResize once to set initial values.
+        // Call handleResize once to set initial values
         handleResize();
 
         return () => window.removeEventListener("resize", handleResize);
     }, [
-        sliderRef,
-        appRef,
-        slidesRef,
-        textContainersRef,
-        backgroundDisplacementSpriteRef,
-        cursorDisplacementSpriteRef,
+        sliderRef.current,
+        appRef.current,
+        slidesRef.current,
+        textContainersRef.current,
+        backgroundDisplacementSpriteRef.current,
+        cursorDisplacementSpriteRef.current,
     ]);
 };
 

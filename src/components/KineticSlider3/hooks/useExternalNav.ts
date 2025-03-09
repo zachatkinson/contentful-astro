@@ -1,22 +1,20 @@
 import { useEffect } from 'react';
-import { type NavElement } from '../types';
-
-interface UseExternalNavProps {
-    externalNav: boolean;
-    navElement: NavElement;
-    handleNext: () => void;
-    handlePrev: () => void;
-}
+import { useKineticSlider } from '../context/KineticSliderContext';
 
 /**
  * Hook to setup external navigation elements for the slider
  */
-const useExternalNav = ({
-                            externalNav,
-                            navElement,
-                            handleNext,
-                            handlePrev
-                        }: UseExternalNavProps) => {
+const useExternalNav = () => {
+    // Use the KineticSlider context instead of receiving props directly
+    const {
+        props,
+        actions
+    } = useKineticSlider();
+
+    // Extract navigation options and functions
+    const { externalNav = false, navElement = { prev: '', next: '' } } = props;
+    const { goNext, goPrev } = actions;
+
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
@@ -36,12 +34,12 @@ const useExternalNav = ({
         // Define event handlers
         const handlePrevClick = (e: Event) => {
             e.preventDefault();
-            handlePrev();
+            goPrev();
         };
 
         const handleNextClick = (e: Event) => {
             e.preventDefault();
-            handleNext();
+            goNext();
         };
 
         // Attach event listeners
@@ -53,7 +51,7 @@ const useExternalNav = ({
             prevNav.removeEventListener('click', handlePrevClick);
             nextNav.removeEventListener('click', handleNextClick);
         };
-    }, [externalNav, navElement, handleNext, handlePrev]);
+    }, [externalNav, navElement, goNext, goPrev]);
 };
 
 export default useExternalNav;

@@ -5,13 +5,10 @@ import { type FilterConfig } from '../filters/';
 import { FilterFactory } from '../filters/';
 import { useKineticSlider } from '../context/KineticSliderContext';
 
-// Define a more specific type for the target objects we're applying filters to
-type FilterableObject = Container;
-
 // Type to represent a map of objects to their applied filters and control functions
 interface FilterMap {
     [id: string]: {
-        target: FilterableObject;
+        target: Container;
         filters: {
             instance: any;
             updateIntensity: (intensity: number) => void;
@@ -172,7 +169,7 @@ export const useFilters = () => {
 
     // Apply the configured filters to an array of objects
     const applyFiltersToObjects = useCallback((
-        objects: FilterableObject[],
+        objects: Container[],
         filterConfigs: FilterConfig[],
         idPrefix: string
     ) => {

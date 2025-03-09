@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Application, Container, Assets } from 'pixi.js';
-import { type PixiRefs } from '../types';
 import { gsap } from 'gsap';
+import { useKineticSlider } from '../context/KineticSliderContext';
 
 /**
  * Helper function to load fonts for the slider
@@ -22,27 +22,18 @@ const loadFont = async (fontPath: string): Promise<boolean> => {
 
 /**
  * Custom hook to initialize and manage a Pixi Application
- *
- * @param sliderRef - Reference to the slider DOM element
- * @param images - Array of image URLs to preload
- * @param displacementImages - Array of displacement image URLs to preload
- * @returns Object containing Pixi application references and initialization status
+ * This hook uses context to store and update references
  */
-export const usePixiApp = (
-    sliderRef: React.RefObject<HTMLDivElement | null>,
-    images: string[],
-    displacementImages: string[]
-): { pixiRefs: PixiRefs; isInitialized: boolean } => {
-    const appRef = useRef<Application | null>(null);
-    const slidesRef = useRef<any[]>([]);
-    const textContainersRef = useRef<Container[]>([]);
-    const backgroundDisplacementSpriteRef = useRef<any>(null);
-    const cursorDisplacementSpriteRef = useRef<any>(null);
-    const bgDispFilterRef = useRef<any>(null);
-    const cursorDispFilterRef = useRef<any>(null);
-    const currentIndex = useRef<number>(0);
+export const usePixiApp = () => {
+    // Get context values for updating references
+    const {
+        sliderRef,
+        pixiRefs,
+        props,
+        setIsAppReady
+    } = useKineticSlider();
 
-    // Track initialization status
+    // Track initialization status locally
     const isInitialized = useRef<boolean>(false);
 
     // Initialize Pixi and GSAP
@@ -106,7 +97,7 @@ export const usePixiApp = (
                     // Continue without the font
                 }
 
-                // Mark as initialized
+                // Mark as initialized locally
                 isInitialized.current = true;
 
                 console.log("Pixi.js initialization complete");
@@ -124,14 +115,22 @@ export const usePixiApp = (
         if (typeof window === 'undefined') return;
 
         // Only proceed if initialized but app not yet created
-        if (!isInitialized.current || !sliderRef.current || appRef.current) return;
+        if (!isInitialized.current || !sliderRef.current || pixiRefs.app.current) return;
 
         const createPixiApp = async () => {
             try {
                 console.log("Creating Pixi application...");
 
+                // Get the images from props
+                const { images = [], backgroundDisplacementSpriteLocation, cursorDisplacementSpriteLocation } = props;
+
                 // Preload all required assets with proper error handling
-                const assetsToLoad = [...images, ...displacementImages];
+                const assetsToLoad = [
+                    ...images,
+                    backgroundDisplacementSpriteLocation,
+                    cursorDisplacementSpriteLocation
+                ].filter(Boolean); // Remove any undefined assets
+
                 for (const asset of assetsToLoad) {
                     try {
                         await Assets.load(asset);
@@ -158,12 +157,15 @@ export const usePixiApp = (
                     app.canvas.classList.add('kinetic-slider-canvas');
                 }
 
-                // Store the app reference
-                appRef.current = app;
+                // Store the app reference in the context
+                pixiRefs.app.current = app;
 
                 // Create the main stage container
                 const stage = new Container();
                 app.stage.addChild(stage);
+
+                // Signal that the app is ready
+                setIsAppReady(true);
 
                 console.log("Pixi application created successfully");
             } catch (error) {
@@ -175,7 +177,7 @@ export const usePixiApp = (
 
         // Cleanup function to destroy the app
         return () => {
-            if (appRef.current) {
+            if (pixiRefs.app.current) {
                 // Find and remove the canvas element
                 if (sliderRef.current) {
                     const canvas = sliderRef.current.querySelector('canvas');
@@ -185,26 +187,14 @@ export const usePixiApp = (
                 }
 
                 // Destroy the app
-                appRef.current.destroy(true);
-                appRef.current = null;
+                pixiRefs.app.current.destroy(true);
+                pixiRefs.app.current = null;
+
+                // Update context state
+                setIsAppReady(false);
 
                 console.log("Pixi application destroyed");
             }
         };
-    }, [sliderRef, images, displacementImages, isInitialized.current]);
-
-    // Return refs for use in other hooks
-    return {
-        pixiRefs: {
-            app: appRef,
-            slides: slidesRef,
-            textContainers: textContainersRef,
-            backgroundDisplacementSprite: backgroundDisplacementSpriteRef,
-            cursorDisplacementSprite: cursorDisplacementSpriteRef,
-            bgDispFilter: bgDispFilterRef,
-            cursorDispFilter: cursorDispFilterRef,
-            currentIndex
-        },
-        isInitialized: isInitialized.current
-    };
+    }, [sliderRef, pixiRefs.app, props.images, props.backgroundDisplacementSpriteLocation, props.cursorDisplacementSpriteLocation, isInitialized.current, setIsAppReady]);
 };

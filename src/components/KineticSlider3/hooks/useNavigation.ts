@@ -1,19 +1,20 @@
 import { useEffect } from 'react';
-
-interface UseNavigationProps {
-    onNext: () => void;
-    onPrev: () => void;
-    enableKeyboardNav?: boolean;
-}
+import { useKineticSlider } from '../context/KineticSliderContext';
 
 /**
  * Hook to set up navigation controls for the slider
  */
-const useNavigation = ({
-                           onNext,
-                           onPrev,
-                           enableKeyboardNav = true
-                       }: UseNavigationProps) => {
+const useNavigation = () => {
+    // Use the KineticSlider context instead of receiving props directly
+    const {
+        props,
+        actions
+    } = useKineticSlider();
+
+    // Extract navigation functions and options
+    const { enableKeyboardNav = true } = props;
+    const { goNext, goPrev } = actions;
+
     // Set up keyboard navigation
     useEffect(() => {
         // Skip during server-side rendering
@@ -24,10 +25,10 @@ const useNavigation = ({
         const handleKeyDown = (e: KeyboardEvent) => {
             switch (e.key) {
                 case 'ArrowLeft':
-                    onPrev();
+                    goPrev();
                     break;
                 case 'ArrowRight':
-                    onNext();
+                    goNext();
                     break;
                 default:
                     break;
@@ -39,7 +40,7 @@ const useNavigation = ({
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [onNext, onPrev, enableKeyboardNav]);
+    }, [goNext, goPrev, enableKeyboardNav]);
 
     // Listen for custom slide change events
     useEffect(() => {
@@ -49,7 +50,7 @@ const useNavigation = ({
         const handleSlideChange = (e: Event) => {
             const customEvent = e as CustomEvent;
             if (customEvent.detail && typeof customEvent.detail.nextIndex === 'number') {
-                onNext();
+                goNext();
             }
         };
 
@@ -58,11 +59,11 @@ const useNavigation = ({
         return () => {
             window.removeEventListener('slideChange', handleSlideChange);
         };
-    }, [onNext]);
+    }, [goNext]);
 
     return {
-        goNext: onNext,
-        goPrev: onPrev
+        goNext,
+        goPrev
     };
 };
 

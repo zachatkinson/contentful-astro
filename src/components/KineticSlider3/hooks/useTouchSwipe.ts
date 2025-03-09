@@ -1,18 +1,21 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect } from "react";
+import { useKineticSlider } from '../context/KineticSliderContext';
 
-interface UseTouchSwipeProps {
-    sliderRef: RefObject<HTMLDivElement | null>;
-    onSwipeLeft: () => void;
-    onSwipeRight: () => void;
-    threshold?: number; // Optional override for swipe threshold.
-}
+/**
+ * Hook to handle touch swipe gestures for navigation
+ */
+const useTouchSwipe = () => {
+    // Use the KineticSlider context instead of receiving props directly
+    const {
+        sliderRef,
+        props,
+        actions
+    } = useKineticSlider();
 
-const useTouchSwipe = ({
-                           sliderRef,
-                           onSwipeLeft,
-                           onSwipeRight,
-                           threshold,
-                       }: UseTouchSwipeProps) => {
+    // Extract swipe threshold and navigation functions
+    const { swipeThreshold } = props;
+    const { goNext, goPrev } = actions;
+
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
@@ -21,9 +24,9 @@ const useTouchSwipe = ({
         if (!slider) return;
 
         // Compute default threshold if not provided.
-        const swipeThreshold = threshold ?? window.innerWidth * 0.2;
+        const threshold = swipeThreshold ?? window.innerWidth * 0.2;
 
-        console.log(`Touch swipe handler initialized with threshold: ${swipeThreshold}px`);
+        console.log(`Touch swipe handler initialized with threshold: ${threshold}px`);
 
         let touchStartX = 0;
         let touchEndX = 0;
@@ -51,18 +54,18 @@ const useTouchSwipe = ({
             if (!isSwiping) return;
 
             const swipeDistance = touchEndX - touchStartX;
-            console.log(`Touch end, swipe distance: ${swipeDistance}px (threshold: ${swipeThreshold}px)`);
+            console.log(`Touch end, swipe distance: ${swipeDistance}px (threshold: ${threshold}px)`);
 
-            if (Math.abs(swipeDistance) > swipeThreshold) {
+            if (Math.abs(swipeDistance) > threshold) {
                 if (swipeDistance < 0) {
                     console.log("Swipe left detected, navigating to next slide");
-                    onSwipeLeft();
+                    goNext();
                 } else {
                     console.log("Swipe right detected, navigating to previous slide");
-                    onSwipeRight();
+                    goPrev();
                 }
             } else {
-                console.log(`Swipe ignored, below threshold (${Math.abs(swipeDistance)}px < ${swipeThreshold}px)`);
+                console.log(`Swipe ignored, below threshold (${Math.abs(swipeDistance)}px < ${threshold}px)`);
             }
 
             isSwiping = false;
@@ -87,7 +90,7 @@ const useTouchSwipe = ({
             slider.removeEventListener("touchend", handleTouchEnd);
             slider.removeEventListener("touchcancel", handleTouchCancel);
         };
-    }, [sliderRef, onSwipeLeft, onSwipeRight, threshold]);
+    }, [sliderRef.current, goNext, goPrev, swipeThreshold]);
 };
 
 export default useTouchSwipe;

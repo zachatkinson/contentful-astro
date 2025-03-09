@@ -1,119 +1,98 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
-import type { KineticSliderProps } from '../types';
+import { useEffect, useState } from 'react';
+import { useKineticSlider } from '../context/KineticSliderContext';
+
+// Import all hooks - these now use context internally
+import { usePixiApp } from './usePixiApp';
+import { useDisplacementEffects } from './useDisplacementEffects';
+import { useFilters } from './useFilters';
+import { useSlides } from './useSlides';
+import { useTextContainers } from './useTextContainers';
+import { useMouseTracking } from './useMouseTracking';
+import { useIdleTimer } from './useIdleTimer';
+import { useNavigation } from './useNavigation';
+import { useExternalNav } from './useExternalNav';
+import { useTouchSwipe } from './useTouchSwipe';
+import { useMouseDrag } from './useMouseDrag';
+import { useTextTilt } from './useTextTilt';
+import { useResizeHandler } from './useResizeHandler';
 
 /**
- * Custom hook to initialize and manage the PixiJS slider
+ * Main hook for KineticSlider - orchestrates all other hooks and provides a simplified API
+ * Now uses the KineticSlider context for state management
  */
-export const usePixiSlider = (
-    sliderRef: RefObject<HTMLDivElement>,
-    canvasContainerRef: RefObject<HTMLDivElement>,
-    props: KineticSliderProps
-) => {
-    // Track initialization status
-    const [isInitializing, setIsInitializing] = useState(false);
-    const [isInitialized, setIsInitialized] = useState(false);
-    const [currentSlide, setCurrentSlide] = useState(0);
+export const usePixiSlider = () => {
+    // Get context values
+    const {
+        states,
+        setters,
+        actions,
+        props
+    } = useKineticSlider();
 
-    // Track module imports
-    const modulesRef = useRef<{
-        pixi?: any;
-        gsap?: any;
-        hooks?: any;
-    }>({});
+    // Track local initialization state
+    const [hooksInitialized, setHooksInitialized] = useState(false);
 
-    // Initialize the slider
+    // Initialize all hooks - they now use context internally
+    usePixiApp(); // Initialize PixiJS application first
+
+    // Only initialize other hooks once the app is ready
     useEffect(() => {
-        // Skip during server-side rendering
-        if (typeof window === 'undefined' || !sliderRef.current || !canvasContainerRef.current || isInitializing || isInitialized) {
-            return;
-        }
+        if (!states.isAppReady) return;
 
-        const initializeSlider = async () => {
-            setIsInitializing(true);
+        // If already initialized, don't initialize again
+        if (hooksInitialized) return;
 
-            try {
-                // Import GSAP
-                const gsapModule = await import('gsap');
-                modulesRef.current.gsap = gsapModule.gsap;
+        console.log('PixiJS application ready, initializing other hooks...');
 
-                // Import the PixiJS Plugin for GSAP
-                try {
-                    const { default: PixiPlugin } = await import('gsap/PixiPlugin');
-                    modulesRef.current.gsap.registerPlugin(PixiPlugin);
-                } catch (error) {
-                    console.warn('Could not load PixiPlugin for GSAP:', error);
-                }
+        // Set hooks as initialized to prevent re-initialization
+        setHooksInitialized(true);
 
-                // Import all hooks
-                const hooks = await import('./index.ts');
-                modulesRef.current.hooks = hooks;
+        // Other hooks will be automatically initialized when imported
+        // They don't need parameters anymore as they use context
+    }, [states.isAppReady, hooksInitialized]);
 
-                // Initialize the PixiJS application and setup hooks
-                if (sliderRef.current && canvasContainerRef.current) {
-                    const { pixiRefs, isInitialized: pixiInitialized } = hooks.usePixiApp(
-                        sliderRef,
-                        props.images,
-                        [props.backgroundDisplacementSpriteLocation || '', props.cursorDisplacementSpriteLocation || '']
-                    );
+    // Initialize feature hooks once basic initialization is complete
+    useDisplacementEffects();
+    useFilters();
+    useSlides();
+    useTextContainers();
 
-                    if (!pixiInitialized) {
-                        throw new Error('Failed to initialize PixiJS application');
-                    }
-
-                    // Setup slider components using the hooks
-                    setupSliderComponents(pixiRefs, hooks);
-                    setIsInitialized(true);
-                }
-            } catch (error) {
-                console.error('Error initializing PixiJS slider:', error);
-            } finally {
-                setIsInitializing(false);
-            }
-        };
-
-        initializeSlider();
-
-        // Cleanup function
-        return () => {
-            // Dispose PixiJS resources if needed
-        };
-    }, [sliderRef.current, canvasContainerRef.current, props.images]);
-
-    // Set up the slider components using the hooks
-    const setupSliderComponents = (pixiRefs: any, hooks: any) => {
-        // Implement the slider setup using hooks
-        // This is a simplified version - you would need to adapt this to your actual hooks
-    };
-
-    // Handle slide navigation
-    const goToNextSlide = () => {
-        if (!isInitialized) return;
-        setCurrentSlide((prev) => (prev + 1) % props.images.length);
-        // Call the appropriate hook method to transition slides
-    };
-
-    const goToPrevSlide = () => {
-        if (!isInitialized) return;
-        setCurrentSlide((prev) => (prev - 1 + props.images.length) % props.images.length);
-        // Call the appropriate hook method to transition slides
-    };
+    // Initialize interaction hooks
+    useMouseTracking();
+    useIdleTimer();
+    useNavigation();
+    useExternalNav();
+    useTouchSwipe();
+    useMouseDrag();
+    useTextTilt();
+    useResizeHandler();
 
     // Handle mouse interaction states
     const handleMouseEnter = () => {
-        if (!isInitialized) return;
-        // Enable displacement effects
+        if (!states.isFullyInitialized) return;
+        setters.setIsInteracting(true);
+        actions.showEffects();
     };
 
     const handleMouseLeave = () => {
-        if (!isInitialized) return;
-        // Disable displacement effects
+        if (!states.isFullyInitialized) return;
+        setters.setIsInteracting(false);
+        actions.hideEffects();
     };
 
     return {
-        isInitialized,
-        currentSlide,
-        goToNextSlide,
-        goToPrevSlide,
+        // Initialization states
+        isInitialized: states.isFullyInitialized,
+        isAppReady: states.isAppReady,
+
+        // Current slide
+        currentSlide: states.currentIndex,
+
+        // Navigation methods
+        goToNextSlide: actions.goNext,
+        goToPrevSlide: actions.goPrev,
+
+        // Mouse handlers
         handleMouseEnter,
         handleMouseLeave
     };

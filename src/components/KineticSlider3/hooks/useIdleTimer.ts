@@ -1,31 +1,33 @@
-import { useEffect, useRef, type RefObject, type MutableRefObject } from 'react';
-import { DisplacementFilter } from 'pixi.js';
+import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
-
-interface UseIdleTimerProps {
-    sliderRef: RefObject<HTMLDivElement | null>;
-    cursorActive: MutableRefObject<boolean>;
-    bgDispFilterRef: RefObject<DisplacementFilter | null>;
-    cursorDispFilterRef: RefObject<DisplacementFilter | null>;
-    cursorImgEffect: boolean;
-    defaultBgFilterScale: number;
-    defaultCursorFilterScale: number;
-    idleTimeout?: number;
-}
+import { useKineticSlider } from '../context/KineticSliderContext';
 
 /**
  * Hook to manage idle timer for resetting displacement effects
  */
-const useIdleTimer = ({
-                          sliderRef,
-                          cursorActive,
-                          bgDispFilterRef,
-                          cursorDispFilterRef,
-                          cursorImgEffect,
-                          defaultBgFilterScale,
-                          defaultCursorFilterScale,
-                          idleTimeout = 300
-                      }: UseIdleTimerProps) => {
+const useIdleTimer = () => {
+    // Use the KineticSlider context instead of receiving props directly
+    const {
+        sliderRef,
+        pixiRefs,
+        props,
+        states
+    } = useKineticSlider();
+
+    // Extract necessary props and state
+    const { cursorImgEffect = false, idleTimeout = 300 } = props;
+    const { isInteracting: cursorActive } = states;
+
+    // Extract filter references
+    const {
+        bgDispFilter: bgDispFilterRef,
+        cursorDispFilter: cursorDispFilterRef
+    } = pixiRefs;
+
+    // Define default filter scales
+    const defaultBgFilterScale = 20;
+    const defaultCursorFilterScale = 10;
+
     // Store idle timer reference
     const idleTimerRef = useRef<number | null>(null);
 
@@ -39,7 +41,7 @@ const useIdleTimer = ({
 
         const handleMouseMove = () => {
             // Only apply scale effects if cursor is active (mouse is over the slider)
-            if (cursorActive.current) {
+            if (cursorActive) {
                 // Reset background displacement filter scale
                 if (bgDispFilterRef.current) {
                     gsap.to(bgDispFilterRef.current.scale, {
@@ -69,7 +71,7 @@ const useIdleTimer = ({
             // Set new timer
             idleTimerRef.current = window.setTimeout(() => {
                 // Gradually reset filter scales after idle time
-                if (cursorActive.current) {
+                if (cursorActive) {
                     if (bgDispFilterRef.current) {
                         gsap.to(bgDispFilterRef.current.scale, {
                             x: 0,
@@ -106,8 +108,7 @@ const useIdleTimer = ({
         bgDispFilterRef.current,
         cursorDispFilterRef.current,
         cursorImgEffect,
-        defaultBgFilterScale,
-        defaultCursorFilterScale,
+        cursorActive,
         idleTimeout
     ]);
 };
