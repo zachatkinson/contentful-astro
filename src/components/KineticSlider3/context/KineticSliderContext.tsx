@@ -1,7 +1,6 @@
-// For the first error, we need to modify the type definition to allow null
-// For the second error, we need to add currentIndex to the states object
+// src/components/KineticSlider3/context/KineticSliderContext.tsx
 
-import React, { createContext, useContext, useRef, useState } from 'react';
+import React, { createContext, useContext, useRef, useState, useCallback, useEffect } from 'react';
 import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
 import { useSharedResources } from './SharedResourceContext';
 import type { KineticSliderProps, PixiRefs } from '../types';
@@ -55,15 +54,41 @@ export const KineticSliderProvider: React.FC<{
     children: React.ReactNode;
     props: KineticSliderProps;
 }> = ({ children, props }) => {
-    // Generate unique ID for this instance
-    const instanceId = useRef(`ks-${Math.random().toString(36).substring(2, 9)}`).current;
+    // Track component unmounting to prevent cleanup errors
+    const componentUnmounting = useRef(false);
+
+    // FIX: Generate stable IDs for SSR compatibility
+    const instanceIdRef = useRef<string | null>(null);
+    // Use a placeholder ID for server rendering, and generate a real one on client only
+    const instanceId = instanceIdRef.current ||
+        (typeof window !== 'undefined'
+            ? `ks-${Math.random().toString(36).substring(2, 9)}`
+            : 'ks-server-placeholder');
+
     const { registerInstance, unregisterInstance } = useSharedResources();
 
-    // Register this instance
-    React.useEffect(() => {
-        registerInstance(instanceId);
-        return () => unregisterInstance(instanceId);
-    }, [instanceId, registerInstance, unregisterInstance]);
+    // Initialize instanceId on client-side only
+    useEffect(() => {
+        if (!instanceIdRef.current && typeof window !== 'undefined') {
+            instanceIdRef.current = `ks-${Math.random().toString(36).substring(2, 9)}`;
+        }
+    }, []);
+
+    // Register this instance with stable dependencies
+    useEffect(() => {
+        if (instanceIdRef.current) {
+            registerInstance(instanceIdRef.current);
+        }
+
+        return () => {
+            // Set unmounting flag to prevent issues during cleanup
+            componentUnmounting.current = true;
+
+            if (instanceIdRef.current) {
+                unregisterInstance(instanceIdRef.current);
+            }
+        };
+    }, [registerInstance, unregisterInstance]);
 
     // Create refs
     const sliderRef = useRef<HTMLDivElement | null>(null);
@@ -86,7 +111,7 @@ export const KineticSliderProvider: React.FC<{
     const [isInteracting, setIsInteracting] = useState(false);
 
     // Create initialization handler
-    const handleInitialization = (system: string) => {
+    const handleInitialization = useCallback((system: string) => {
         console.log(`${system} system initialized for instance ${instanceId}`);
 
         switch (system) {
@@ -96,38 +121,38 @@ export const KineticSliderProvider: React.FC<{
             case 'filters': setIsFiltersInitialized(true); break;
             case 'displacement': break; // Already handled separately
         }
-    };
+    }, [instanceId]);
 
     // Check full initialization
-    React.useEffect(() => {
+    useEffect(() => {
         if (isAppReady && isSlidesInitialized && isTextInitialized &&
             isFiltersInitialized && !isFullyInitialized) {
             console.log(`KineticSlider instance ${instanceId} fully initialized and ready`);
             setIsFullyInitialized(true);
         }
-    }, [isAppReady, isSlidesInitialized, isTextInitialized, isFiltersInitialized, isFullyInitialized]);
+    }, [isAppReady, isSlidesInitialized, isTextInitialized, isFiltersInitialized, isFullyInitialized, instanceId]);
 
     // Define necessary actions (placeholders for now, you'll implement these)
-    const goNext = () => {
+    const goNext = useCallback(() => {
         // Implementation will be added later
-    };
+    }, []);
 
-    const goPrev = () => {
+    const goPrev = useCallback(() => {
         // Implementation will be added later
-    };
+    }, []);
 
-    const showEffects = () => {
+    const showEffects = useCallback(() => {
         // Implementation will be added later
-    };
+    }, []);
 
-    const hideEffects = () => {
+    const hideEffects = useCallback(() => {
         // Implementation will be added later
-    };
+    }, []);
 
     return (
         <KineticSliderContext.Provider
             value={{
-                instanceId,
+                instanceId: instanceIdRef.current || instanceId,
                 sliderRef,
                 pixiRefs: {
                     app: appRef,

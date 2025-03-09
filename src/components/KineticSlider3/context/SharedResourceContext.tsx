@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Assets } from 'pixi.js';
 import { gsap } from 'gsap';
 
@@ -25,8 +25,16 @@ export const SharedResourceProvider: React.FC<{ children: React.ReactNode }> = (
     const [isPixiReady, setIsPixiReady] = useState(false);
     const [instanceIds, setInstanceIds] = useState<Set<string>>(new Set());
 
-    // Initialize shared libraries
+    // Track component unmounting state to prevent updates after unmount
+    const isUnmountingRef = useRef(false);
+
+    // Track if we're on client side to prevent SSR issues
+    const isClientSide = typeof window !== 'undefined';
+
+    // Initialize shared libraries - only on client side
     useEffect(() => {
+        if (!isClientSide) return;
+
         const initLibraries = async () => {
             try {
                 // Load GSAP
@@ -41,23 +49,41 @@ export const SharedResourceProvider: React.FC<{ children: React.ReactNode }> = (
         };
 
         initLibraries();
-    }, []);
 
-    const registerInstance = (id: string) => {
+        // Set unmounting flag on cleanup
+        return () => {
+            isUnmountingRef.current = true;
+        };
+    }, [isClientSide]);
+
+    // Use useCallback to stabilize these functions to prevent infinite update loops
+    const registerInstance = useCallback((id: string) => {
+        // Skip if unmounting or server-side
+        if (isUnmountingRef.current || !isClientSide) return;
+
         setInstanceIds(prev => {
+            // Skip update if id already exists
+            if (prev.has(id)) return prev;
+
             const updated = new Set(prev);
             updated.add(id);
             return updated;
         });
-    };
+    }, [isClientSide]);
 
-    const unregisterInstance = (id: string) => {
+    const unregisterInstance = useCallback((id: string) => {
+        // Skip if unmounting or server-side
+        if (isUnmountingRef.current || !isClientSide) return;
+
         setInstanceIds(prev => {
+            // Skip update if id doesn't exist to avoid unnecessary renders
+            if (!prev.has(id)) return prev;
+
             const updated = new Set(prev);
             updated.delete(id);
             return updated;
         });
-    };
+    }, [isClientSide]);
 
     return (
         <SharedResourceContext.Provider
