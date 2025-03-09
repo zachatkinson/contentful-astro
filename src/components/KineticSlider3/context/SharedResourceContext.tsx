@@ -1,4 +1,3 @@
-// src/components/KineticSlider3/context/SharedResourceContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Assets } from 'pixi.js';
 import { gsap } from 'gsap';
