@@ -400,7 +400,15 @@ export const useFilters = (
                 // Only keep the base displacement filters but with zero scale
                 // so they exist but have no visual effect
                 if (entry.target.filters) {
-                    entry.target.filters = [...baseFilters];
+                    // IMPORTANT CHANGE: Only apply this to slides, not text containers
+                    // This ensures text containers remain visible
+                    if (id.startsWith('slide-')) {
+                        entry.target.filters = [...baseFilters];
+                    } else if (id.startsWith('text-')) {
+                        // For text, keep the filters but make sure they're not affecting visibility
+                        // This is usually handled by the reset() call above
+                        // We don't change the filters array to avoid removing necessary filters
+                    }
                 }
             } catch (filterError) {
                 console.error(`Error cleaning up filters for ${id}:`, filterError);
@@ -482,6 +490,14 @@ export const useFilters = (
 
                 // Set the combined filters on the object
                 target.filters = [...baseFilters, ...customFilters];
+
+                // IMPORTANT CHANGE: Make sure text container is always visible
+                if (target.alpha === 0) {
+                    target.alpha = 1;
+                }
+                if (!target.visible) {
+                    target.visible = true;
+                }
 
                 console.log(`Applied ${baseFilters.length + customFilters.length} filters to text`);
             } catch (error) {

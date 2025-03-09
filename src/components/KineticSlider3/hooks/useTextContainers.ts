@@ -141,10 +141,10 @@ const useTextContainers = ({
                 textContainer.addChild(subText);
                 textContainer.pivot.y = textContainer.height / 2;
 
-                // IMPORTANT: Set initial visibility properties
-                // Text should ALWAYS be visible, but only the current slide's text should be shown
+                // IMPORTANT CHANGE: Set initial visibility properties
+                // All text containers are now visible, but only current has alpha=1
                 textContainer.alpha = index === 0 ? 1 : 0;
-                textContainer.visible = index === 0; // Only first container visible initially
+                textContainer.visible = true; // Always visible, even for non-current slides
 
                 // Enable button mode if specified
                 if (buttonMode) {

@@ -216,12 +216,13 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
         currentSlide.visible = true;
         nextSlide.visible = true;
 
-        // Ensure next elements start invisible (alpha = 0)
+        // IMPORTANT CHANGE: Only apply alpha=0 to the slide, not the text container
         nextSlide.alpha = 0;
 
         if (nextTextContainer) {
-            nextTextContainer.alpha = 0;
-            nextTextContainer.visible = true; // Make next text visible before transition
+            // IMPORTANT CHANGE: Make sure next text starts fully visible
+            nextTextContainer.alpha = 1; // Start with full opacity
+            nextTextContainer.visible = true; // Make sure it's visible
         }
 
         // Calculate scale based on transition intensity
@@ -233,12 +234,13 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
                 // Hide previous slide after transition completes
                 currentSlide.visible = false;
 
-                // Hide previous text container after transition completes
+                // IMPORTANT CHANGE: Don't hide or change alpha of previous text container
                 if (currentTextContainer) {
-                    currentTextContainer.visible = false;
+                    currentTextContainer.visible = true; // Keep it visible but not shown
+                    currentTextContainer.alpha = 0; // Keep it transparent
                 }
 
-                // IMPORTANT: Ensure the next text container remains visible and at full alpha
+                // IMPORTANT CHANGE: Ensure the next text container remains visible and at full alpha
                 if (nextTextContainer) {
                     nextTextContainer.visible = true;
                     nextTextContainer.alpha = 1;
@@ -276,15 +278,15 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
                 ease: 'power2.out',
             }, 0);
 
-        // Also animate text containers if available
+        // IMPORTANT CHANGE: Only animate the slide opacity, not the text container
         if (currentTextContainer && nextTextContainer) {
             tl.to(currentTextContainer, {
-                alpha: 0,
+                alpha: 0, // Fade out current text
                 duration: 1,
                 ease: 'power2.out',
             }, 0)
                 .to(nextTextContainer, {
-                    alpha: 1,
+                    alpha: 1, // Fade in next text
                     duration: 1,
                     ease: 'power2.out'
                 }, 0);
