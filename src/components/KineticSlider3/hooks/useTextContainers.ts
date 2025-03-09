@@ -37,6 +37,7 @@ const useTextContainers = ({
                                textContainersRef,
                                currentIndex,
                                buttonMode,
+                               textsRgbEffect,
                                texts,
                                textTitleColor,
                                textTitleSize,
@@ -49,14 +50,15 @@ const useTextContainers = ({
                                textSubTitleLetterspacing,
                                textSubTitleOffsetTop,
                                mobileTextSubTitleOffsetTop,
-                               textSubTitleFontFamily
+                               textSubTitleFontFamily,
+                               onInitialized
                            }: UseTextContainersProps) => {
     // Create text containers
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
 
-        // Changed condition: don't check slidesRef.current.length
+        // Don't check slidesRef.current.length - text containers should be created even if slides aren't ready yet
         if (!appRef.current || !texts.length) {
             console.log('Cannot create text containers - missing app or texts');
             console.log({
@@ -139,9 +141,10 @@ const useTextContainers = ({
                 textContainer.addChild(subText);
                 textContainer.pivot.y = textContainer.height / 2;
 
-                // Set initial state - only show the first container
+                // IMPORTANT: Set initial visibility properties
+                // Text should ALWAYS be visible, but only the current slide's text should be shown
                 textContainer.alpha = index === 0 ? 1 : 0;
-                textContainer.visible = index === 0;
+                textContainer.visible = index === 0; // Only first container visible initially
 
                 // Enable button mode if specified
                 if (buttonMode) {
@@ -164,17 +167,33 @@ const useTextContainers = ({
                     });
                 }
 
+                // IMPORTANT: Log details about the text container
+                console.log(`Created text container ${index}:`, {
+                    title: title || 'Title',
+                    subtitle: subtitle || 'Subtitle',
+                    width: textContainer.width,
+                    height: textContainer.height,
+                    x: textContainer.x,
+                    y: textContainer.y,
+                    alpha: textContainer.alpha,
+                    visible: textContainer.visible
+                });
+
                 // Add to stage and store reference
                 stage.addChild(textContainer);
                 textContainersRef.current.push(textContainer);
 
-                console.log(`Created text container ${index}: "${title}" / "${subtitle}"`);
             } catch (error) {
                 console.error(`Error creating text container ${index}:`, error);
             }
         });
 
         console.log(`Created ${textContainersRef.current.length} text containers`);
+
+        // Signal to parent component that text containers are initialized
+        if (typeof onInitialized === 'function') {
+            onInitialized('text');
+        }
 
         return () => {
             // Cleanup
@@ -201,7 +220,8 @@ const useTextContainers = ({
         textSubTitleOffsetTop,
         mobileTextSubTitleOffsetTop,
         textSubTitleFontFamily,
-        buttonMode
+        buttonMode,
+        onInitialized
     ]);
 
     // Handle window resize for text containers

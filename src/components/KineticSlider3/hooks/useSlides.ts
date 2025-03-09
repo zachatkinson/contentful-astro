@@ -96,8 +96,6 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
             try {
                 console.log('Loading slide textures and creating sprites...');
 
-
-
                 // Batch load all textures using the texture manager if available
                 let textures: Texture[] = [];
 
@@ -178,23 +176,39 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
      */
     const transitionToSlide = useCallback((nextIndex: number) => {
         if (!pixi.slides.current.length) {
+            console.warn("No slides available for transition");
             return;
         }
 
         if (nextIndex < 0 || nextIndex >= pixi.slides.current.length) {
+            console.warn(`Invalid slide index: ${nextIndex}. Valid range: 0-${pixi.slides.current.length - 1}`);
             return;
         }
 
         const currentIndex = pixi.currentIndex.current;
+
+        // Skip if trying to transition to the same slide
+        if (currentIndex === nextIndex) {
+            console.log(`Already at slide ${nextIndex}, skipping transition`);
+            return;
+        }
+
+        console.log(`Transitioning from slide ${currentIndex} to ${nextIndex}`);
+
         const currentSlide = pixi.slides.current[currentIndex];
         const nextSlide = pixi.slides.current[nextIndex];
 
         // Handle text containers if available
-        const currentTextContainer = pixi.textContainers.current[currentIndex];
-        const nextTextContainer = pixi.textContainers.current[nextIndex];
+        const hasTextContainers = pixi.textContainers.current &&
+            pixi.textContainers.current.length > 0 &&
+            pixi.textContainers.current.length === pixi.slides.current.length;
+
+        const currentTextContainer = hasTextContainers ? pixi.textContainers.current[currentIndex] : null;
+        const nextTextContainer = hasTextContainers ? pixi.textContainers.current[nextIndex] : null;
 
         // Ensure next slide is loaded
         if (!nextSlide || !nextSlide.texture) {
+            console.error("Next slide or texture is not available");
             return;
         }
 
@@ -204,47 +218,37 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
 
         // Ensure next elements start invisible (alpha = 0)
         nextSlide.alpha = 0;
+
         if (nextTextContainer) {
             nextTextContainer.alpha = 0;
             nextTextContainer.visible = true; // Make next text visible before transition
         }
 
-        // Calculate scale based on transition intensity and current quality level
-        const qualityMultiplier = qualityLevel === 'low' ? 0.7 :
-            qualityLevel === 'medium' ? 0.85 : 1.0;
-        const scaleMultiplier = 1 + ((props.transitionScaleIntensity || 30) / 100) * qualityMultiplier;
+        // Calculate scale based on transition intensity
+        const scaleMultiplier = 1 + ((props.transitionScaleIntensity || 30) / 100);
 
-        // Create a timeline for the transition using GSAP directly or animation manager if available
-        let tl: gsap.core.Timeline;
+        // Create a timeline for the transition
+        const tl = gsap.timeline({
+            onComplete: () => {
+                // Hide previous slide after transition completes
+                currentSlide.visible = false;
 
-        if (animationManager) {
-            tl = animationManager.timeline({
-                onComplete: () => {
-                    // Hide previous slide after transition completes
-                    currentSlide.visible = false;
-
-                    // Hide previous text after transition completes
-                    if (currentTextContainer) {
-                        currentTextContainer.visible = false;
-                    }
+                // Hide previous text container after transition completes
+                if (currentTextContainer) {
+                    currentTextContainer.visible = false;
                 }
-            }, 'slides');
-        } else {
-            // Use regular GSAP timeline if animation manager is not available
-            tl = gsap.timeline({
-                onComplete: () => {
-                    // Hide previous slide after transition completes
-                    currentSlide.visible = false;
 
-                    // Hide previous text after transition completes
-                    if (currentTextContainer) {
-                        currentTextContainer.visible = false;
-                    }
+                // IMPORTANT: Ensure the next text container remains visible and at full alpha
+                if (nextTextContainer) {
+                    nextTextContainer.visible = true;
+                    nextTextContainer.alpha = 1;
                 }
-            });
-        }
 
-        // Animate the transition with managed animations
+                console.log(`Transition to slide ${nextIndex} complete`);
+            }
+        });
+
+        // Animate the transition
         tl.to(currentSlide.scale, {
             x: currentSlide.baseScale! * scaleMultiplier,
             y: currentSlide.baseScale! * scaleMultiplier,
@@ -284,14 +288,15 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
                     duration: 1,
                     ease: 'power2.out'
                 }, 0);
+        } else {
+            console.warn(`Text containers not available for transition: current=${!!currentTextContainer}, next=${!!nextTextContainer}`);
         }
 
         // Update current index
         pixi.currentIndex.current = nextIndex;
 
         return tl;
-    }, [pixi.slides.current, pixi.textContainers.current, pixi.currentIndex,
-        props.transitionScaleIntensity, animationManager, qualityLevel]);
+    }, [pixi.slides.current, pixi.textContainers.current, pixi.currentIndex, props.transitionScaleIntensity]);
 
     /**
      * Update slides based on window resize

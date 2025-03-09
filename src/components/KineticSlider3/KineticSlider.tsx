@@ -350,7 +350,17 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
     // Navigation functions with effect reapplication
     const handleNext = useCallback(() => {
-        if (!appRef.current || !isAppReady || slidesRef.current.length === 0 || !fullyInitialized) return;
+        if (!appRef.current || !isAppReady || slidesRef.current.length === 0 || !fullyInitialized) {
+            console.warn("Cannot navigate next: app not ready or no slides available", {
+                appReady: !!appRef.current,
+                isAppReady,
+                slidesCount: slidesRef.current.length,
+                initialized: fullyInitialized
+            });
+            return;
+        }
+
+        console.log("Navigating to next slide");
         const nextIndex = (currentSlideIndex + 1) % slidesRef.current.length;
 
         // First transition the slide
@@ -371,7 +381,17 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities, fullyInitialized]);
 
     const handlePrev = useCallback(() => {
-        if (!appRef.current || !isAppReady || slidesRef.current.length === 0 || !fullyInitialized) return;
+        if (!appRef.current || !isAppReady || slidesRef.current.length === 0 || !fullyInitialized) {
+            console.warn("Cannot navigate prev: app not ready or no slides available", {
+                appReady: !!appRef.current,
+                isAppReady,
+                slidesCount: slidesRef.current.length,
+                initialized: fullyInitialized
+            });
+            return;
+        }
+
+        console.log("Navigating to previous slide");
         const prevIndex = (currentSlideIndex - 1 + slidesRef.current.length) % slidesRef.current.length;
 
         // First transition the slide
@@ -446,7 +466,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         cursorDisplacementSpriteRef,
     });
 
-    // Memoize handlers to prevent unnecessary re-renders
+    // Mouse enter handler - updated to apply filters without affecting text visibility
     const handleMouseEnter = useCallback(() => {
         if (!isAppReady || !fullyInitialized) return;
         console.log("Mouse entered the slider - activating all effects");
@@ -467,23 +487,22 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         setIsInteracting(true);
     }, [isAppReady, fullyInitialized, showDisplacementEffects, updateFilterIntensities]);
 
-    // Mouse leave handler - FIXED to ensure all effects are removed
+    // Mouse leave handler - FIXED to remove effects without hiding text
     const handleMouseLeave = useCallback(() => {
         if (!isAppReady || !fullyInitialized) return;
-        console.log("Mouse left the slider - deactivating ALL effects");
+        console.log("Mouse left the slider - deactivating effects but keeping text visible");
         cursorActiveRef.current = false;
 
         // Ensure displacement effects are hidden
         hideDisplacementEffects();
 
-        // Force immediate reset of all filters
+        // Reset all filters but don't affect visibility
         if (resetAllFilters) {
             resetAllFilters();
         }
 
-        // Also ensure any transition or navigation effects are reset
+        // Double-check reset after a short delay to catch any lingering effects
         setTimeout(() => {
-            // Double-check reset after a short delay to catch any lingering effects
             if (resetAllFilters) {
                 resetAllFilters();
             }
@@ -503,6 +522,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         displacementInitialized,
         fullyInitialized
     });
+
     // Render component
     return (
         <div
@@ -510,6 +530,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             ref={sliderRef}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
+            data-initialized={fullyInitialized ? 'true' : 'false'} // Add data attribute for debugging
         >
             {/* Placeholder while loading */}
             {(!isAppReady || !assetsLoaded) && (
@@ -524,10 +545,18 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             {/* Navigation buttons - only render on client and if external nav is not enabled */}
             {!externalNav && isClient && isAppReady && (
                 <nav>
-                    <button onClick={handlePrev} className={styles.prev}>
+                    <button
+                        onClick={handlePrev}
+                        className={styles.prev}
+                        data-testid="kinetic-slider-prev"
+                    >
                         Prev
                     </button>
-                    <button onClick={handleNext} className={styles.next}>
+                    <button
+                        onClick={handleNext}
+                        className={styles.next}
+                        data-testid="kinetic-slider-next"
+                    >
                         Next
                     </button>
                 </nav>

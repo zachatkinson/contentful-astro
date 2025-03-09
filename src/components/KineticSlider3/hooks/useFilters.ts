@@ -34,7 +34,6 @@ export const useFilters = (
     const disposeHandlersRef = useRef<Array<() => void>>([]);
 
     // Function to safely dispose a filter instance
-    // Function to safely dispose a filter instance
     const disposeFilter = useCallback((filterInstance: any) => {
         if (!filterInstance) return;
 
@@ -292,17 +291,37 @@ export const useFilters = (
             applyFiltersToObjects(pixi.slides.current, imageFiltersConfig as FilterConfig[], 'slide-');
             applyFiltersToObjects(pixi.textContainers.current, textFiltersConfig as FilterConfig[], 'text-');
 
-            // Ensure all filters are in an inactive state initially
+            // IMPORTANT: Force all filters to be inactive initially
             Object.keys(filterMapRef.current).forEach(id => {
                 const entry = filterMapRef.current[id];
+
+                // First call reset on each filter
                 entry.filters.forEach(filter => {
                     try {
-                        // Reset each filter to ensure it starts in inactive state
                         filter.reset();
                     } catch (error) {
-                        console.error(`Error initializing filter for ${id}:`, error);
+                        console.error(`Error resetting filter for ${id}:`, error);
                     }
                 });
+
+                // Also remove any actual filter instances from the target objects
+                // This ensures no visual effect until explicitly enabled
+                try {
+                    const baseFilters = [];
+                    // Only keep the base displacement filters but with zero scale
+                    if (pixi.bgDispFilter.current) {
+                        pixi.bgDispFilter.current.scale.x = 0;
+                        pixi.bgDispFilter.current.scale.y = 0;
+                        baseFilters.push(pixi.bgDispFilter.current);
+                    }
+
+                    if (entry.target.filters) {
+                        // Just apply the base filters with zero effect
+                        entry.target.filters = [...baseFilters];
+                    }
+                } catch (filterError) {
+                    console.error(`Error cleaning up filters for ${id}:`, filterError);
+                }
             });
 
             // Mark as initialized in inactive state
