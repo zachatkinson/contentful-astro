@@ -68,6 +68,10 @@ export interface KineticSliderProps {
     externalNav?: boolean;
     navElement?: NavElement;
     buttonMode?: boolean;
+    idleTimeout?: number; // For useIdleTimer.ts
+    swipeDistance?: number; // For useMouseDrag.ts
+    enableKeyboardNav?: boolean; // For useNavigation.ts
+    swipeThreshold?: number; // For useTouchSwipe.ts
 }
 
 /**
@@ -174,4 +178,8 @@ export interface UseTextContainersProps {
     mobileTextSubTitleOffsetTop: number;
     textSubTitleFontFamily?: string;
     onInitialized?: (system: string) => void;
+    idleTimeout?: number; // Optional with a sensible default in the implementation
+    swipeDistance?: number; // Optional with a sensible default
+    enableKeyboardNav?: boolean; // Optional, defaulting to true
+    swipeThreshold?: number; // Optional with a sensible default
 }

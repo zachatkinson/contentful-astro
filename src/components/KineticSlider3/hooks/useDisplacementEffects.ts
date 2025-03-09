@@ -170,7 +170,7 @@ export const useDisplacementEffects = () => {
 
     // Mouse tracking for cursor effects
     useEffect(() => {
-        if (typeof window === 'undefined' || !sliderRef.current) return;
+        if (typeof window === 'undefined' || !sliderRef?.current) return;
 
         // Skip if displacement sprites are not set up
         if (!pixi.backgroundDisplacementSprite.current) return;

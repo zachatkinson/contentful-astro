@@ -91,7 +91,7 @@ const KineticSliderOld = ({
         })();
     }, []);
 
-    const sliderRef = useRef(null);
+    const sliderRef = useRef<HTMLDivElement | null>(null);
     const appRef = useRef(null);
     const currentIndex = useRef(0);
 

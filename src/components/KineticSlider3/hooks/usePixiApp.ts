@@ -11,7 +11,12 @@ import { useKineticSlider } from '../context/KineticSliderContext';
 const loadFont = async (fontPath: string): Promise<boolean> => {
     try {
         // Try to load the font
-        await Assets.load(fontPath);
+        if (fontPath) {
+            await Assets.load(fontPath);
+        }else{
+            console.warn("skepping font load for undefined path");
+        }
+
         console.log(`Successfully loaded font from ${fontPath}`);
         return true;
     } catch (error) {

@@ -6,15 +6,15 @@ import { usePixiApp } from './usePixiApp';
 import { useDisplacementEffects } from './useDisplacementEffects';
 import { useFilters } from './useFilters';
 import { useSlides } from './useSlides';
-import { useTextContainers } from './useTextContainers';
-import { useMouseTracking } from './useMouseTracking';
-import { useIdleTimer } from './useIdleTimer';
-import { useNavigation } from './useNavigation';
-import { useExternalNav } from './useExternalNav';
-import { useTouchSwipe } from './useTouchSwipe';
-import { useMouseDrag } from './useMouseDrag';
-import { useTextTilt } from './useTextTilt';
-import { useResizeHandler } from './useResizeHandler';
+import  useTextContainers  from './useTextContainers';
+import useMouseTracking  from './useMouseTracking';
+import  useIdleTimer  from './useIdleTimer';
+import  useNavigation  from './useNavigation';
+import  useExternalNav  from './useExternalNav';
+import  useTouchSwipe  from './useTouchSwipe';
+import  useMouseDrag  from './useMouseDrag';
+import  useTextTilt  from './useTextTilt';
+import  useResizeHandler  from './useResizeHandler';
 
 /**
  * Main hook for KineticSlider - orchestrates all other hooks and provides a simplified API

@@ -5,7 +5,7 @@ import type { KineticSliderProps, PixiRefs } from '../types';
 
 interface KineticSliderContextType {
     instanceId: string;
-    sliderRef: React.RefObject<HTMLDivElement>;
+    sliderRef: React.RefObject<HTMLDivElement> |  null;
     pixiRefs: PixiRefs;
     props: KineticSliderProps;
     states: {
@@ -16,6 +16,7 @@ interface KineticSliderContextType {
         isFiltersInitialized: boolean;
         isFullyInitialized: boolean;
         isInteracting: boolean;
+        currentIndex: number;
     };
     setters: {
         setIsAppReady: (value: boolean) => void;
@@ -25,6 +26,13 @@ interface KineticSliderContextType {
         setIsFiltersInitialized: (value: boolean) => void;
         setIsFullyInitialized: (value: boolean) => void;
         setIsInteracting: (value: boolean) => void;
+    };
+    actions: {
+        goNext: () => void;
+        goPrev: () => void;
+        showEffects: () => void;
+        hideEffects: () => void;
+        // Any other actions used in the component
     };
     handleInitialization: (system: string) => void;
 }
@@ -118,7 +126,7 @@ export const KineticSliderProvider: React.FC<{
                     isTextInitialized,
                     isFiltersInitialized,
                     isFullyInitialized,
-                    isInteracting
+                    isInteracting,
                 },
                 setters: {
                     setIsAppReady,
