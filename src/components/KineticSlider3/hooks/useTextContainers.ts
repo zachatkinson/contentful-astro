@@ -1,31 +1,8 @@
 import { useEffect, type RefObject } from 'react';
 import { Application, Container, Text, TextStyle, Sprite } from 'pixi.js';
 import { gsap } from 'gsap';
-import { type TextPair } from '../types';
+import {type TextPair, type UseTextContainersProps} from '../types';
 import { parseFontStack } from '../utils/fontUtils';
-
-interface UseTextContainersProps {
-    sliderRef: RefObject<HTMLDivElement | null>;
-    appRef: RefObject<Application | null>;
-    slidesRef: RefObject<Sprite[]>;
-    textContainersRef: RefObject<Container[]>;
-    currentIndex: RefObject<number>;
-    buttonMode: boolean;
-    textsRgbEffect: boolean; // We'll keep this parameter for compatibility but ignore it
-    texts: TextPair[];
-    textTitleColor: string;
-    textTitleSize: number;
-    mobileTextTitleSize: number;
-    textTitleLetterspacing: number;
-    textTitleFontFamily?: string;
-    textSubTitleColor: string;
-    textSubTitleSize: number;
-    mobileTextSubTitleSize: number;
-    textSubTitleLetterspacing: number;
-    textSubTitleOffsetTop: number;
-    mobileTextSubTitleOffsetTop: number;
-    textSubTitleFontFamily?: string;
-}
 
 // Default font fallbacks
 const DEFAULT_TITLE_FONT = 'Georgia, Times, "Times New Roman", serif';
@@ -79,11 +56,11 @@ const useTextContainers = ({
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
 
-        if (!appRef.current || !slidesRef.current.length || !texts.length) {
-            console.log('Cannot create text containers - missing app, slides, or texts');
+        // Changed condition: don't check slidesRef.current.length
+        if (!appRef.current || !texts.length) {
+            console.log('Cannot create text containers - missing app or texts');
             console.log({
                 app: !!appRef.current,
-                slidesLength: slidesRef.current.length,
                 textsLength: texts.length
             });
             return;
@@ -120,7 +97,7 @@ const useTextContainers = ({
                 const textContainer = new Container();
                 textContainer.x = app.screen.width / 2;
                 textContainer.y = app.screen.height / 2;
-                textContainer.name = `text-container-${index}`;
+                textContainer.label = `text-container-${index}`;
 
                 // Create title text
                 const titleStyle = new TextStyle({
@@ -138,7 +115,7 @@ const useTextContainers = ({
                 });
                 titleText.anchor.set(0.5, 0);
                 titleText.y = 0;
-                titleText.name = `title-${index}`;
+                titleText.label = `title-${index}`;
 
                 // Create subtitle text
                 const subtitleStyle = new TextStyle({
@@ -155,7 +132,7 @@ const useTextContainers = ({
                 });
                 subText.anchor.set(0.5, 0);
                 subText.y = titleText.height + computedSubTitleOffset;
-                subText.name = `subtitle-${index}`;
+                subText.label = `subtitle-${index}`;
 
                 // Add texts to container
                 textContainer.addChild(titleText);

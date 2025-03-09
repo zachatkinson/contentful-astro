@@ -25,7 +25,7 @@ interface FilterMap {
  * Hook to manage filters for slides and text containers
  */
 export const useFilters = (
-    { sliderRef, pixi, props }: HookParams
+    { sliderRef, pixi, props, onInitialized }: HookParams
 ) => {
     // Keep track of applied filters for easy updating
     const filterMapRef = useRef<FilterMap>({});
@@ -34,13 +34,36 @@ export const useFilters = (
     const disposeHandlersRef = useRef<Array<() => void>>([]);
 
     // Function to safely dispose a filter instance
+    // Function to safely dispose a filter instance
     const disposeFilter = useCallback((filterInstance: any) => {
         if (!filterInstance) return;
 
         try {
-            // Try standard destroy method
+            // Try standard destroy method with safety checks
             if (typeof filterInstance.destroy === 'function') {
-                filterInstance.destroy();
+                // Check for PIXI v8 shader with potential null properties
+                if (filterInstance.shader &&
+                    typeof filterInstance.shader.destroy === 'function') {
+
+                    // Add safety check for shader internal properties
+                    try {
+                        filterInstance.shader.destroy();
+                    } catch (shaderError) {
+                        console.warn('Error destroying shader, continuing filter disposal:', shaderError);
+                    }
+                }
+
+                // Use a try-catch specifically for the destroy call
+                try {
+                    filterInstance.destroy();
+                } catch (destroyError) {
+                    console.warn('Error in filter.destroy(), trying alternative cleanup:', destroyError);
+
+                    // Perform manual cleanup if destroy fails
+                    if (filterInstance.state && typeof filterInstance.state.unbind === 'function') {
+                        filterInstance.state.unbind();
+                    }
+                }
                 return;
             }
 
@@ -54,7 +77,11 @@ export const useFilters = (
             if (filterInstance.resources) {
                 Object.values(filterInstance.resources).forEach((resource: any) => {
                     if (resource && typeof resource.destroy === 'function') {
-                        resource.destroy();
+                        try {
+                            resource.destroy();
+                        } catch (resourceError) {
+                            console.warn('Error destroying filter resource:', resourceError);
+                        }
                     }
                 });
             }
@@ -65,39 +92,55 @@ export const useFilters = (
 
     // Function to dispose all filters and clean up resources
     const disposeAllFilters = useCallback(() => {
+        // Empty the handlers first in case of errors
+        const disposalHandlers = [...disposeHandlersRef.current];
+        disposeHandlersRef.current = [];
+
         // Run all registered dispose handlers
-        disposeHandlersRef.current.forEach(handler => {
+        disposalHandlers.forEach(handler => {
             try {
                 handler();
             } catch (error) {
                 console.error('Error in filter dispose handler:', error);
             }
         });
-        disposeHandlersRef.current = [];
 
-        // Clean up filter instances in the map
-        Object.keys(filterMapRef.current).forEach(key => {
-            const entry = filterMapRef.current[key];
+        // Get all filter keys for cleanup
+        const filterKeys = Object.keys(filterMapRef.current);
 
-            // Remove filters from target first
-            if (entry.target) {
-                entry.target.filters = [];
-            }
+        // Process each key
+        filterKeys.forEach(key => {
+            try {
+                const entry = filterMapRef.current[key];
 
-            // Dispose each filter
-            entry.filters.forEach(filter => {
-                try {
-                    // Call custom dispose if available
-                    if (filter.dispose) {
-                        filter.dispose();
+                // Remove filters from target first
+                if (entry.target) {
+                    try {
+                        entry.target.filters = [];
+                    } catch (targetError) {
+                        console.warn(`Error clearing filters from target ${key}:`, targetError);
                     }
-
-                    // Dispose the filter instance
-                    disposeFilter(filter.instance);
-                } catch (error) {
-                    console.error(`Error disposing filter:`, error);
                 }
-            });
+
+                // Dispose each filter
+                if (entry.filters && Array.isArray(entry.filters)) {
+                    entry.filters.forEach(filter => {
+                        try {
+                            // Call custom dispose if available
+                            if (filter.dispose) {
+                                filter.dispose();
+                            }
+
+                            // Dispose the filter instance
+                            disposeFilter(filter.instance);
+                        } catch (error) {
+                            console.error(`Error disposing filter for ${key}:`, error);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error(`Error cleaning up filters for ${key}:`, error);
+            }
         });
 
         // Clear the filter map
@@ -266,6 +309,11 @@ export const useFilters = (
             filtersInitializedRef.current = true;
             filtersActiveRef.current = false;
 
+            // Signal to parent component that filters are initialized
+            if (typeof onInitialized === 'function') {
+                onInitialized('filters');
+            }
+
             console.log("Filters initialized successfully");
         } catch (error) {
             console.error("Error setting up filters:", error);
@@ -288,7 +336,8 @@ export const useFilters = (
         props.textFilters,
         disposeFilter,
         applyFiltersToObjects,
-        disposeAllFilters
+        disposeAllFilters,
+        onInitialized
     ]);
 
     // Function to reset all filters to inactive state

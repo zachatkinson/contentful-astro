@@ -10,7 +10,7 @@ import { gsap } from 'gsap';
  */
 export const useSlides = (params: HookParams | EnhancedHookParams) => {
     // Extract the common parts that exist in both types
-    const { sliderRef, pixi, props } = params;
+    const { sliderRef, pixi, props, onInitialized } = params;
 
     // Reference to track if the parent component is unmounting
     const isUnmountingRef = useRef(false);
@@ -96,6 +96,8 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
             try {
                 console.log('Loading slide textures and creating sprites...');
 
+
+
                 // Batch load all textures using the texture manager if available
                 let textures: Texture[] = [];
 
@@ -149,6 +151,11 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
                 });
 
                 console.log(`Created ${pixi.slides.current.length} slides`);
+
+                // Signal to parent component that slides are initialized
+                if (typeof onInitialized === 'function') {
+                    onInitialized('slides');
+                }
             } catch (error) {
                 console.error("Error loading slide images:", error);
             }
@@ -163,7 +170,7 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
             isUnmountingRef.current = true;
             cleanup();
         };
-    }, [pixi.app.current, props.images, textureManager, animationManager, qualityLevel]);
+    }, [pixi.app.current, props.images, textureManager, animationManager, qualityLevel, onInitialized]);
 
     /**
      * Transition to a specific slide with optimized animation tracking

@@ -12,7 +12,7 @@ const DEFAULT_CURSOR_FILTER_SCALE = 10;
 /**
  * Hook to set up and manage displacement effects
  */
-export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) => {
+export const useDisplacementEffects = ({ sliderRef, pixi, props, onInitialized }: HookParams) => {
     // Track initialization state
     const isInitialized = useRef(false);
 
@@ -54,8 +54,17 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
         // Load displacement textures using Assets API
         const setupDisplacementSprites = async () => {
             try {
-                // Load background displacement texture
+                // Check if we're in development mode
+                const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV === true;
+
+                // Helper function to adjust paths based on environment
+
+
+                // Adjust paths based on environment
                 const bgDisplacementUrl = props.backgroundDisplacementSpriteLocation || '/images/background-displace.jpg';
+                const cursorDisplacementUrl = props.cursorDisplacementSpriteLocation || '/images/cursor-displace.png';
+
+                // Load background displacement texture
                 let bgTexture;
 
                 try {
@@ -83,7 +92,6 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
                 console.log("Background displacement sprite created");
 
                 // Load cursor displacement texture
-                const cursorDisplacementUrl = props.cursorDisplacementSpriteLocation || '/images/cursor-displace.png';
                 let cursorTexture;
 
                 try {
@@ -127,6 +135,11 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
                 // Mark as initialized to prevent duplicate setup
                 isInitialized.current = true;
 
+                // Signal to parent component that displacement is initialized
+                if (typeof onInitialized === 'function') {
+                    onInitialized('displacement');
+                }
+
                 console.log("Displacement sprites and filters created successfully");
             } catch (error) {
                 console.error("Error setting up displacement effects:", error);
@@ -150,7 +163,7 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
             }
             isInitialized.current = false;
         };
-    }, [pixi.app.current, props.backgroundDisplacementSpriteLocation, props.cursorDisplacementSpriteLocation, props.cursorScaleIntensity, killActiveAnimations]);
+    }, [pixi.app.current, props.backgroundDisplacementSpriteLocation, props.cursorDisplacementSpriteLocation, props.cursorScaleIntensity, killActiveAnimations, onInitialized]);
 
     // Mouse tracking for cursor effects
     useEffect(() => {
@@ -311,5 +324,6 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props }: HookParams) =
         DEFAULT_BG_FILTER_SCALE,
         DEFAULT_CURSOR_FILTER_SCALE,
         killActiveAnimations, // Expose the cleanup function for external use
+        isInitialized: isInitialized.current // Expose the initialization state for external checks
     };
 };

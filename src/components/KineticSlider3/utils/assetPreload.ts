@@ -25,18 +25,37 @@ export const preloadKineticSliderAssets = async (
     try {
         console.log('Preloading KineticSlider assets...');
 
+        // Check if we're in development mode
+        const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV === true;
+
+        // Helper function to adjust paths based on environment
+        const adjustPath = (path: string): string => {
+            if (!path) return path;
+
+            return path;
+        };
+
+        // Adjust displacement image paths if in dev mode
+        const adjustedBackgroundDisplacement = adjustPath(backgroundDisplacement);
+        const adjustedCursorDisplacement = adjustPath(cursorDisplacement);
+
+        // Also adjust image paths
+        const adjustedImages = images.map(adjustPath);
+
         // First, handle custom fonts if provided
         if (titleFontFamily || subtitleFontFamily) {
             console.log('Setting up custom fonts...');
             await setupCustomFonts(titleFontFamily, subtitleFontFamily);
         }
 
-        // Combine all image assets into a single array
+        // Combine all image assets into a single array with adjusted paths
         const assetsToLoad = [
-            ...images,
-            backgroundDisplacement,
-            cursorDisplacement
+            ...adjustedImages,
+            adjustedBackgroundDisplacement,
+            adjustedCursorDisplacement
         ].filter(Boolean); // Remove any empty strings
+
+        console.log('Assets to preload:', assetsToLoad);
 
         // Create a map of assets to load
         const assetsMap: Record<string, string> = {};

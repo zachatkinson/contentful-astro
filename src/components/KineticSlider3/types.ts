@@ -4,6 +4,7 @@ import type AnimationManager from "./managers/animationManager.ts";
 import PerformanceMonitor, { QualityLevel } from "./managers/performanceMonitor.ts";
 import type EventManager from "./managers/eventManager.ts";
 import type FilterManager from "./managers/filterManager.ts";
+import type {RefObject} from "react";
 
 export type NavElement = {
     prev: string;
@@ -115,6 +116,8 @@ export interface HookParams {
     sliderRef: React.RefObject<HTMLDivElement | null>;
     pixi: PixiRefs;
     props: KineticSliderProps;
+    onInitialized?: (system: string) => void; // Add this line
+
 }
 
 
@@ -147,4 +150,28 @@ export interface EnhancedSprite extends Sprite {
 
 export interface LoadingIndicatorProps {
     message?: string;
+}
+
+export interface UseTextContainersProps {
+    sliderRef: RefObject<HTMLDivElement | null>;
+    appRef: RefObject<Application | null>;
+    slidesRef: RefObject<Sprite[]>;
+    textContainersRef: RefObject<Container[]>;
+    currentIndex: RefObject<number>;
+    buttonMode: boolean;
+    textsRgbEffect: boolean;
+    texts: TextPair[];
+    textTitleColor: string;
+    textTitleSize: number;
+    mobileTextTitleSize: number;
+    textTitleLetterspacing: number;
+    textTitleFontFamily?: string;
+    textSubTitleColor: string;
+    textSubTitleSize: number;
+    mobileTextSubTitleSize: number;
+    textSubTitleLetterspacing: number;
+    textSubTitleOffsetTop: number;
+    mobileTextSubTitleOffsetTop: number;
+    textSubTitleFontFamily?: string;
+    onInitialized?: (system: string) => void;
 }

@@ -72,6 +72,14 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     const [assetsLoaded, setAssetsLoaded] = useState(false);
     const cursorActiveRef = useRef<boolean>(false);
 
+    // Initialization state tracking
+    const [appInitialized, setAppInitialized] = useState(false);
+    const [slidesInitialized, setSlidesInitialized] = useState(false);
+    const [textInitialized, setTextInitialized] = useState(false);
+    const [filtersInitialized, setFiltersInitialized] = useState(false);
+    const [displacementInitialized, setDisplacementInitialized] = useState(false);
+    const [fullyInitialized, setFullyInitialized] = useState(false);
+
     // Set up Pixi app
     const appRef = useRef<Application | null>(null);
     const slidesRef = useRef<Sprite[]>([]);
@@ -86,6 +94,37 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     useEffect(() => {
         setIsClient(true);
     }, []);
+
+    // Handle initialization completion for each system
+    const handleInitialization = useCallback((system: string) => {
+        console.log(`${system} system initialized`);
+        switch (system) {
+            case 'app':
+                setAppInitialized(true);
+                break;
+            case 'slides':
+                setSlidesInitialized(true);
+                break;
+            case 'text':
+                setTextInitialized(true);
+                break;
+            case 'filters':
+                setFiltersInitialized(true);
+                break;
+            case 'displacement':
+                setDisplacementInitialized(true);
+                break;
+        }
+    }, []);
+
+    // Combine initialization states into a single useEffect
+    useEffect(() => {
+        if (appInitialized && slidesInitialized && textInitialized &&
+            filtersInitialized && displacementInitialized && !fullyInitialized) {
+            console.log("KineticSlider fully initialized and ready");
+            setFullyInitialized(true);
+        }
+    }, [appInitialized, slidesInitialized, textInitialized, filtersInitialized, displacementInitialized, fullyInitialized]);
 
     // Create a pixi refs object for hooks
     const pixiRefs = {
@@ -132,7 +171,8 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     const baseHookParams: HookParams = {
         sliderRef,
         pixi: pixiRefs,
-        props: hookProps
+        props: hookProps,
+        onInitialized: handleInitialization
     };
 
     // Preload assets including fonts
@@ -212,8 +252,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                 const stage = new Container();
                 app.stage.addChild(stage);
 
-                // Set app as ready
+                // Set app as ready and signal initialization
                 setIsAppReady(true);
+                handleInitialization('app');
 
                 console.log("Pixi.js application initialized");
             } catch (error) {
@@ -235,9 +276,17 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                 appRef.current.destroy(true);
                 appRef.current = null;
                 setIsAppReady(false);
+
+                // Reset initialization states
+                setAppInitialized(false);
+                setSlidesInitialized(false);
+                setTextInitialized(false);
+                setFiltersInitialized(false);
+                setDisplacementInitialized(false);
+                setFullyInitialized(false);
             }
         };
-    }, [sliderRef.current, assetsLoaded]);
+    }, [sliderRef.current, assetsLoaded, handleInitialization]);
 
     // Use displacement effects
     const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects(baseHookParams);
@@ -269,7 +318,8 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         textSubTitleLetterspacing,
         textSubTitleOffsetTop,
         mobileTextSubTitleOffsetTop,
-        textSubTitleFontFamily
+        textSubTitleFontFamily,
+        onInitialized: handleInitialization
     });
 
     // Use mouse tracking
@@ -300,7 +350,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
     // Navigation functions with effect reapplication
     const handleNext = useCallback(() => {
-        if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
+        if (!appRef.current || !isAppReady || slidesRef.current.length === 0 || !fullyInitialized) return;
         const nextIndex = (currentSlideIndex + 1) % slidesRef.current.length;
 
         // First transition the slide
@@ -318,10 +368,10 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                 updateFilterIntensities(true, true);
             }, 100); // Short delay to allow transition to start
         }
-    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
+    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities, fullyInitialized]);
 
     const handlePrev = useCallback(() => {
-        if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
+        if (!appRef.current || !isAppReady || slidesRef.current.length === 0 || !fullyInitialized) return;
         const prevIndex = (currentSlideIndex - 1 + slidesRef.current.length) % slidesRef.current.length;
 
         // First transition the slide
@@ -339,7 +389,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                 updateFilterIntensities(true, true);
             }, 100); // Short delay to allow transition to start
         }
-    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
+    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities, fullyInitialized]);
 
     // Use navigation
     useNavigation({
@@ -398,7 +448,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
     // Memoize handlers to prevent unnecessary re-renders
     const handleMouseEnter = useCallback(() => {
-        if (!isAppReady) return;
+        if (!isAppReady || !fullyInitialized) return;
         console.log("Mouse entered the slider - activating all effects");
 
         // Update cursor active state
@@ -415,11 +465,11 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         }, 50); // Short timeout to ensure displacement is applied first
 
         setIsInteracting(true);
-    }, [isAppReady, showDisplacementEffects, updateFilterIntensities]);
+    }, [isAppReady, fullyInitialized, showDisplacementEffects, updateFilterIntensities]);
 
     // Mouse leave handler - FIXED to ensure all effects are removed
     const handleMouseLeave = useCallback(() => {
-        if (!isAppReady) return;
+        if (!isAppReady || !fullyInitialized) return;
         console.log("Mouse left the slider - deactivating ALL effects");
         cursorActiveRef.current = false;
 
@@ -442,8 +492,17 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         }, 10);
 
         setIsInteracting(false);
-    }, [isAppReady, hideDisplacementEffects, resetAllFilters, updateFilterIntensities]);
+    }, [isAppReady, fullyInitialized, hideDisplacementEffects, resetAllFilters, updateFilterIntensities]);
 
+    console.log("Render state:", {
+        isAppReady,
+        assetsLoaded,
+        slidesInitialized,
+        textInitialized,
+        filtersInitialized,
+        displacementInitialized,
+        fullyInitialized
+    });
     // Render component
     return (
         <div
@@ -463,7 +522,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             )}
 
             {/* Navigation buttons - only render on client and if external nav is not enabled */}
-            {!externalNav && isClient && (
+            {!externalNav && isClient && isAppReady && (
                 <nav>
                     <button onClick={handlePrev} className={styles.prev}>
                         Prev
