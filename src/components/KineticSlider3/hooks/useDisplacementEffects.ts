@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { Sprite, DisplacementFilter, Assets } from 'pixi.js';
 import { gsap } from 'gsap';
-import { type HookParams } from '../types';
+import { useKineticSlider } from '../context/KineticSliderContext';
 
 /**
  * Default filter scales
@@ -12,7 +12,15 @@ const DEFAULT_CURSOR_FILTER_SCALE = 10;
 /**
  * Hook to set up and manage displacement effects
  */
-export const useDisplacementEffects = ({ sliderRef, pixi, props, onInitialized }: HookParams) => {
+export const useDisplacementEffects = () => {
+    // Use the KineticSlider context instead of receiving props and refs
+    const {
+        sliderRef,
+        pixiRefs: pixi,
+        props,
+        handleInitialization
+    } = useKineticSlider();
+
     // Track initialization state
     const isInitialized = useRef(false);
 
@@ -56,9 +64,6 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props, onInitialized }
             try {
                 // Check if we're in development mode
                 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV === true;
-
-                // Helper function to adjust paths based on environment
-
 
                 // Adjust paths based on environment
                 const bgDisplacementUrl = props.backgroundDisplacementSpriteLocation || '/images/background-displace.jpg';
@@ -136,9 +141,7 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props, onInitialized }
                 isInitialized.current = true;
 
                 // Signal to parent component that displacement is initialized
-                if (typeof onInitialized === 'function') {
-                    onInitialized('displacement');
-                }
+                handleInitialization('displacement');
 
                 console.log("Displacement sprites and filters created successfully");
             } catch (error) {
@@ -163,7 +166,7 @@ export const useDisplacementEffects = ({ sliderRef, pixi, props, onInitialized }
             }
             isInitialized.current = false;
         };
-    }, [pixi.app.current, props.backgroundDisplacementSpriteLocation, props.cursorDisplacementSpriteLocation, props.cursorScaleIntensity, killActiveAnimations, onInitialized]);
+    }, [pixi.app.current, props.backgroundDisplacementSpriteLocation, props.cursorDisplacementSpriteLocation, props.cursorScaleIntensity, killActiveAnimations, handleInitialization]);
 
     // Mouse tracking for cursor effects
     useEffect(() => {

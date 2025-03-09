@@ -237,7 +237,7 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
                 // IMPORTANT CHANGE: Don't hide or change alpha of previous text container
                 if (currentTextContainer) {
                     currentTextContainer.visible = true; // Keep it visible but not shown
-                    currentTextContainer.alpha = 0; // Keep it transparent
+                    currentTextContainer.alpha = 1; // Keep it transparent
                 }
 
                 // IMPORTANT CHANGE: Ensure the next text container remains visible and at full alpha
