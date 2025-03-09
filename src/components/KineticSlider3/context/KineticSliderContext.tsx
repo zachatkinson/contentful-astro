@@ -1,3 +1,6 @@
+// For the first error, we need to modify the type definition to allow null
+// For the second error, we need to add currentIndex to the states object
+
 import React, { createContext, useContext, useRef, useState } from 'react';
 import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
 import { useSharedResources } from './SharedResourceContext';
@@ -5,7 +8,8 @@ import type { KineticSliderProps, PixiRefs } from '../types';
 
 interface KineticSliderContextType {
     instanceId: string;
-    sliderRef: React.RefObject<HTMLDivElement> |  null;
+    // Change this to allow null explicitly in the type
+    sliderRef: React.RefObject<HTMLDivElement | null>;
     pixiRefs: PixiRefs;
     props: KineticSliderProps;
     states: {
@@ -16,7 +20,7 @@ interface KineticSliderContextType {
         isFiltersInitialized: boolean;
         isFullyInitialized: boolean;
         isInteracting: boolean;
-        currentIndex: number;
+        currentIndex: number;  // Make sure this is included
     };
     setters: {
         setIsAppReady: (value: boolean) => void;
@@ -59,10 +63,10 @@ export const KineticSliderProvider: React.FC<{
     React.useEffect(() => {
         registerInstance(instanceId);
         return () => unregisterInstance(instanceId);
-    }, [instanceId]);
+    }, [instanceId, registerInstance, unregisterInstance]);
 
     // Create refs
-    const sliderRef = useRef<HTMLDivElement>(null);
+    const sliderRef = useRef<HTMLDivElement | null>(null);
     const appRef = useRef<Application | null>(null);
     const slidesRef = useRef<Sprite[]>([]);
     const textContainersRef = useRef<Container[]>([]);
@@ -103,6 +107,23 @@ export const KineticSliderProvider: React.FC<{
         }
     }, [isAppReady, isSlidesInitialized, isTextInitialized, isFiltersInitialized, isFullyInitialized]);
 
+    // Define necessary actions (placeholders for now, you'll implement these)
+    const goNext = () => {
+        // Implementation will be added later
+    };
+
+    const goPrev = () => {
+        // Implementation will be added later
+    };
+
+    const showEffects = () => {
+        // Implementation will be added later
+    };
+
+    const hideEffects = () => {
+        // Implementation will be added later
+    };
+
     return (
         <KineticSliderContext.Provider
             value={{
@@ -127,6 +148,7 @@ export const KineticSliderProvider: React.FC<{
                     isFiltersInitialized,
                     isFullyInitialized,
                     isInteracting,
+                    currentIndex: currentIndexRef.current  // Add currentIndex to the states object
                 },
                 setters: {
                     setIsAppReady,
@@ -136,6 +158,12 @@ export const KineticSliderProvider: React.FC<{
                     setIsFiltersInitialized,
                     setIsFullyInitialized,
                     setIsInteracting
+                },
+                actions: {
+                    goNext,
+                    goPrev,
+                    showEffects,
+                    hideEffects
                 },
                 handleInitialization
             }}

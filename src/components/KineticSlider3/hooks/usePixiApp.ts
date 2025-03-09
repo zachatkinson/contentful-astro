@@ -13,8 +13,9 @@ const loadFont = async (fontPath: string): Promise<boolean> => {
         // Try to load the font
         if (fontPath) {
             await Assets.load(fontPath);
-        }else{
-            console.warn("skepping font load for undefined path");
+        } else {
+            console.warn("Skipping font load for undefined path");
+            return false;
         }
 
         console.log(`Successfully loaded font from ${fontPath}`);
@@ -35,8 +36,11 @@ export const usePixiApp = () => {
         sliderRef,
         pixiRefs,
         props,
-        setIsAppReady
+        setters
     } = useKineticSlider();
+
+    // Use setters.setIsAppReady instead of setIsAppReady directly
+    const { setIsAppReady } = setters;
 
     // Track initialization status locally
     const isInitialized = useRef<boolean>(false);
@@ -127,18 +131,25 @@ export const usePixiApp = () => {
                 console.log("Creating Pixi application...");
 
                 // Get the images from props
-                const { images = [], backgroundDisplacementSpriteLocation, cursorDisplacementSpriteLocation } = props;
+                const { images = [] } = props;
+
+                // Extract displacement image paths, ensuring they're not undefined
+                const backgroundDisplacementSpriteLocation = props.backgroundDisplacementSpriteLocation || '';
+                const cursorDisplacementSpriteLocation = props.cursorDisplacementSpriteLocation || '';
 
                 // Preload all required assets with proper error handling
                 const assetsToLoad = [
                     ...images,
                     backgroundDisplacementSpriteLocation,
                     cursorDisplacementSpriteLocation
-                ].filter(Boolean); // Remove any undefined assets
+                ].filter(Boolean); // Remove any undefined or empty assets
 
                 for (const asset of assetsToLoad) {
                     try {
-                        await Assets.load(asset);
+                        // Only try to load if the asset is a non-empty string
+                        if (asset) {
+                            await Assets.load(asset);
+                        }
                     } catch (assetError) {
                         console.warn(`Failed to load asset: ${asset}`, assetError);
                         // Continue with other assets
