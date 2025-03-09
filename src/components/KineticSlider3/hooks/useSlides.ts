@@ -1,28 +1,24 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { Sprite, Container, Texture } from 'pixi.js';
-import { type EnhancedSprite, type EnhancedHookParams, type HookParams } from '../types';
-import { calculateSpriteScale } from '../utils/calculateSpriteScale';
 import { gsap } from 'gsap';
+import { useKineticSlider } from '../context/KineticSliderContext';
+import { calculateSpriteScale } from '../utils/calculateSpriteScale';
+import type { EnhancedSprite } from '../types';
 
 /**
  * Hook to create and manage slide sprites with proper memory management
- * This version accepts either EnhancedHookParams or regular HookParams
  */
-export const useSlides = (params: HookParams | EnhancedHookParams) => {
-    // Extract the common parts that exist in both types
-    const { sliderRef, pixi, props, onInitialized } = params;
+export const useSlides = () => {
+    // Use the KineticSlider context instead of receiving props and refs
+    const {
+        sliderRef,
+        pixiRefs: pixi,
+        props,
+        handleInitialization
+    } = useKineticSlider();
 
     // Reference to track if the parent component is unmounting
     const isUnmountingRef = useRef(false);
-
-    // Check if we have enhanced params with managers
-    const hasManagers = 'managers' in params;
-    const managers = hasManagers ? params.managers : undefined;
-    const qualityLevel = hasManagers ? params.qualityLevel : 'high';
-
-    // Use texture and animation managers from the provided managers if available
-    const textureManager = managers?.textureManager;
-    const animationManager = managers?.animationManager;
 
     /**
      * Create slides for each image with optimized texture management
@@ -47,11 +43,6 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
         // Cleanup function for this effect
         const cleanup = () => {
             console.log('Cleaning up slides...');
-
-            // Kill all animations for slides if animation manager is available
-            if (animationManager) {
-                animationManager.killModuleAnimations('slides');
-            }
 
             // Track textures that need to be released
             const textureUrls = new Set<string>();
@@ -79,13 +70,6 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
 
             // Clear the slides array
             pixi.slides.current = [];
-
-            // Now safely release textures using the texture manager if available
-            if (textureManager) {
-                textureUrls.forEach(url => {
-                    textureManager.releaseTexture(url, isUnmountingRef.current);
-                });
-            }
         };
 
         // Clean up any existing slides before creating new ones
@@ -96,19 +80,10 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
             try {
                 console.log('Loading slide textures and creating sprites...');
 
-                // Batch load all textures using the texture manager if available
-                let textures: Texture[] = [];
-
-                if (textureManager) {
-                    textures = await Promise.all(
-                        props.images.map(image => textureManager.loadTexture(image))
-                    );
-                } else {
-                    // Fallback to basic Texture loading if texture manager is not available
-                    textures = await Promise.all(
-                        props.images.map(image => Texture.from(image))
-                    );
-                }
+                // Batch load all textures using standard Texture loading
+                const textures = await Promise.all(
+                    props.images.map(image => Texture.from(image))
+                );
 
                 // Create sprites using the loaded textures
                 textures.forEach((texture, index) => {
@@ -123,7 +98,7 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
                         sprite.alpha = index === 0 ? 1 : 0;
                         sprite.visible = index === 0;
 
-                        // Calculate scale based on current quality level
+                        // Calculate scale based on dimensions
                         const scaleResult = calculateSpriteScale(
                             texture.width,
                             texture.height,
@@ -151,9 +126,7 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
                 console.log(`Created ${pixi.slides.current.length} slides`);
 
                 // Signal to parent component that slides are initialized
-                if (typeof onInitialized === 'function') {
-                    onInitialized('slides');
-                }
+                handleInitialization('slides');
             } catch (error) {
                 console.error("Error loading slide images:", error);
             }
@@ -168,7 +141,7 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
             isUnmountingRef.current = true;
             cleanup();
         };
-    }, [pixi.app.current, props.images, textureManager, animationManager, qualityLevel, onInitialized]);
+    }, [pixi.app.current, props.images, handleInitialization]);
 
     /**
      * Transition to a specific slide with optimized animation tracking
@@ -339,27 +312,19 @@ export const useSlides = (params: HookParams | EnhancedHookParams) => {
             });
         };
 
-        // Set up resize handler using event manager if available or window event directly
-        let cleanup: (() => void) | undefined;
-
-        if (managers?.eventManager) {
-            cleanup = managers.eventManager.on(window, 'resize', handleResize);
-        } else {
-            // Fallback to standard event listener
-            window.addEventListener('resize', handleResize);
-            cleanup = () => window.removeEventListener('resize', handleResize);
-        }
+        // Set up resize handler using standard window event
+        window.addEventListener('resize', handleResize);
 
         // Initial sizing
         handleResize();
 
-        return cleanup;
-    }, [pixi.app.current, pixi.slides.current, managers?.eventManager]);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [pixi.app.current, pixi.slides.current]);
 
     return {
         transitionToSlide,
         slidesReady: pixi.slides.current.length > 0
     };
 };
-
-export default useSlides;
