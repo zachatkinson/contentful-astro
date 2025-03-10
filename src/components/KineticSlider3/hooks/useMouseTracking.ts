@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from 'react';
 import { Sprite } from 'pixi.js';
 import { gsap } from 'gsap';
+import ResourceManager from '../managers/ResourceManager';
 
 interface UseMouseTrackingProps {
     sliderRef: RefObject<HTMLDivElement | null>;
@@ -8,6 +9,7 @@ interface UseMouseTrackingProps {
     cursorDisplacementSpriteRef: RefObject<Sprite | null>;
     cursorImgEffect: boolean;
     cursorMomentum: number;
+    resourceManager?: ResourceManager | null;
 }
 
 /**
@@ -18,7 +20,8 @@ const useMouseTracking = ({
                               backgroundDisplacementSpriteRef,
                               cursorDisplacementSpriteRef,
                               cursorImgEffect,
-                              cursorMomentum
+                              cursorMomentum,
+                              resourceManager
                           }: UseMouseTrackingProps) => {
     useEffect(() => {
         // Skip during server-side rendering

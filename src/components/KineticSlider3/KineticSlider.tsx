@@ -158,7 +158,19 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     };
 
     // Use displacement effects
-    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects(hookParams);
+    const { showDisplacementEffects, hideDisplacementEffects } = useDisplacementEffects({
+        sliderRef,
+        bgDispFilterRef,
+        cursorDispFilterRef,
+        backgroundDisplacementSpriteRef,
+        cursorDisplacementSpriteRef,
+        appRef,
+        backgroundDisplacementSpriteLocation,
+        cursorDisplacementSpriteLocation,
+        cursorImgEffect,
+        cursorScaleIntensity,
+        resourceManager: resourceManagerRef.current
+    });
 
     // Use filters - call this before any references to its returned functions
     const { updateFilterIntensities, resetAllFilters } = useFilters(hookParams);
