@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
 import { type NavElement } from '../types';
+import type ResourceManager from "../managers/ResourceManager";
 
 interface UseExternalNavProps {
     externalNav: boolean;
     navElement: NavElement;
     handleNext: () => void;
     handlePrev: () => void;
+    resourceManager?: ResourceManager | null;
 }
 
 /**
@@ -15,7 +17,8 @@ const useExternalNav = ({
                             externalNav,
                             navElement,
                             handleNext,
-                            handlePrev
+                            handlePrev,
+                            resourceManager
                         }: UseExternalNavProps) => {
     useEffect(() => {
         // Skip during server-side rendering
@@ -23,6 +26,7 @@ const useExternalNav = ({
 
         // Skip if external navigation is not enabled
         if (!externalNav) return;
+
 
         // Find the navigation elements in the DOM
         const prevNav = document.querySelector(navElement.prev);
@@ -53,7 +57,7 @@ const useExternalNav = ({
             prevNav.removeEventListener('click', handlePrevClick);
             nextNav.removeEventListener('click', handleNextClick);
         };
-    }, [externalNav, navElement, handleNext, handlePrev]);
+    }, [externalNav, navElement, handleNext, handlePrev, resourceManager]);
 };
 
 export default useExternalNav;
