@@ -1,6 +1,7 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject, type MutableRefObject } from "react";
 import { Container, DisplacementFilter } from "pixi.js";
 import { gsap } from "gsap";
+import ResourceManager from '../managers/ResourceManager';
 
 interface UseTextTiltProps {
     sliderRef: RefObject<HTMLDivElement | null>;
@@ -11,6 +12,7 @@ interface UseTextTiltProps {
     bgDispFilterRef: RefObject<DisplacementFilter | null>;
     cursorDispFilterRef: RefObject<DisplacementFilter | null>;
     cursorImgEffect: boolean;
+    resourceManager?: ResourceManager | null;
 }
 
 const useTextTilt = ({
@@ -22,6 +24,7 @@ const useTextTilt = ({
                          bgDispFilterRef,
                          cursorDispFilterRef,
                          cursorImgEffect,
+                         resourceManager
                      }: UseTextTiltProps) => {
     useEffect(() => {
         // Skip during server-side rendering
@@ -55,6 +58,12 @@ const useTextTilt = ({
                     y: centerY + containerShiftY,
                     duration: 0.5,
                     ease: "expo.out",
+                    onComplete: () => {
+                        // Re-track the container after animation
+                        if (resourceManager && activeTextContainer) {
+                            resourceManager.trackDisplayObject(activeTextContainer);
+                        }
+                    }
                 });
                 const maxTitleShift = containerWidth * 0.1;
                 const titleRawShiftX = offsetX * 0.8;
@@ -63,6 +72,12 @@ const useTextTilt = ({
                     x: titleShiftX,
                     duration: 0.5,
                     ease: "expo.out",
+                    onComplete: () => {
+                        // Re-track the text object after animation
+                        if (resourceManager && activeTextContainer && activeTextContainer.children[0]) {
+                            resourceManager.trackDisplayObject(activeTextContainer.children[0]);
+                        }
+                    }
                 });
                 const maxSubtitleShift = containerWidth * 0.15;
                 const subtitleRawShiftX = offsetX * 1.0;
@@ -71,6 +86,12 @@ const useTextTilt = ({
                     x: subtitleShiftX,
                     duration: 0.5,
                     ease: "expo.out",
+                    onComplete: () => {
+                        // Re-track the text object after animation
+                        if (resourceManager && activeTextContainer && activeTextContainer.children[1]) {
+                            resourceManager.trackDisplayObject(activeTextContainer.children[1]);
+                        }
+                    }
                 });
             }
 
@@ -83,12 +104,24 @@ const useTextTilt = ({
                         y: centerY,
                         duration: 1,
                         ease: "expo.inOut",
+                        onComplete: () => {
+                            // Re-track the container after animation
+                            if (resourceManager && activeContainer) {
+                                resourceManager.trackDisplayObject(activeContainer);
+                            }
+                        }
                     });
                     if (activeContainer.children[0]) {
                         gsap.to(activeContainer.children[0], {
                             x: 0,
                             duration: 1,
                             ease: "expo.inOut",
+                            onComplete: () => {
+                                // Re-track the text object after animation
+                                if (resourceManager && activeContainer && activeContainer.children[0]) {
+                                    resourceManager.trackDisplayObject(activeContainer.children[0]);
+                                }
+                            }
                         });
                     }
                     if (activeContainer.children[1]) {
@@ -96,6 +129,12 @@ const useTextTilt = ({
                             x: 0,
                             duration: 1,
                             ease: "expo.inOut",
+                            onComplete: () => {
+                                // Re-track the text object after animation
+                                if (resourceManager && activeContainer && activeContainer.children[1]) {
+                                    resourceManager.trackDisplayObject(activeContainer.children[1]);
+                                }
+                            }
                         });
                     }
                     if (bgDispFilterRef.current) {
@@ -104,6 +143,12 @@ const useTextTilt = ({
                             y: 0,
                             duration: 1,
                             ease: "expo.inOut",
+                            onComplete: () => {
+                                // Re-track the filter after animation
+                                if (resourceManager && bgDispFilterRef.current) {
+                                    resourceManager.trackFilter(bgDispFilterRef.current);
+                                }
+                            }
                         });
                     }
                     if (cursorImgEffect && cursorDispFilterRef.current) {
@@ -112,6 +157,12 @@ const useTextTilt = ({
                             y: 0,
                             duration: 1,
                             ease: "expo.inOut",
+                            onComplete: () => {
+                                // Re-track the filter after animation
+                                if (resourceManager && cursorDispFilterRef.current) {
+                                    resourceManager.trackFilter(cursorDispFilterRef.current);
+                                }
+                            }
                         });
                     }
                 }
@@ -132,6 +183,7 @@ const useTextTilt = ({
         bgDispFilterRef,
         cursorDispFilterRef,
         cursorImgEffect,
+        resourceManager  // Add resourceManager to dependencies
     ]);
 };
 
