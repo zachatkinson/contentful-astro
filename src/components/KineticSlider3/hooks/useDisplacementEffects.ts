@@ -1,15 +1,15 @@
-import { useEffect, useCallback, useRef } from 'react';
-import { Sprite, DisplacementFilter, Assets } from 'pixi.js';
+import { useEffect, useCallback, useRef, type RefObject } from 'react';
+import { Sprite, DisplacementFilter, Assets, Application } from 'pixi.js';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
 
 interface UseDisplacementEffectsProps {
-    sliderRef: React.RefObject<HTMLDivElement | null>;
-    bgDispFilterRef: React.RefObject<DisplacementFilter | null>;
-    cursorDispFilterRef: React.RefObject<DisplacementFilter | null>;
-    backgroundDisplacementSpriteRef: React.RefObject<Sprite | null>;
-    cursorDisplacementSpriteRef: React.RefObject<Sprite | null>;
-    appRef: React.RefObject<any>;
+    sliderRef: RefObject<HTMLDivElement | null>;
+    bgDispFilterRef: RefObject<DisplacementFilter | null>;
+    cursorDispFilterRef: RefObject<DisplacementFilter | null>;
+    backgroundDisplacementSpriteRef: RefObject<Sprite | null>;
+    cursorDisplacementSpriteRef: RefObject<Sprite | null>;
+    appRef: RefObject<Application | null>;
     backgroundDisplacementSpriteLocation: string;
     cursorDisplacementSpriteLocation: string;
     cursorImgEffect: boolean;
@@ -39,6 +39,12 @@ export const useDisplacementEffects = ({
                                            cursorScaleIntensity,
                                            resourceManager
                                        }: UseDisplacementEffectsProps) => {
+    // Track mounted state to prevent updates after unmounting
+    const isMountedRef = useRef(true);
+
+    // Track initialization state
+    const isInitialized = useRef(false);
+
     // Early return for server-side rendering
     if (typeof window === 'undefined') {
         return {
@@ -49,11 +55,11 @@ export const useDisplacementEffects = ({
         };
     }
 
-    // Track initialization state
-    const isInitialized = useRef(false);
-
     // Set up displacement sprites and filters
     useEffect(() => {
+        // Reset mount state on each mount
+        isMountedRef.current = true;
+
         // Guard clauses for initialization state
         if (isInitialized.current) {
             return;
@@ -101,6 +107,9 @@ export const useDisplacementEffects = ({
                     bgTexture = await Assets.load(bgDisplacementUrl);
                 }
 
+                // Check if component is still mounted
+                if (!isMountedRef.current) return;
+
                 // Track the texture with resource manager if available
                 if (resourceManager) {
                     resourceManager.trackTexture(bgDisplacementUrl, bgTexture);
@@ -124,6 +133,9 @@ export const useDisplacementEffects = ({
                     resourceManager.trackDisplayObject(backgroundDisplacementSprite);
                 }
 
+                // Check if still mounted before updating refs
+                if (!isMountedRef.current) return;
+
                 backgroundDisplacementSpriteRef.current = backgroundDisplacementSprite;
 
                 // Load cursor displacement texture
@@ -137,6 +149,9 @@ export const useDisplacementEffects = ({
                     // If not in cache, load it
                     cursorTexture = await Assets.load(cursorDisplacementUrl);
                 }
+
+                // Check if component is still mounted
+                if (!isMountedRef.current) return;
 
                 // Track the texture with resource manager if available
                 if (resourceManager) {
@@ -156,6 +171,9 @@ export const useDisplacementEffects = ({
                     resourceManager.trackDisplayObject(cursorDisplacementSprite);
                 }
 
+                // Check if still mounted before updating refs
+                if (!isMountedRef.current) return;
+
                 cursorDisplacementSpriteRef.current = cursorDisplacementSprite;
 
                 // Create displacement filters
@@ -167,6 +185,9 @@ export const useDisplacementEffects = ({
                     resourceManager.trackFilter(backgroundDisplacementFilter);
                     resourceManager.trackFilter(cursorDisplacementFilter);
                 }
+
+                // Check if still mounted before updating refs
+                if (!isMountedRef.current) return;
 
                 bgDispFilterRef.current = backgroundDisplacementFilter;
                 cursorDispFilterRef.current = cursorDisplacementFilter;
@@ -193,9 +214,16 @@ export const useDisplacementEffects = ({
 
         setupDisplacementSprites();
 
-        // No need for manual cleanup - ResourceManager will handle disposal
+        // Clean up on unmount
+        return () => {
+            // Mark as unmounted
+            isMountedRef.current = false;
+
+            // Note: ResourceManager will handle disposal of all filters and sprites
+            // No explicit cleanup needed here as it's handled centrally
+        };
     }, [
-        appRef, // Using ref object, not .current
+        appRef,
         backgroundDisplacementSpriteLocation,
         cursorDisplacementSpriteLocation,
         cursorScaleIntensity,
@@ -206,97 +234,203 @@ export const useDisplacementEffects = ({
      * Show displacement effects
      */
     const showDisplacementEffects = useCallback(() => {
-        // Skip if not initialized
-        if (!backgroundDisplacementSpriteRef?.current || !bgDispFilterRef?.current) {
-            console.log("Cannot show displacement effects - not initialized yet");
+        // Skip if not initialized or component unmounted
+        if (!backgroundDisplacementSpriteRef?.current || !bgDispFilterRef?.current || !isMountedRef.current) {
+            console.log("Cannot show displacement effects - not initialized yet or component unmounted");
             return;
         }
 
         console.log("Showing displacement effects");
 
-        gsap.to(backgroundDisplacementSpriteRef.current, {
-            alpha: 1,
-            duration: 0.5,
-            ease: 'power2.out',
-        });
-
-        if (cursorImgEffect && cursorDisplacementSpriteRef?.current) {
-            gsap.to(cursorDisplacementSpriteRef.current, {
+        // Create and track the animation for the background sprite
+        if (backgroundDisplacementSpriteRef.current) {
+            const bgSpriteTween = gsap.to(backgroundDisplacementSpriteRef.current, {
                 alpha: 1,
                 duration: 0.5,
                 ease: 'power2.out',
+                onComplete: () => {
+                    // Re-track the sprite after animation if still mounted
+                    if (resourceManager && backgroundDisplacementSpriteRef.current && isMountedRef.current) {
+                        resourceManager.trackDisplayObject(backgroundDisplacementSpriteRef.current);
+                    }
+                }
             });
+
+            // Track the animation
+            if (resourceManager) {
+                resourceManager.trackAnimation(bgSpriteTween);
+            }
         }
 
-        gsap.to(bgDispFilterRef.current.scale, {
-            x: DEFAULT_BG_FILTER_SCALE,
-            y: DEFAULT_BG_FILTER_SCALE,
-            duration: 0.5,
-            ease: 'power2.out',
-        });
+        // Create and track the animation for the cursor sprite
+        if (cursorImgEffect && cursorDisplacementSpriteRef?.current) {
+            const cursorSpriteTween = gsap.to(cursorDisplacementSpriteRef.current, {
+                alpha: 1,
+                duration: 0.5,
+                ease: 'power2.out',
+                onComplete: () => {
+                    // Re-track the sprite after animation if still mounted
+                    if (resourceManager && cursorDisplacementSpriteRef.current && isMountedRef.current) {
+                        resourceManager.trackDisplayObject(cursorDisplacementSpriteRef.current);
+                    }
+                }
+            });
 
+            // Track the animation
+            if (resourceManager) {
+                resourceManager.trackAnimation(cursorSpriteTween);
+            }
+        }
+
+        // Create and track the animation for the background filter scale
+        if (bgDispFilterRef.current) {
+            const bgFilterTween = gsap.to(bgDispFilterRef.current.scale, {
+                x: DEFAULT_BG_FILTER_SCALE,
+                y: DEFAULT_BG_FILTER_SCALE,
+                duration: 0.5,
+                ease: 'power2.out',
+                onComplete: () => {
+                    // Re-track the filter after animation if still mounted
+                    if (resourceManager && bgDispFilterRef.current && isMountedRef.current) {
+                        resourceManager.trackFilter(bgDispFilterRef.current);
+                    }
+                }
+            });
+
+            // Track the animation
+            if (resourceManager) {
+                resourceManager.trackAnimation(bgFilterTween);
+            }
+        }
+
+        // Create and track the animation for the cursor filter scale
         if (cursorImgEffect && cursorDispFilterRef?.current) {
-            gsap.to(cursorDispFilterRef.current.scale, {
+            const cursorFilterTween = gsap.to(cursorDispFilterRef.current.scale, {
                 x: DEFAULT_CURSOR_FILTER_SCALE,
                 y: DEFAULT_CURSOR_FILTER_SCALE,
                 duration: 0.5,
                 ease: 'power2.out',
+                onComplete: () => {
+                    // Re-track the filter after animation if still mounted
+                    if (resourceManager && cursorDispFilterRef.current && isMountedRef.current) {
+                        resourceManager.trackFilter(cursorDispFilterRef.current);
+                    }
+                }
             });
+
+            // Track the animation
+            if (resourceManager) {
+                resourceManager.trackAnimation(cursorFilterTween);
+            }
         }
     }, [
-        backgroundDisplacementSpriteRef, // Using ref object, not .current
+        backgroundDisplacementSpriteRef,
         bgDispFilterRef,
         cursorDisplacementSpriteRef,
         cursorDispFilterRef,
-        cursorImgEffect
+        cursorImgEffect,
+        resourceManager
     ]);
 
     /**
      * Hide displacement effects
      */
     const hideDisplacementEffects = useCallback(() => {
-        // Skip if not initialized
-        if (!backgroundDisplacementSpriteRef?.current || !bgDispFilterRef?.current) {
+        // Skip if not initialized or component unmounted
+        if (!backgroundDisplacementSpriteRef?.current || !bgDispFilterRef?.current || !isMountedRef.current) {
             return;
         }
 
         console.log("Hiding displacement effects");
 
-        gsap.to(backgroundDisplacementSpriteRef.current, {
-            alpha: 0,
-            duration: 0.5,
-            ease: 'power2.out',
-        });
-
-        if (cursorImgEffect && cursorDisplacementSpriteRef?.current) {
-            gsap.to(cursorDisplacementSpriteRef.current, {
+        // Create and track the animation for the background sprite
+        if (backgroundDisplacementSpriteRef.current) {
+            const bgSpriteTween = gsap.to(backgroundDisplacementSpriteRef.current, {
                 alpha: 0,
                 duration: 0.5,
                 ease: 'power2.out',
+                onComplete: () => {
+                    // Re-track the sprite after animation if still mounted
+                    if (resourceManager && backgroundDisplacementSpriteRef.current && isMountedRef.current) {
+                        resourceManager.trackDisplayObject(backgroundDisplacementSpriteRef.current);
+                    }
+                }
             });
+
+            // Track the animation
+            if (resourceManager) {
+                resourceManager.trackAnimation(bgSpriteTween);
+            }
         }
 
-        gsap.to(bgDispFilterRef.current.scale, {
-            x: 0,
-            y: 0,
-            duration: 0.5,
-            ease: 'power2.out',
-        });
+        // Create and track the animation for the cursor sprite
+        if (cursorImgEffect && cursorDisplacementSpriteRef?.current) {
+            const cursorSpriteTween = gsap.to(cursorDisplacementSpriteRef.current, {
+                alpha: 0,
+                duration: 0.5,
+                ease: 'power2.out',
+                onComplete: () => {
+                    // Re-track the sprite after animation if still mounted
+                    if (resourceManager && cursorDisplacementSpriteRef.current && isMountedRef.current) {
+                        resourceManager.trackDisplayObject(cursorDisplacementSpriteRef.current);
+                    }
+                }
+            });
 
-        if (cursorImgEffect && cursorDispFilterRef?.current) {
-            gsap.to(cursorDispFilterRef.current.scale, {
+            // Track the animation
+            if (resourceManager) {
+                resourceManager.trackAnimation(cursorSpriteTween);
+            }
+        }
+
+        // Create and track the animation for the background filter scale
+        if (bgDispFilterRef.current) {
+            const bgFilterTween = gsap.to(bgDispFilterRef.current.scale, {
                 x: 0,
                 y: 0,
                 duration: 0.5,
                 ease: 'power2.out',
+                onComplete: () => {
+                    // Re-track the filter after animation if still mounted
+                    if (resourceManager && bgDispFilterRef.current && isMountedRef.current) {
+                        resourceManager.trackFilter(bgDispFilterRef.current);
+                    }
+                }
             });
+
+            // Track the animation
+            if (resourceManager) {
+                resourceManager.trackAnimation(bgFilterTween);
+            }
+        }
+
+        // Create and track the animation for the cursor filter scale
+        if (cursorImgEffect && cursorDispFilterRef?.current) {
+            const cursorFilterTween = gsap.to(cursorDispFilterRef.current.scale, {
+                x: 0,
+                y: 0,
+                duration: 0.5,
+                ease: 'power2.out',
+                onComplete: () => {
+                    // Re-track the filter after animation if still mounted
+                    if (resourceManager && cursorDispFilterRef.current && isMountedRef.current) {
+                        resourceManager.trackFilter(cursorDispFilterRef.current);
+                    }
+                }
+            });
+
+            // Track the animation
+            if (resourceManager) {
+                resourceManager.trackAnimation(cursorFilterTween);
+            }
         }
     }, [
-        backgroundDisplacementSpriteRef, // Using ref object, not .current
+        backgroundDisplacementSpriteRef,
         bgDispFilterRef,
         cursorDisplacementSpriteRef,
         cursorDispFilterRef,
-        cursorImgEffect
+        cursorImgEffect,
+        resourceManager
     ]);
 
     return {
