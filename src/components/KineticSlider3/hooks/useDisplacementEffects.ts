@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, type RefObject } from 'react';
+import { useEffect, useRef, useCallback, type RefObject } from 'react';
 import { Sprite, DisplacementFilter, Assets, Application } from 'pixi.js';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
@@ -17,15 +17,10 @@ interface UseDisplacementEffectsProps {
     resourceManager?: ResourceManager | null;
 }
 
-/**
- * Default filter scales
- */
+// Default filter scales
 const DEFAULT_BG_FILTER_SCALE = 20;
 const DEFAULT_CURSOR_FILTER_SCALE = 10;
 
-/**
- * Hook to set up and manage displacement effects
- */
 export const useDisplacementEffects = ({
                                            sliderRef,
                                            bgDispFilterRef,
@@ -48,44 +43,21 @@ export const useDisplacementEffects = ({
         isInitialized: false
     });
 
-    // Comprehensive logging function
-    const logDisplacementSetup = (stage: string) => {
-        console.group(`🌊 Displacement Effects Setup - ${stage}`);
-        console.log('Configuration:', {
-            backgroundDisplacementSpriteLocation,
-            cursorDisplacementSpriteLocation,
-            cursorImgEffect,
-            cursorScaleIntensity
-        });
-
-        console.log('Initialization State:', initializationStateRef.current);
-
-        console.log('References:', {
-            appRef: appRef.current ? '✅ Exists' : '❌ Null',
-            stage: appRef.current?.stage ? '✅ Exists' : '❌ Null'
-        });
-
-        console.groupEnd();
-    };
-
     // Centralized displacement setup method
     const setupDisplacementEffects = useCallback(async () => {
         // Prevent multiple simultaneous initializations
         if (initializationStateRef.current.isInitializing ||
             initializationStateRef.current.isInitialized) {
-            console.log('🚫 Displacement effects already initializing or initialized');
             return;
         }
 
         // Validate app and stage
         if (!appRef.current || !appRef.current.stage) {
-            console.warn('🚨 Pixi app or stage not ready for displacement effects');
             return;
         }
 
         // Mark as initializing
         initializationStateRef.current.isInitializing = true;
-        logDisplacementSetup('Initialization Started');
 
         try {
             const app = appRef.current;
@@ -103,10 +75,8 @@ export const useDisplacementEffects = ({
             backgroundDisplacementSprite.alpha = 0;
 
             // Track with resource manager
-            if (resourceManager) {
-                resourceManager.trackDisplayObject(backgroundDisplacementSprite);
-                resourceManager.trackTexture(bgDisplacementUrl, bgTexture);
-            }
+            resourceManager?.trackDisplayObject(backgroundDisplacementSprite);
+            resourceManager?.trackTexture(bgDisplacementUrl, bgTexture);
 
             // Store background displacement sprite
             backgroundDisplacementSpriteRef.current = backgroundDisplacementSprite;
@@ -125,10 +95,8 @@ export const useDisplacementEffects = ({
                 cursorDisplacementSprite.alpha = 0;
 
                 // Track with resource manager
-                if (resourceManager) {
-                    resourceManager.trackDisplayObject(cursorDisplacementSprite);
-                    resourceManager.trackTexture(cursorDisplacementUrl, cursorTexture);
-                }
+                resourceManager?.trackDisplayObject(cursorDisplacementSprite);
+                resourceManager?.trackTexture(cursorDisplacementUrl, cursorTexture);
 
                 cursorDisplacementSpriteRef.current = cursorDisplacementSprite;
             }
@@ -140,11 +108,9 @@ export const useDisplacementEffects = ({
                 : null;
 
             // Track filters
-            if (resourceManager) {
-                resourceManager.trackFilter(backgroundDisplacementFilter);
-                if (cursorDisplacementFilter) {
-                    resourceManager.trackFilter(cursorDisplacementFilter);
-                }
+            resourceManager?.trackFilter(backgroundDisplacementFilter);
+            if (cursorDisplacementFilter) {
+                resourceManager?.trackFilter(cursorDisplacementFilter);
             }
 
             // Store filter references
@@ -168,13 +134,7 @@ export const useDisplacementEffects = ({
                 isInitializing: false,
                 isInitialized: true
             };
-
-            logDisplacementSetup('Initialization Complete');
-            console.log('🎉 Displacement effects set up successfully');
-
         } catch (error) {
-            console.error('🚨 Failed to set up displacement effects:', error);
-
             // Reset initialization state on failure
             initializationStateRef.current = {
                 isInitializing: false,
@@ -212,10 +172,7 @@ export const useDisplacementEffects = ({
 
     // Displacement effect methods
     const showDisplacementEffects = useCallback(() => {
-        if (!initializationStateRef.current.isInitialized) {
-            console.warn('🚫 Displacement effects not initialized');
-            return;
-        }
+        if (!initializationStateRef.current.isInitialized) return;
 
         const backgroundSprite = backgroundDisplacementSpriteRef.current;
         const cursorSprite = cursorDisplacementSpriteRef.current;
@@ -242,10 +199,7 @@ export const useDisplacementEffects = ({
     }, [cursorImgEffect]);
 
     const hideDisplacementEffects = useCallback(() => {
-        if (!initializationStateRef.current.isInitialized) {
-            console.warn('🚫 Displacement effects not initialized');
-            return;
-        }
+        if (!initializationStateRef.current.isInitialized) return;
 
         const backgroundSprite = backgroundDisplacementSpriteRef.current;
         const cursorSprite = cursorDisplacementSpriteRef.current;
