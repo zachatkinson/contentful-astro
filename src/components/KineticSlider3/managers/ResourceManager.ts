@@ -316,6 +316,12 @@ class ResourceManager {
         callback: (this: Window, ev: WindowEventMap[K]) => any,
         options?: boolean | EventListenerOptions
     ): void;
+    removeEventListener<K extends keyof ElementEventMap>(
+        element: Element,
+        eventType: K,
+        callback: (this: Element, ev: ElementEventMap[K]) => any,
+        options?: boolean | EventListenerOptions
+    ): void;
     removeEventListener(
         element: EventTarget,
         eventType: string,
