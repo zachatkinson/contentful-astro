@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { type NavElement } from '../types';
 import type ResourceManager from "../managers/ResourceManager";
 
@@ -52,21 +52,21 @@ const useExternalNav = ({
         }
 
         // Define event handlers with mounted checks
-        const handlePrevClick = (e: Event) => {
+        const handlePrevClick = useCallback((e: Event) => {
             e.preventDefault();
             // Only trigger if component is still mounted
             if (isMountedRef.current) {
                 handlePrev();
             }
-        };
+        }, [handlePrev]);
 
-        const handleNextClick = (e: Event) => {
+        const handleNextClick = useCallback((e: Event) => {
             e.preventDefault();
             // Only trigger if component is still mounted
             if (isMountedRef.current) {
                 handleNext();
             }
-        };
+        }, [handleNext]);
 
         // Use ResourceManager for event listener tracking if available
         if (resourceManager) {
