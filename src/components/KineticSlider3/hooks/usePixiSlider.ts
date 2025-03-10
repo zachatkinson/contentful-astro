@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { KineticSliderProps } from '../types';
+import ResourceManager from '../managers/ResourceManager';
 
 /**
  * Custom hook to initialize and manage the PixiJS slider
@@ -7,7 +8,8 @@ import type { KineticSliderProps } from '../types';
 export const usePixiSlider = (
     sliderRef: RefObject<HTMLDivElement>,
     canvasContainerRef: RefObject<HTMLDivElement>,
-    props: KineticSliderProps
+    props: KineticSliderProps,
+    resourceManager?: ResourceManager | null
 ) => {
     // Track initialization status
     const [isInitializing, setIsInitializing] = useState(false);
@@ -53,7 +55,8 @@ export const usePixiSlider = (
                     const { pixiRefs, isInitialized: pixiInitialized } = hooks.usePixiApp(
                         sliderRef,
                         props.images,
-                        [props.backgroundDisplacementSpriteLocation || '', props.cursorDisplacementSpriteLocation || '']
+                        [props.backgroundDisplacementSpriteLocation || '', props.cursorDisplacementSpriteLocation || ''],
+                        resourceManager // Pass resourceManager to usePixiApp
                     );
 
                     if (!pixiInitialized) {
@@ -61,7 +64,8 @@ export const usePixiSlider = (
                     }
 
                     // Setup slider components using the hooks
-                    setupSliderComponents(pixiRefs, hooks);
+                    // Pass resourceManager to all hooks that need it
+                    setupSliderComponents(pixiRefs, hooks, resourceManager);
                     setIsInitialized(true);
                 }
             } catch (error) {
@@ -73,14 +77,11 @@ export const usePixiSlider = (
 
         initializeSlider();
 
-        // Cleanup function
-        return () => {
-            // Dispose PixiJS resources if needed
-        };
-    }, [sliderRef.current, canvasContainerRef.current, props.images]);
+        // No need for manual cleanup - ResourceManager will handle it
+    }, [sliderRef.current, canvasContainerRef.current, props.images, resourceManager]);
 
     // Set up the slider components using the hooks
-    const setupSliderComponents = (pixiRefs: any, hooks: any) => {
+    const setupSliderComponents = (pixiRefs: any, hooks: any, resourceManager?: ResourceManager | null) => {
         // Implement the slider setup using hooks
         // This is a simplified version - you would need to adapt this to your actual hooks
     };
@@ -98,15 +99,17 @@ export const usePixiSlider = (
         // Call the appropriate hook method to transition slides
     };
 
-    // Handle mouse interaction states
+// Handle mouse interaction states
     const handleMouseEnter = () => {
         if (!isInitialized) return;
-        // Enable displacement effects
+        // Note: Actual displacement effects are handled directly by the
+        // useDisplacementEffects hook in the KineticSlider component
     };
 
     const handleMouseLeave = () => {
         if (!isInitialized) return;
-        // Disable displacement effects
+        // Note: Actual displacement effects are handled directly by the
+        // useDisplacementEffects hook in the KineticSlider component
     };
 
     return {
