@@ -271,6 +271,16 @@ class ResourceManager {
         callback: (this: Window, ev: WindowEventMap[K]) => any,
         options?: boolean | AddEventListenerOptions
     ): void;
+    addEventListener<K extends keyof ElementEventMap>(
+        element: Element,
+        eventType: K,
+        callback: (this: Element, ev: ElementEventMap[K]) => any,
+        options?: boolean | AddEventListenerOptions
+    ): void;
+    /**
+     * Track an event listener for proper cleanup
+     * Generic EventTarget version for custom events
+     */
     addEventListener(
         element: EventTarget,
         eventType: string,
