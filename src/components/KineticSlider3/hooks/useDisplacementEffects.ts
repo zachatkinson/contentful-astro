@@ -3,6 +3,9 @@ import { Sprite, DisplacementFilter, Assets, Application } from 'pixi.js';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
 
+// Development environment check
+const isDevelopment = import.meta.env?.MODE === 'development';
+
 interface UseDisplacementEffectsProps {
     bgDispFilterRef: RefObject<DisplacementFilter | null>;
     cursorDispFilterRef: RefObject<DisplacementFilter | null>;
@@ -43,12 +46,12 @@ export const useDisplacementEffects = ({
         // Prevent multiple simultaneous initializations
         if (initializationStateRef.current.isInitializing ||
             initializationStateRef.current.isInitialized) {
-            return;
+            return null;
         }
 
         // Validate app and stage
         if (!appRef.current || !appRef.current.stage) {
-            return;
+            return null;
         }
 
         // Mark as initializing
@@ -143,9 +146,14 @@ export const useDisplacementEffects = ({
                 isInitialized: false
             };
 
-            // Log error in development
-            if (import.meta.env.NODE_ENV === 'development') {
-                console.error('Failed to setup displacement effects:', error);
+            // Log error in development with more context
+            if (isDevelopment) {
+                console.error('Failed to setup displacement effects:', {
+                    error,
+                    backgroundDisplacementSpriteLocation,
+                    cursorDisplacementSpriteLocation,
+                    cursorImgEffect
+                });
             }
 
             return null;
@@ -155,7 +163,10 @@ export const useDisplacementEffects = ({
         cursorDisplacementSpriteLocation,
         cursorImgEffect,
         cursorScaleIntensity,
-        resourceManager
+        resourceManager,
+        bgDispFilterRef,
+        backgroundDisplacementSpriteRef,
+        cursorDisplacementSpriteRef
     ]);
 
     // Displacement effect methods
@@ -210,7 +221,14 @@ export const useDisplacementEffects = ({
         }
 
         return animations;
-    }, [cursorImgEffect, resourceManager]);
+    }, [
+        cursorImgEffect,
+        resourceManager,
+        backgroundDisplacementSpriteRef,
+        cursorDisplacementSpriteRef,
+        bgDispFilterRef,
+        cursorDispFilterRef
+    ]);
 
     const hideDisplacementEffects = useCallback(() => {
         if (!initializationStateRef.current.isInitialized) return [];
@@ -255,7 +273,14 @@ export const useDisplacementEffects = ({
         }
 
         return animations;
-    }, [cursorImgEffect, resourceManager]);
+    }, [
+        cursorImgEffect,
+        resourceManager,
+        backgroundDisplacementSpriteRef,
+        cursorDisplacementSpriteRef,
+        bgDispFilterRef,
+        cursorDispFilterRef
+    ]);
 
     // Effect to trigger initialization when app is ready
     useEffect(() => {
