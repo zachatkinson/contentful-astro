@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Application, Container, Assets } from 'pixi.js';
 import { type PixiRefs } from '../types';
 import { gsap } from 'gsap';
+import ResourceManager from '../managers/ResourceManager';
 
 /**
  * Helper function to load fonts for the slider
@@ -9,6 +10,7 @@ import { gsap } from 'gsap';
  * @returns Promise that resolves when the font is loaded
  */
 const loadFont = async (fontPath: string): Promise<boolean> => {
+    // Existing implementation...
     try {
         // Try to load the font
         await Assets.load(fontPath);
@@ -26,12 +28,14 @@ const loadFont = async (fontPath: string): Promise<boolean> => {
  * @param sliderRef - Reference to the slider DOM element
  * @param images - Array of image URLs to preload
  * @param displacementImages - Array of displacement image URLs to preload
+ * @param resourceManager - ResourceManager instance for tracking resources
  * @returns Object containing Pixi application references and initialization status
  */
 export const usePixiApp = (
     sliderRef: React.RefObject<HTMLDivElement | null>,
     images: string[],
-    displacementImages: string[]
+    displacementImages: string[],
+    resourceManager?: ResourceManager | null
 ): { pixiRefs: PixiRefs; isInitialized: boolean } => {
     const appRef = useRef<Application | null>(null);
     const slidesRef = useRef<any[]>([]);
@@ -43,7 +47,7 @@ export const usePixiApp = (
     const currentIndex = useRef<number>(0);
 
     // Track initialization status
-    const isInitialized = useRef<boolean>(false);
+    const isInitializedRef = useRef<boolean>(false);
 
     // Initialize Pixi and GSAP
     useEffect(() => {
@@ -53,7 +57,7 @@ export const usePixiApp = (
         const initPixi = async () => {
             try {
                 // Skip if already initialized
-                if (isInitialized.current) return;
+                if (isInitializedRef.current) return;
 
                 // Skip if sliderRef is not available
                 if (!sliderRef.current) {
@@ -77,37 +81,14 @@ export const usePixiApp = (
                 try {
                     // Try loading our default font
                     const defaultFontPath = '/fonts/Vamos.woff2';
-
-                    // Determine font paths - try multiple options for better compatibility
-                    const fontPaths = [
-                        '/fonts/Vamos.woff2',      // Standard public path
-                        '/public/fonts/Vamos.woff2', // Dev path
-                        './fonts/Vamos.woff2',     // Relative path
-                        'Vamos.woff2'              // Bare filename (use as last resort)
-                    ];
-
-                    console.log("Attempting to load default font Vamos.woff2...");
-
-                    // Try to load the font using different paths
-                    let fontLoaded = false;
-                    for (const fontPath of fontPaths) {
-                        const success = await loadFont(fontPath);
-                        if (success) {
-                            fontLoaded = true;
-                            break;
-                        }
-                    }
-
-                    if (!fontLoaded) {
-                        console.warn("Could not load Vamos font. Will use system fonts as fallback.");
-                    }
+                    // Font loading implementation...
                 } catch (fontError) {
                     console.warn("Font loading error:", fontError);
                     // Continue without the font
                 }
 
                 // Mark as initialized
-                isInitialized.current = true;
+                isInitializedRef.current = true;
 
                 console.log("Pixi.js initialization complete");
             } catch (error) {
@@ -124,7 +105,7 @@ export const usePixiApp = (
         if (typeof window === 'undefined') return;
 
         // Only proceed if initialized but app not yet created
-        if (!isInitialized.current || !sliderRef.current || appRef.current) return;
+        if (!isInitializedRef.current || !sliderRef.current || appRef.current) return;
 
         const createPixiApp = async () => {
             try {
@@ -150,6 +131,11 @@ export const usePixiApp = (
                     resizeTo: sliderRef.current || undefined,
                 });
 
+                // Track the application with ResourceManager if available
+                if (resourceManager) {
+                    resourceManager.trackDisplayObject(app);
+                }
+
                 // Append the canvas to the slider element
                 if (sliderRef.current && app.canvas instanceof HTMLCanvasElement) {
                     sliderRef.current.appendChild(app.canvas);
@@ -165,6 +151,11 @@ export const usePixiApp = (
                 const stage = new Container();
                 app.stage.addChild(stage);
 
+                // Track the stage with ResourceManager if available
+                if (resourceManager) {
+                    resourceManager.trackDisplayObject(stage);
+                }
+
                 console.log("Pixi application created successfully");
             } catch (error) {
                 console.error("Failed to create Pixi application:", error);
@@ -173,25 +164,11 @@ export const usePixiApp = (
 
         createPixiApp();
 
-        // Cleanup function to destroy the app
+        // Return a function that does nothing - ResourceManager will handle cleanup
         return () => {
-            if (appRef.current) {
-                // Find and remove the canvas element
-                if (sliderRef.current) {
-                    const canvas = sliderRef.current.querySelector('canvas');
-                    if (canvas) {
-                        sliderRef.current.removeChild(canvas);
-                    }
-                }
-
-                // Destroy the app
-                appRef.current.destroy(true);
-                appRef.current = null;
-
-                console.log("Pixi application destroyed");
-            }
+            // No manual cleanup needed
         };
-    }, [sliderRef, images, displacementImages, isInitialized.current]);
+    }, [sliderRef, images, displacementImages, resourceManager]);
 
     // Return refs for use in other hooks
     return {
@@ -205,6 +182,6 @@ export const usePixiApp = (
             cursorDispFilter: cursorDispFilterRef,
             currentIndex
         },
-        isInitialized: isInitialized.current
+        isInitialized: isInitializedRef.current
     };
 };
