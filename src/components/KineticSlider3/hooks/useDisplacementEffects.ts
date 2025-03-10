@@ -42,396 +42,226 @@ export const useDisplacementEffects = ({
     // Track mounted state to prevent updates after unmounting
     const isMountedRef = useRef(true);
 
-    // Track initialization state
-    const isInitialized = useRef(false);
+    // Track initialization state with more granular control
+    const initializationStateRef = useRef({
+        isInitializing: false,
+        isInitialized: false
+    });
 
-    // Early return for server-side rendering
-    if (typeof window === 'undefined') {
-        return {
-            showDisplacementEffects: () => {},
-            hideDisplacementEffects: () => {},
-            DEFAULT_BG_FILTER_SCALE,
-            DEFAULT_CURSOR_FILTER_SCALE
-        };
-    }
+    // Comprehensive logging function
+    const logDisplacementSetup = (stage: string) => {
+        console.group(`🌊 Displacement Effects Setup - ${stage}`);
+        console.log('Configuration:', {
+            backgroundDisplacementSpriteLocation,
+            cursorDisplacementSpriteLocation,
+            cursorImgEffect,
+            cursorScaleIntensity
+        });
 
-    // Set up displacement sprites and filters
-    useEffect(() => {
-        // Reset mount state on each mount
-        isMountedRef.current = true;
+        console.log('Initialization State:', initializationStateRef.current);
 
-        // Guard clauses for initialization state
-        if (isInitialized.current) {
+        console.log('References:', {
+            appRef: appRef.current ? '✅ Exists' : '❌ Null',
+            stage: appRef.current?.stage ? '✅ Exists' : '❌ Null'
+        });
+
+        console.groupEnd();
+    };
+
+    // Centralized displacement setup method
+    const setupDisplacementEffects = useCallback(async () => {
+        // Prevent multiple simultaneous initializations
+        if (initializationStateRef.current.isInitializing ||
+            initializationStateRef.current.isInitialized) {
+            console.log('🚫 Displacement effects already initializing or initialized');
             return;
         }
 
-        // Guard clause for appRef itself
-        if (!appRef) {
-            console.log("App ref is not provided, skipping displacement effects setup");
+        // Validate app and stage
+        if (!appRef.current || !appRef.current.stage) {
+            console.warn('🚨 Pixi app or stage not ready for displacement effects');
             return;
         }
 
-        // Guard clause for appRef.current
-        if (!appRef.current) {
-            console.log("App instance not yet available, waiting for initialization");
-            return;
-        }
+        // Mark as initializing
+        initializationStateRef.current.isInitializing = true;
+        logDisplacementSetup('Initialization Started');
 
-        // Guard clause for stage
-        if (!appRef.current.stage) {
-            console.log("Stage not available for displacement effects, waiting for initialization");
-            return;
-        }
+        try {
+            const app = appRef.current;
 
-        // Guard clause for screen dimensions
-        if (!appRef.current.screen || !appRef.current.screen.width || !appRef.current.screen.height) {
-            console.log("Screen dimensions not available, waiting for initialization");
-            return;
-        }
+            // Load background displacement texture
+            const bgDisplacementUrl = backgroundDisplacementSpriteLocation || '/images/background-displace.jpg';
+            const bgTexture = await Assets.load(bgDisplacementUrl);
 
-        console.log("Setting up displacement effects...");
-        const app = appRef.current;
+            // Create background displacement sprite
+            const backgroundDisplacementSprite = new Sprite(bgTexture);
+            backgroundDisplacementSprite.anchor.set(0.5);
+            backgroundDisplacementSprite.x = app.screen.width / 2;
+            backgroundDisplacementSprite.y = app.screen.height / 2;
+            backgroundDisplacementSprite.scale.set(2);
+            backgroundDisplacementSprite.alpha = 0;
 
-        // Load displacement textures using Assets API
-        const setupDisplacementSprites = async () => {
-            try {
-                // Load background displacement texture
-                const bgDisplacementUrl = backgroundDisplacementSpriteLocation || '/images/background-displace.jpg';
-                let bgTexture;
+            // Track with resource manager
+            if (resourceManager) {
+                resourceManager.trackDisplayObject(backgroundDisplacementSprite);
+                resourceManager.trackTexture(bgDisplacementUrl, bgTexture);
+            }
 
-                try {
-                    // Try to get from cache first
-                    bgTexture = Assets.get(bgDisplacementUrl);
-                } catch (e) {
-                    // If not in cache, load it
-                    bgTexture = await Assets.load(bgDisplacementUrl);
-                }
+            // Store background displacement sprite
+            backgroundDisplacementSpriteRef.current = backgroundDisplacementSprite;
 
-                // Check if component is still mounted
-                if (!isMountedRef.current) return;
-
-                // Track the texture with resource manager if available
-                if (resourceManager) {
-                    resourceManager.trackTexture(bgDisplacementUrl, bgTexture);
-                }
-
-                // Create background displacement sprite
-                const backgroundDisplacementSprite = new Sprite(bgTexture);
-                backgroundDisplacementSprite.anchor.set(0.5);
-
-                // Safe access to screen dimensions
-                const screenWidth = app.screen?.width || 800;
-                const screenHeight = app.screen?.height || 600;
-
-                backgroundDisplacementSprite.x = screenWidth / 2;
-                backgroundDisplacementSprite.y = screenHeight / 2;
-                backgroundDisplacementSprite.scale.set(2);
-                backgroundDisplacementSprite.alpha = 0;
-
-                // Track the sprite with resource manager if available
-                if (resourceManager) {
-                    resourceManager.trackDisplayObject(backgroundDisplacementSprite);
-                }
-
-                // Check if still mounted before updating refs
-                if (!isMountedRef.current) return;
-
-                backgroundDisplacementSpriteRef.current = backgroundDisplacementSprite;
-
-                // Load cursor displacement texture
+            // Cursor displacement (conditional)
+            let cursorDisplacementSprite = null;
+            if (cursorImgEffect) {
                 const cursorDisplacementUrl = cursorDisplacementSpriteLocation || '/images/cursor-displace.png';
-                let cursorTexture;
+                const cursorTexture = await Assets.load(cursorDisplacementUrl);
 
-                try {
-                    // Try to get from cache first
-                    cursorTexture = Assets.get(cursorDisplacementUrl);
-                } catch (e) {
-                    // If not in cache, load it
-                    cursorTexture = await Assets.load(cursorDisplacementUrl);
-                }
-
-                // Check if component is still mounted
-                if (!isMountedRef.current) return;
-
-                // Track the texture with resource manager if available
-                if (resourceManager) {
-                    resourceManager.trackTexture(cursorDisplacementUrl, cursorTexture);
-                }
-
-                // Create cursor displacement sprite
-                const cursorDisplacementSprite = new Sprite(cursorTexture);
+                cursorDisplacementSprite = new Sprite(cursorTexture);
                 cursorDisplacementSprite.anchor.set(0.5);
-                cursorDisplacementSprite.x = screenWidth / 2;
-                cursorDisplacementSprite.y = screenHeight / 2;
+                cursorDisplacementSprite.x = app.screen.width / 2;
+                cursorDisplacementSprite.y = app.screen.height / 2;
                 cursorDisplacementSprite.scale.set(cursorScaleIntensity || 0.65);
                 cursorDisplacementSprite.alpha = 0;
 
-                // Track the sprite with resource manager if available
+                // Track with resource manager
                 if (resourceManager) {
                     resourceManager.trackDisplayObject(cursorDisplacementSprite);
+                    resourceManager.trackTexture(cursorDisplacementUrl, cursorTexture);
                 }
-
-                // Check if still mounted before updating refs
-                if (!isMountedRef.current) return;
 
                 cursorDisplacementSpriteRef.current = cursorDisplacementSprite;
+            }
 
-                // Create displacement filters
-                const backgroundDisplacementFilter = new DisplacementFilter(backgroundDisplacementSprite);
-                const cursorDisplacementFilter = new DisplacementFilter(cursorDisplacementSprite);
+            // Create displacement filters
+            const backgroundDisplacementFilter = new DisplacementFilter(backgroundDisplacementSprite);
+            const cursorDisplacementFilter = cursorImgEffect && cursorDisplacementSprite
+                ? new DisplacementFilter(cursorDisplacementSprite)
+                : null;
 
-                // Track the filters with resource manager if available
-                if (resourceManager) {
-                    resourceManager.trackFilter(backgroundDisplacementFilter);
+            // Track filters
+            if (resourceManager) {
+                resourceManager.trackFilter(backgroundDisplacementFilter);
+                if (cursorDisplacementFilter) {
                     resourceManager.trackFilter(cursorDisplacementFilter);
                 }
-
-                // Check if still mounted before updating refs
-                if (!isMountedRef.current) return;
-
-                bgDispFilterRef.current = backgroundDisplacementFilter;
-                cursorDispFilterRef.current = cursorDisplacementFilter;
-
-                // Initialize filter scales to 0
-                backgroundDisplacementFilter.scale.set(0);
-                cursorDisplacementFilter.scale.set(0);
-
-                // Add displacement sprites to the stage - additional guard clause
-                if (app.stage) {
-                    app.stage.addChild(backgroundDisplacementSprite, cursorDisplacementSprite);
-                } else {
-                    console.warn("Cannot add displacement sprites: stage is not available");
-                }
-
-                // Mark as initialized to prevent duplicate setup
-                isInitialized.current = true;
-
-                console.log("Displacement sprites and filters created successfully");
-            } catch (error) {
-                console.error("Error setting up displacement effects:", error);
             }
-        };
 
-        setupDisplacementSprites();
+            // Store filter references
+            bgDispFilterRef.current = backgroundDisplacementFilter;
+            cursorDispFilterRef.current = cursorDisplacementFilter;
 
-        // Clean up on unmount
-        return () => {
-            // Mark as unmounted
-            isMountedRef.current = false;
+            // Initialize filter scales to 0
+            backgroundDisplacementFilter.scale.set(0);
+            if (cursorDisplacementFilter) {
+                cursorDisplacementFilter.scale.set(0);
+            }
 
-            // Note: ResourceManager will handle disposal of all filters and sprites
-            // No explicit cleanup needed here as it's handled centrally
-        };
+            // Add sprites to stage
+            app.stage.addChild(backgroundDisplacementSprite);
+            if (cursorImgEffect && cursorDisplacementSprite) {
+                app.stage.addChild(cursorDisplacementSprite);
+            }
+
+            // Mark as fully initialized
+            initializationStateRef.current = {
+                isInitializing: false,
+                isInitialized: true
+            };
+
+            logDisplacementSetup('Initialization Complete');
+            console.log('🎉 Displacement effects set up successfully');
+
+        } catch (error) {
+            console.error('🚨 Failed to set up displacement effects:', error);
+
+            // Reset initialization state on failure
+            initializationStateRef.current = {
+                isInitializing: false,
+                isInitialized: false
+            };
+        }
     }, [
-        appRef,
         backgroundDisplacementSpriteLocation,
         cursorDisplacementSpriteLocation,
+        cursorImgEffect,
         cursorScaleIntensity,
         resourceManager
     ]);
 
-    /**
-     * Show displacement effects
-     */
+    // Effect to trigger initialization when app is ready
+    useEffect(() => {
+        // Ensure we're in a browser environment
+        if (typeof window === 'undefined') return;
+
+        // Only attempt setup if the app and stage are ready
+        if (appRef.current?.stage) {
+            setupDisplacementEffects();
+        }
+
+        // Cleanup function
+        return () => {
+            isMountedRef.current = false;
+            // Reset initialization state
+            initializationStateRef.current = {
+                isInitializing: false,
+                isInitialized: false
+            };
+        };
+    }, [appRef.current?.stage, setupDisplacementEffects]);
+
+    // Displacement effect methods
     const showDisplacementEffects = useCallback(() => {
-        // Skip if not initialized or component unmounted
-        if (!backgroundDisplacementSpriteRef?.current || !bgDispFilterRef?.current || !isMountedRef.current) {
-            console.log("Cannot show displacement effects - not initialized yet or component unmounted");
+        if (!initializationStateRef.current.isInitialized) {
+            console.warn('🚫 Displacement effects not initialized');
             return;
         }
 
-        console.log("Showing displacement effects");
+        const backgroundSprite = backgroundDisplacementSpriteRef.current;
+        const cursorSprite = cursorDisplacementSpriteRef.current;
+        const bgFilter = bgDispFilterRef.current;
+        const cursorFilter = cursorDispFilterRef.current;
 
-        // Create and track the animation for the background sprite
-        if (backgroundDisplacementSpriteRef.current) {
-            const bgSpriteTween = gsap.to(backgroundDisplacementSpriteRef.current, {
-                alpha: 1,
-                duration: 0.5,
-                ease: 'power2.out',
-                onComplete: () => {
-                    // Re-track the sprite after animation if still mounted
-                    if (resourceManager && backgroundDisplacementSpriteRef.current && isMountedRef.current) {
-                        resourceManager.trackDisplayObject(backgroundDisplacementSpriteRef.current);
-                    }
-                }
-            });
-
-            // Track the animation
-            if (resourceManager) {
-                resourceManager.trackAnimation(bgSpriteTween);
-            }
-        }
-
-        // Create and track the animation for the cursor sprite
-        if (cursorImgEffect && cursorDisplacementSpriteRef?.current) {
-            const cursorSpriteTween = gsap.to(cursorDisplacementSpriteRef.current, {
-                alpha: 1,
-                duration: 0.5,
-                ease: 'power2.out',
-                onComplete: () => {
-                    // Re-track the sprite after animation if still mounted
-                    if (resourceManager && cursorDisplacementSpriteRef.current && isMountedRef.current) {
-                        resourceManager.trackDisplayObject(cursorDisplacementSpriteRef.current);
-                    }
-                }
-            });
-
-            // Track the animation
-            if (resourceManager) {
-                resourceManager.trackAnimation(cursorSpriteTween);
-            }
-        }
-
-        // Create and track the animation for the background filter scale
-        if (bgDispFilterRef.current) {
-            const bgFilterTween = gsap.to(bgDispFilterRef.current.scale, {
+        if (backgroundSprite && bgFilter) {
+            gsap.to(backgroundSprite, { alpha: 1, duration: 0.5 });
+            gsap.to(bgFilter.scale, {
                 x: DEFAULT_BG_FILTER_SCALE,
                 y: DEFAULT_BG_FILTER_SCALE,
-                duration: 0.5,
-                ease: 'power2.out',
-                onComplete: () => {
-                    // Re-track the filter after animation if still mounted
-                    if (resourceManager && bgDispFilterRef.current && isMountedRef.current) {
-                        resourceManager.trackFilter(bgDispFilterRef.current);
-                    }
-                }
+                duration: 0.5
             });
-
-            // Track the animation
-            if (resourceManager) {
-                resourceManager.trackAnimation(bgFilterTween);
-            }
         }
 
-        // Create and track the animation for the cursor filter scale
-        if (cursorImgEffect && cursorDispFilterRef?.current) {
-            const cursorFilterTween = gsap.to(cursorDispFilterRef.current.scale, {
+        if (cursorImgEffect && cursorSprite && cursorFilter) {
+            gsap.to(cursorSprite, { alpha: 1, duration: 0.5 });
+            gsap.to(cursorFilter.scale, {
                 x: DEFAULT_CURSOR_FILTER_SCALE,
                 y: DEFAULT_CURSOR_FILTER_SCALE,
-                duration: 0.5,
-                ease: 'power2.out',
-                onComplete: () => {
-                    // Re-track the filter after animation if still mounted
-                    if (resourceManager && cursorDispFilterRef.current && isMountedRef.current) {
-                        resourceManager.trackFilter(cursorDispFilterRef.current);
-                    }
-                }
+                duration: 0.5
             });
-
-            // Track the animation
-            if (resourceManager) {
-                resourceManager.trackAnimation(cursorFilterTween);
-            }
         }
-    }, [
-        backgroundDisplacementSpriteRef,
-        bgDispFilterRef,
-        cursorDisplacementSpriteRef,
-        cursorDispFilterRef,
-        cursorImgEffect,
-        resourceManager
-    ]);
+    }, [cursorImgEffect]);
 
-    /**
-     * Hide displacement effects
-     */
     const hideDisplacementEffects = useCallback(() => {
-        // Skip if not initialized or component unmounted
-        if (!backgroundDisplacementSpriteRef?.current || !bgDispFilterRef?.current || !isMountedRef.current) {
+        if (!initializationStateRef.current.isInitialized) {
+            console.warn('🚫 Displacement effects not initialized');
             return;
         }
 
-        console.log("Hiding displacement effects");
+        const backgroundSprite = backgroundDisplacementSpriteRef.current;
+        const cursorSprite = cursorDisplacementSpriteRef.current;
+        const bgFilter = bgDispFilterRef.current;
+        const cursorFilter = cursorDispFilterRef.current;
 
-        // Create and track the animation for the background sprite
-        if (backgroundDisplacementSpriteRef.current) {
-            const bgSpriteTween = gsap.to(backgroundDisplacementSpriteRef.current, {
-                alpha: 0,
-                duration: 0.5,
-                ease: 'power2.out',
-                onComplete: () => {
-                    // Re-track the sprite after animation if still mounted
-                    if (resourceManager && backgroundDisplacementSpriteRef.current && isMountedRef.current) {
-                        resourceManager.trackDisplayObject(backgroundDisplacementSpriteRef.current);
-                    }
-                }
-            });
-
-            // Track the animation
-            if (resourceManager) {
-                resourceManager.trackAnimation(bgSpriteTween);
-            }
+        if (backgroundSprite && bgFilter) {
+            gsap.to(backgroundSprite, { alpha: 0, duration: 0.5 });
+            gsap.to(bgFilter.scale, { x: 0, y: 0, duration: 0.5 });
         }
 
-        // Create and track the animation for the cursor sprite
-        if (cursorImgEffect && cursorDisplacementSpriteRef?.current) {
-            const cursorSpriteTween = gsap.to(cursorDisplacementSpriteRef.current, {
-                alpha: 0,
-                duration: 0.5,
-                ease: 'power2.out',
-                onComplete: () => {
-                    // Re-track the sprite after animation if still mounted
-                    if (resourceManager && cursorDisplacementSpriteRef.current && isMountedRef.current) {
-                        resourceManager.trackDisplayObject(cursorDisplacementSpriteRef.current);
-                    }
-                }
-            });
-
-            // Track the animation
-            if (resourceManager) {
-                resourceManager.trackAnimation(cursorSpriteTween);
-            }
+        if (cursorImgEffect && cursorSprite && cursorFilter) {
+            gsap.to(cursorSprite, { alpha: 0, duration: 0.5 });
+            gsap.to(cursorFilter.scale, { x: 0, y: 0, duration: 0.5 });
         }
-
-        // Create and track the animation for the background filter scale
-        if (bgDispFilterRef.current) {
-            const bgFilterTween = gsap.to(bgDispFilterRef.current.scale, {
-                x: 0,
-                y: 0,
-                duration: 0.5,
-                ease: 'power2.out',
-                onComplete: () => {
-                    // Re-track the filter after animation if still mounted
-                    if (resourceManager && bgDispFilterRef.current && isMountedRef.current) {
-                        resourceManager.trackFilter(bgDispFilterRef.current);
-                    }
-                }
-            });
-
-            // Track the animation
-            if (resourceManager) {
-                resourceManager.trackAnimation(bgFilterTween);
-            }
-        }
-
-        // Create and track the animation for the cursor filter scale
-        if (cursorImgEffect && cursorDispFilterRef?.current) {
-            const cursorFilterTween = gsap.to(cursorDispFilterRef.current.scale, {
-                x: 0,
-                y: 0,
-                duration: 0.5,
-                ease: 'power2.out',
-                onComplete: () => {
-                    // Re-track the filter after animation if still mounted
-                    if (resourceManager && cursorDispFilterRef.current && isMountedRef.current) {
-                        resourceManager.trackFilter(cursorDispFilterRef.current);
-                    }
-                }
-            });
-
-            // Track the animation
-            if (resourceManager) {
-                resourceManager.trackAnimation(cursorFilterTween);
-            }
-        }
-    }, [
-        backgroundDisplacementSpriteRef,
-        bgDispFilterRef,
-        cursorDisplacementSpriteRef,
-        cursorDispFilterRef,
-        cursorImgEffect,
-        resourceManager
-    ]);
+    }, [cursorImgEffect]);
 
     return {
         showDisplacementEffects,
