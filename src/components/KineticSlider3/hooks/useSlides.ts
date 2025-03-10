@@ -2,12 +2,13 @@ import { useEffect, useCallback } from 'react';
 import { Sprite, Container, Assets } from 'pixi.js';
 import { type EnhancedSprite, type HookParams } from '../types';
 import { calculateSpriteScale } from '../utils/calculateSpriteScale';
-import gsap from 'gsap';
+import { gsap } from 'gsap';
+import ResourceManager from '../managers/ResourceManager';
 
 /**
  * Hook to create and manage slide sprites
  */
-export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
+export const useSlides = ({ sliderRef, pixi, props, resourceManager }: HookParams & { resourceManager?: ResourceManager | null }) => {
     // Create slides for each image
     useEffect(() => {
         if (!pixi.app.current || !pixi.app.current.stage) {
@@ -24,10 +25,20 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
         console.log("Creating slides for", props.images.length, "images");
         const app = pixi.app.current;
 
-        // Get the stage container - either the first child or the stage itself
-        const stage = app.stage.children[0] instanceof Container
-            ? app.stage.children[0] as Container
-            : app.stage;
+        // Create a dedicated container for slides if it doesn't exist
+        let slidesContainer: Container;
+        if (app.stage.children.length > 0 && app.stage.children[0] instanceof Container) {
+            slidesContainer = app.stage.children[0] as Container;
+        } else {
+            slidesContainer = new Container();
+            slidesContainer.label = 'slidesContainer';
+            app.stage.addChild(slidesContainer);
+
+            // Track container with resource manager if available
+            if (resourceManager) {
+                resourceManager.trackDisplayObject(slidesContainer);
+            }
+        }
 
         // Clear existing slides
         pixi.slides.current.forEach(sprite => {
@@ -57,39 +68,39 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
                         // Get texture from cache
                         const texture = Assets.get(image);
 
+                        // Track texture with resource manager if available
+                        if (resourceManager) {
+                            resourceManager.trackTexture(image, texture);
+                        }
+
                         // Create the sprite
                         const sprite = new Sprite(texture) as EnhancedSprite;
                         sprite.anchor.set(0.5);
                         sprite.x = app.screen.width / 2;
                         sprite.y = app.screen.height / 2;
 
+                        // Track the sprite with resource manager if available
+                        if (resourceManager) {
+                            resourceManager.trackDisplayObject(sprite);
+                        }
+
                         // Set initial state - only show the first slide
                         sprite.alpha = index === 0 ? 1 : 0;
-
-                        // IMPORTANT: Set visibility for non-active slides to false
-                        // This will prevent them from being rendered at all
                         sprite.visible = index === 0;
 
-                        // Calculate scale
-                        const scaleResult = calculateSpriteScale(
+                        // Calculate and apply scale
+                        const { scale, baseScale } = calculateSpriteScale(
                             texture.width,
                             texture.height,
                             app.screen.width,
                             app.screen.height
                         );
 
-                        // Apply the calculated scale
-                        // Handle both old and new return types of calculateSpriteScale
-                        if (typeof scaleResult === 'number') {
-                            sprite.scale.set(scaleResult);
-                            sprite.baseScale = scaleResult;
-                        } else {
-                            sprite.scale.set(scaleResult.scale);
-                            sprite.baseScale = scaleResult.baseScale;
-                        }
+                        sprite.scale.set(scale);
+                        sprite.baseScale = baseScale;
 
-                        // Add to stage and store reference
-                        stage.addChild(sprite);
+                        // Add to container and store reference
+                        slidesContainer.addChild(sprite);
                         pixi.slides.current.push(sprite);
 
                         console.log(`Created slide ${index} for ${image}`);
@@ -104,16 +115,8 @@ export const useSlides = ({ sliderRef, pixi, props }: HookParams) => {
 
         loadSlides();
 
-        return () => {
-            // Cleanup
-            pixi.slides.current.forEach(sprite => {
-                if (sprite && sprite.parent) {
-                    sprite.parent.removeChild(sprite);
-                }
-            });
-            pixi.slides.current = [];
-        };
-    }, [pixi.app.current, props.images]);
+        // No need for manual cleanup - ResourceManager will handle it
+    }, [pixi.app.current, props.images, resourceManager]);
 
     /**
      * Transition to a specific slide
