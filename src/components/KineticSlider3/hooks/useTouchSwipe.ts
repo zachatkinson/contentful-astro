@@ -1,10 +1,12 @@
 import { useEffect, type RefObject } from "react";
+import ResourceManager from '../managers/ResourceManager';
 
 interface UseTouchSwipeProps {
     sliderRef: RefObject<HTMLDivElement | null>;
     onSwipeLeft: () => void;
     onSwipeRight: () => void;
     threshold?: number; // Optional override for swipe threshold.
+    resourceManager?: ResourceManager | null;
 }
 
 const useTouchSwipe = ({
@@ -12,6 +14,7 @@ const useTouchSwipe = ({
                            onSwipeLeft,
                            onSwipeRight,
                            threshold,
+                           resourceManager
                        }: UseTouchSwipeProps) => {
     useEffect(() => {
         // Skip during server-side rendering
@@ -53,7 +56,7 @@ const useTouchSwipe = ({
             slider.removeEventListener("touchmove", handleTouchMove);
             slider.removeEventListener("touchend", handleTouchEnd);
         };
-    }, [sliderRef, onSwipeLeft, onSwipeRight, threshold]);
+    }, [sliderRef, onSwipeLeft, onSwipeRight, threshold, resourceManager]);
 };
 
 export default useTouchSwipe;
