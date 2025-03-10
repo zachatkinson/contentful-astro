@@ -245,6 +245,11 @@ const useTextContainers = ({
 
                     // Force text to update
                     titleText.text = titleText.text; // This triggers an internal update
+
+                    // Re-track the text object after style updates
+                    if (resourceManager) {
+                        resourceManager.trackDisplayObject(titleText);
+                    }
                 }
 
                 // Update subtitle text
@@ -261,10 +266,20 @@ const useTextContainers = ({
                         const titleText = container.children[0] as Text;
                         subText.y = titleText.height + computedSubTitleOffset;
                     }
+
+                    // Re-track the text object after style and position updates
+                    if (resourceManager) {
+                        resourceManager.trackDisplayObject(subText);
+                    }
                 }
 
                 // Re-center pivot after text updates
                 container.pivot.y = container.height / 2;
+
+                // Re-track the container after position and pivot updates
+                if (resourceManager) {
+                    resourceManager.trackDisplayObject(container);
+                }
             });
         };
 
@@ -286,7 +301,8 @@ const useTextContainers = ({
         textSubTitleOffsetTop,
         mobileTextSubTitleOffsetTop,
         textTitleFontFamily,
-        textSubTitleFontFamily
+        textSubTitleFontFamily,
+        resourceManager
     ]);
 
     return {
