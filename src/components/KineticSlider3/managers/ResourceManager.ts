@@ -1,5 +1,4 @@
 import { Texture, Filter, Application } from 'pixi.js';
-import type { gsap } from 'gsap';
 
 type DisplayObject = any; // Use a more specific type if possible in your project
 type EventCallback = EventListenerOrEventListenerObject;
@@ -34,6 +33,17 @@ class ResourceManager {
 
     constructor(componentId: string) {
         this.componentId = componentId;
+        this.logInitialization();
+    }
+
+    /**
+     * Log initialization of the ResourceManager
+     * @private
+     */
+    private logInitialization(): void {
+        if (import.meta.env.NODE_ENV === 'development') {
+            console.log(`[ResourceManager:${this.componentId}] Initialized`);
+        }
     }
 
     /**
@@ -73,6 +83,7 @@ class ResourceManager {
 
     /**
      * Track a texture with intelligent reference counting
+     * @internal
      */
     trackTexture(url: string, texture: Texture): Texture {
         if (!this.isActive()) return texture;
@@ -88,6 +99,7 @@ class ResourceManager {
 
     /**
      * Release a texture, destroying it when no longer referenced
+     * @internal
      */
     releaseTexture(url: string): void {
         const entry = this.textures.get(url);
@@ -99,8 +111,7 @@ class ResourceManager {
             try {
                 entry.resource.destroy(true);
             } catch (error) {
-                // Development-only logging (compatible with browser)
-                if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+                if (import.meta.env.NODE_ENV === 'development') {
                     console.warn(`Failed to destroy texture: ${url}`, error);
                 }
             }
@@ -251,6 +262,7 @@ class ResourceManager {
 
     /**
      * Create a setInterval with tracking
+     * @internal
      */
     setInterval(callback: () => void, delay: number): Timer {
         if (!this.isActive()) return setInterval(() => {}, 0);
@@ -270,6 +282,7 @@ class ResourceManager {
 
     /**
      * Clear a tracked interval
+     * @internal
      */
     clearInterval(id: Timer): void {
         globalThis.clearInterval(id);
@@ -290,6 +303,23 @@ class ResourceManager {
     private clearAllIntervals(): void {
         this.intervals.forEach(id => globalThis.clearInterval(id));
         this.intervals.clear();
+    }
+
+    /**
+     * Get current resource statistics for debugging
+     * @returns An object containing counts of various tracked resources
+     */
+    getStats(): Record<string, number> {
+        return {
+            textures: this.textures.size,
+            filters: this.filters.size,
+            displayObjects: this.displayObjects.size,
+            animations: this.animations.size,
+            eventTargets: this.listeners.size,
+            timeouts: this.timeouts.size,
+            intervals: this.intervals.size,
+            pixiApps: this.pixiApps.size
+        };
     }
 
     /**
@@ -317,7 +347,7 @@ class ResourceManager {
         this.filters.clear();
 
         // Release textures
-        this.textures.forEach((entry, url) => {
+        this.textures.forEach((entry) => {
             try {
                 entry.resource.destroy(true);
             } catch {}
@@ -327,22 +357,10 @@ class ResourceManager {
         // Clear timers
         this.clearAllTimeouts();
         this.clearAllIntervals();
-    }
 
-    /**
-     * Get current resource statistics (useful for debugging)
-     */
-    getStats(): Record<string, number> {
-        return {
-            textures: this.textures.size,
-            filters: this.filters.size,
-            displayObjects: this.displayObjects.size,
-            animations: this.animations.size,
-            eventTargets: this.listeners.size,
-            timeouts: this.timeouts.size,
-            intervals: this.intervals.size,
-            pixiApps: this.pixiApps.size
-        };
+        if (import.meta.env.NODE_ENV === 'development') {
+            console.log(`[ResourceManager:${this.componentId}] All resources disposed`);
+        }
     }
 }
 
