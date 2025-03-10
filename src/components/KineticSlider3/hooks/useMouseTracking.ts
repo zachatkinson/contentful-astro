@@ -1,5 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react';
-import { Sprite } from 'pixi.js';
+import { Sprite, DisplacementFilter } from 'pixi.js';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
 
@@ -7,6 +7,8 @@ interface UseMouseTrackingProps {
     sliderRef: RefObject<HTMLDivElement | null>;
     backgroundDisplacementSpriteRef: RefObject<Sprite | null>;
     cursorDisplacementSpriteRef: RefObject<Sprite | null>;
+    backgroundDisplacementFilterRef?: RefObject<DisplacementFilter | null>;
+    cursorDisplacementFilterRef?: RefObject<DisplacementFilter | null>;
     cursorImgEffect: boolean;
     cursorMomentum: number;
     resourceManager?: ResourceManager | null;
@@ -19,6 +21,8 @@ const useMouseTracking = ({
                               sliderRef,
                               backgroundDisplacementSpriteRef,
                               cursorDisplacementSpriteRef,
+                              backgroundDisplacementFilterRef,
+                              cursorDisplacementFilterRef,
                               cursorImgEffect,
                               cursorMomentum,
                               resourceManager
@@ -32,82 +36,103 @@ const useMouseTracking = ({
 
         const node = sliderRef.current;
 
-        // Explicitly type the event handler to match MouseEvent
         const handleMouseMove = (e: MouseEvent) => {
             // Check if component is still mounted
             if (!isMountedRef.current) return;
 
-            // Update background displacement sprite position
+            // Get relative mouse position within the slider
+            const rect = node.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Calculate displacement intensity based on mouse position
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const distanceFromCenter = Math.sqrt(
+                Math.pow(mouseX - centerX, 2) +
+                Math.pow(mouseY - centerY, 2)
+            );
+            const maxDistance = Math.sqrt(
+                Math.pow(rect.width / 2, 2) +
+                Math.pow(rect.height / 2, 2)
+            );
+
+            // Calculate normalized displacement intensity (0-1)
+            const displacementIntensity = Math.min(
+                1,
+                distanceFromCenter / (maxDistance * 0.7)
+            );
+
+            // Comprehensive debug logging
+            console.log('Displacement Tracking:', {
+                mouseX,
+                mouseY,
+                displacementIntensity,
+                backgroundSprite: backgroundDisplacementSpriteRef.current,
+                cursorSprite: cursorDisplacementSpriteRef.current,
+                backgroundFilter: backgroundDisplacementFilterRef?.current,
+                cursorFilter: cursorDisplacementFilterRef?.current
+            });
+
+            // Animate background displacement sprite and filter
             if (backgroundDisplacementSpriteRef.current) {
-                // Create animation and track it with ResourceManager
-                const tween = gsap.to(backgroundDisplacementSpriteRef.current, {
-                    x: e.clientX,
-                    y: e.clientY,
+                // Move sprite
+                gsap.to(backgroundDisplacementSpriteRef.current, {
+                    x: mouseX,
+                    y: mouseY,
                     duration: cursorMomentum,
-                    ease: 'power2.out',
-                    onComplete: () => {
-                        // Re-track the sprite after position update if still mounted
-                        if (resourceManager && backgroundDisplacementSpriteRef.current && isMountedRef.current) {
-                            resourceManager.trackDisplayObject(backgroundDisplacementSpriteRef.current);
-                        }
-                    }
+                    ease: 'power2.out'
                 });
 
-                // Track the animation
-                if (resourceManager) {
-                    resourceManager.trackAnimation(tween);
+                // Update filter scale
+                if (backgroundDisplacementFilterRef?.current) {
+                    gsap.to(backgroundDisplacementFilterRef.current.scale, {
+                        x: displacementIntensity * 30,  // Increased scale range
+                        y: displacementIntensity * 30,
+                        duration: cursorMomentum,
+                        ease: 'power2.out'
+                    });
                 }
             }
 
-            // Update cursor displacement sprite if enabled
+            // Update cursor displacement sprite and filter if enabled
             if (cursorImgEffect && cursorDisplacementSpriteRef.current) {
-                const tween = gsap.to(cursorDisplacementSpriteRef.current, {
-                    x: e.clientX,
-                    y: e.clientY,
+                // Move sprite
+                gsap.to(cursorDisplacementSpriteRef.current, {
+                    x: mouseX,
+                    y: mouseY,
                     duration: cursorMomentum,
-                    ease: 'power2.out',
-                    onComplete: () => {
-                        // Re-track the sprite after position update if still mounted
-                        if (resourceManager && cursorDisplacementSpriteRef.current && isMountedRef.current) {
-                            resourceManager.trackDisplayObject(cursorDisplacementSpriteRef.current);
-                        }
-                    }
+                    ease: 'power2.out'
                 });
 
-                // Track the animation
-                if (resourceManager) {
-                    resourceManager.trackAnimation(tween);
+                // Update filter scale
+                if (cursorDisplacementFilterRef?.current) {
+                    gsap.to(cursorDisplacementFilterRef.current.scale, {
+                        x: displacementIntensity * 15,  // Adjusted scale range
+                        y: displacementIntensity * 15,
+                        duration: cursorMomentum,
+                        ease: 'power2.out'
+                    });
                 }
             }
         };
 
-        // Add event listener through resource manager if available
-        if (resourceManager) {
-            resourceManager.addEventListener(node, 'mousemove', handleMouseMove);
-        } else {
-            // Fallback for when resource manager isn't available
-            node.addEventListener('mousemove', handleMouseMove);
-        }
+        // Add event listener
+        node.addEventListener('mousemove', handleMouseMove);
 
         // Clean up on unmount
         return () => {
-            // Mark component as unmounted first to prevent new operations
             isMountedRef.current = false;
-
-            // Remove event listener if resource manager not used
-            if (!resourceManager) {
-                node.removeEventListener('mousemove', handleMouseMove);
-            }
-            // Note: ResourceManager handles event cleanup automatically when disposed
+            node.removeEventListener('mousemove', handleMouseMove);
         };
     }, [
-        // Ensure we're not rebuilding effect too often by using stable references
         sliderRef,
         backgroundDisplacementSpriteRef,
         cursorDisplacementSpriteRef,
+        backgroundDisplacementFilterRef,
+        cursorDisplacementFilterRef,
         cursorImgEffect,
-        cursorMomentum,
-        resourceManager
+        cursorMomentum
     ]);
 };
 
