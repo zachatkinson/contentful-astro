@@ -37,6 +37,12 @@ const useMouseTracking = ({
                     y: e.clientY,
                     duration: cursorMomentum,
                     ease: 'power2.out',
+                    onComplete: () => {
+                        // Re-track the sprite after position update
+                        if (resourceManager && backgroundDisplacementSpriteRef.current) {
+                            resourceManager.trackDisplayObject(backgroundDisplacementSpriteRef.current);
+                        }
+                    }
                 });
             }
 
@@ -47,6 +53,12 @@ const useMouseTracking = ({
                     y: e.clientY,
                     duration: cursorMomentum,
                     ease: 'power2.out',
+                    onComplete: () => {
+                        // Re-track the sprite after position update
+                        if (resourceManager && cursorDisplacementSpriteRef.current) {
+                            resourceManager.trackDisplayObject(cursorDisplacementSpriteRef.current);
+                        }
+                    }
                 });
             }
         };
@@ -63,7 +75,8 @@ const useMouseTracking = ({
         backgroundDisplacementSpriteRef.current,
         cursorDisplacementSpriteRef.current,
         cursorImgEffect,
-        cursorMomentum
+        cursorMomentum,
+        resourceManager  // Added resourceManager to the dependencies
     ]);
 };
 
