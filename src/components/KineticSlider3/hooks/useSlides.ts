@@ -170,6 +170,12 @@ export const useSlides = ({ sliderRef, pixi, props, resourceManager }: HookParam
             y: currentSlide.baseScale! * scaleMultiplier,
             duration: 1,
             ease: 'power2.out',
+            onComplete: () => {
+                // Re-track the sprite after animation
+                if (resourceManager) {
+                    resourceManager.trackDisplayObject(currentSlide);
+                }
+            }
         }, 0)
             .set(nextSlide.scale, {
                 x: nextSlide.baseScale! * scaleMultiplier,
@@ -180,6 +186,12 @@ export const useSlides = ({ sliderRef, pixi, props, resourceManager }: HookParam
                 y: nextSlide.baseScale!,
                 duration: 1,
                 ease: 'power2.out',
+                onComplete: () => {
+                    // Re-track the sprite after animation
+                    if (resourceManager) {
+                        resourceManager.trackDisplayObject(nextSlide);
+                    }
+                }
             }, 0)
             .to(currentSlide, {
                 alpha: 0,
@@ -188,12 +200,23 @@ export const useSlides = ({ sliderRef, pixi, props, resourceManager }: HookParam
                 onComplete: () => {
                     // IMPORTANT: Hide previous slide after transition completes
                     currentSlide.visible = false;
+
+                    // Re-track the sprite after visibility change
+                    if (resourceManager) {
+                        resourceManager.trackDisplayObject(currentSlide);
+                    }
                 }
             }, 0)
             .to(nextSlide, {
                 alpha: 1,
                 duration: 1,
                 ease: 'power2.out',
+                onComplete: () => {
+                    // Re-track the sprite after animation
+                    if (resourceManager) {
+                        resourceManager.trackDisplayObject(nextSlide);
+                    }
+                }
             }, 0);
 
         // Also animate text containers if available
@@ -205,12 +228,23 @@ export const useSlides = ({ sliderRef, pixi, props, resourceManager }: HookParam
                 onComplete: () => {
                     // IMPORTANT: Hide previous text after transition completes
                     currentTextContainer.visible = false;
+
+                    // Re-track the container after visibility change
+                    if (resourceManager) {
+                        resourceManager.trackDisplayObject(currentTextContainer);
+                    }
                 }
             }, 0)
                 .to(nextTextContainer, {
                     alpha: 1,
                     duration: 1,
-                    ease: 'power2.out'
+                    ease: 'power2.out',
+                    onComplete: () => {
+                        // Re-track the container after animation
+                        if (resourceManager) {
+                            resourceManager.trackDisplayObject(nextTextContainer);
+                        }
+                    }
                 }, 0);
         }
 
@@ -220,7 +254,7 @@ export const useSlides = ({ sliderRef, pixi, props, resourceManager }: HookParam
         console.log(`Current slide is now ${nextIndex}`);
 
         return tl;
-    }, [pixi.slides.current, pixi.textContainers.current, pixi.currentIndex, props.transitionScaleIntensity]);
+    }, [pixi.slides.current, pixi.textContainers.current, pixi.currentIndex, props.transitionScaleIntensity, resourceManager]);
 
     return {
         transitionToSlide
