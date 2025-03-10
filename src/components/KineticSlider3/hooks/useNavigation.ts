@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
+import ResourceManager from '../managers/ResourceManager';
 
 interface UseNavigationProps {
     onNext: () => void;
     onPrev: () => void;
     enableKeyboardNav?: boolean;
+    resourceManager?: ResourceManager | null;
 }
 
 /**
@@ -12,7 +14,8 @@ interface UseNavigationProps {
 const useNavigation = ({
                            onNext,
                            onPrev,
-                           enableKeyboardNav = true
+                           enableKeyboardNav = true,
+                           resourceManager
                        }: UseNavigationProps) => {
     // Set up keyboard navigation
     useEffect(() => {
@@ -39,7 +42,7 @@ const useNavigation = ({
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [onNext, onPrev, enableKeyboardNav]);
+    }, [onNext, onPrev, enableKeyboardNav, resourceManager]);
 
     // Listen for custom slide change events
     useEffect(() => {
@@ -58,7 +61,7 @@ const useNavigation = ({
         return () => {
             window.removeEventListener('slideChange', handleSlideChange);
         };
-    }, [onNext]);
+    }, [onNext, resourceManager]);
 
     return {
         goNext: onNext,
