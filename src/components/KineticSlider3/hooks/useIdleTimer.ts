@@ -1,16 +1,18 @@
-import { useEffect, useRef, type RefObject, type MutableRefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { DisplacementFilter } from 'pixi.js';
 import { gsap } from 'gsap';
+import ResourceManager from '../managers/ResourceManager';
 
 interface UseIdleTimerProps {
     sliderRef: RefObject<HTMLDivElement | null>;
-    cursorActive: MutableRefObject<boolean>;
+    cursorActive: RefObject<boolean>;
     bgDispFilterRef: RefObject<DisplacementFilter | null>;
     cursorDispFilterRef: RefObject<DisplacementFilter | null>;
     cursorImgEffect: boolean;
     defaultBgFilterScale: number;
     defaultCursorFilterScale: number;
     idleTimeout?: number;
+    resourceManager?: ResourceManager | null;
 }
 
 /**
@@ -24,7 +26,8 @@ const useIdleTimer = ({
                           cursorImgEffect,
                           defaultBgFilterScale,
                           defaultCursorFilterScale,
-                          idleTimeout = 300
+                          idleTimeout = 300,
+                          resourceManager
                       }: UseIdleTimerProps) => {
     // Store idle timer reference
     const idleTimerRef = useRef<number | null>(null);
@@ -47,6 +50,12 @@ const useIdleTimer = ({
                         y: defaultBgFilterScale,
                         duration: 0.5,
                         ease: 'power2.out',
+                        onComplete: () => {
+                            // Re-track the filter after animation completes
+                            if (resourceManager && bgDispFilterRef.current) {
+                                resourceManager.trackFilter(bgDispFilterRef.current);
+                            }
+                        }
                     });
                 }
 
@@ -57,6 +66,12 @@ const useIdleTimer = ({
                         y: defaultCursorFilterScale,
                         duration: 0.5,
                         ease: 'power2.out',
+                        onComplete: () => {
+                            // Re-track the filter after animation completes
+                            if (resourceManager && cursorDispFilterRef.current) {
+                                resourceManager.trackFilter(cursorDispFilterRef.current);
+                            }
+                        }
                     });
                 }
             }
@@ -76,6 +91,12 @@ const useIdleTimer = ({
                             y: 0,
                             duration: 0.5,
                             ease: 'power2.out',
+                            onComplete: () => {
+                                // Re-track the filter after animation
+                                if (resourceManager && bgDispFilterRef.current) {
+                                    resourceManager.trackFilter(bgDispFilterRef.current);
+                                }
+                            }
                         });
                     }
 
@@ -85,6 +106,12 @@ const useIdleTimer = ({
                             y: 0,
                             duration: 0.5,
                             ease: 'power2.out',
+                            onComplete: () => {
+                                // Re-track the filter after animation
+                                if (resourceManager && cursorDispFilterRef.current) {
+                                    resourceManager.trackFilter(cursorDispFilterRef.current);
+                                }
+                            }
                         });
                     }
                 }
@@ -108,7 +135,8 @@ const useIdleTimer = ({
         cursorImgEffect,
         defaultBgFilterScale,
         defaultCursorFilterScale,
-        idleTimeout
+        idleTimeout,
+        resourceManager
     ]);
 };
 
