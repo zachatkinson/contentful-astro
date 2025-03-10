@@ -4,7 +4,6 @@ import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
 
 interface UseDisplacementEffectsProps {
-    sliderRef: RefObject<HTMLDivElement | null>;
     bgDispFilterRef: RefObject<DisplacementFilter | null>;
     cursorDispFilterRef: RefObject<DisplacementFilter | null>;
     backgroundDisplacementSpriteRef: RefObject<Sprite | null>;
@@ -22,7 +21,6 @@ const DEFAULT_BG_FILTER_SCALE = 20;
 const DEFAULT_CURSOR_FILTER_SCALE = 10;
 
 export const useDisplacementEffects = ({
-                                           sliderRef,
                                            bgDispFilterRef,
                                            cursorDispFilterRef,
                                            backgroundDisplacementSpriteRef,
@@ -34,9 +32,6 @@ export const useDisplacementEffects = ({
                                            cursorScaleIntensity,
                                            resourceManager
                                        }: UseDisplacementEffectsProps) => {
-    // Track mounted state to prevent updates after unmounting
-    const isMountedRef = useRef(true);
-
     // Track initialization state with more granular control
     const initializationStateRef = useRef({
         isInitializing: false,
@@ -107,7 +102,7 @@ export const useDisplacementEffects = ({
                 ? new DisplacementFilter(cursorDisplacementSprite)
                 : null;
 
-            // Track filters
+            // Track filters with resource manager
             resourceManager?.trackFilter(backgroundDisplacementFilter);
             if (cursorDisplacementFilter) {
                 resourceManager?.trackFilter(cursorDisplacementFilter);
@@ -134,12 +129,26 @@ export const useDisplacementEffects = ({
                 isInitializing: false,
                 isInitialized: true
             };
+
+            return {
+                backgroundDisplacementSprite,
+                cursorDisplacementSprite,
+                backgroundDisplacementFilter,
+                cursorDisplacementFilter
+            };
         } catch (error) {
             // Reset initialization state on failure
             initializationStateRef.current = {
                 isInitializing: false,
                 isInitialized: false
             };
+
+            // Log error in development
+            if (import.meta.env.NODE_ENV === 'development') {
+                console.error('Failed to setup displacement effects:', error);
+            }
+
+            return null;
         }
     }, [
         backgroundDisplacementSpriteLocation,
@@ -148,6 +157,105 @@ export const useDisplacementEffects = ({
         cursorScaleIntensity,
         resourceManager
     ]);
+
+    // Displacement effect methods
+    const showDisplacementEffects = useCallback(() => {
+        if (!initializationStateRef.current.isInitialized) return [];
+
+        const backgroundSprite = backgroundDisplacementSpriteRef.current;
+        const cursorSprite = cursorDisplacementSpriteRef.current;
+        const bgFilter = bgDispFilterRef.current;
+        const cursorFilter = cursorDispFilterRef.current;
+
+        const animations: gsap.core.Tween[] = [];
+
+        if (backgroundSprite && bgFilter) {
+            const bgAlphaTween = gsap.to(backgroundSprite, { alpha: 1, duration: 0.5 });
+            const bgFilterTween = gsap.to(bgFilter.scale, {
+                x: DEFAULT_BG_FILTER_SCALE,
+                y: DEFAULT_BG_FILTER_SCALE,
+                duration: 0.5
+            });
+
+            // Safely track animations
+            if (resourceManager) {
+                const trackedBgAlphaTween = resourceManager.trackAnimation(bgAlphaTween);
+                const trackedBgFilterTween = resourceManager.trackAnimation(bgFilterTween);
+
+                if (trackedBgAlphaTween) animations.push(trackedBgAlphaTween);
+                if (trackedBgFilterTween) animations.push(trackedBgFilterTween);
+            } else {
+                animations.push(bgAlphaTween, bgFilterTween);
+            }
+        }
+
+        if (cursorImgEffect && cursorSprite && cursorFilter) {
+            const cursorAlphaTween = gsap.to(cursorSprite, { alpha: 1, duration: 0.5 });
+            const cursorFilterTween = gsap.to(cursorFilter.scale, {
+                x: DEFAULT_CURSOR_FILTER_SCALE,
+                y: DEFAULT_CURSOR_FILTER_SCALE,
+                duration: 0.5
+            });
+
+            // Safely track animations
+            if (resourceManager) {
+                const trackedCursorAlphaTween = resourceManager.trackAnimation(cursorAlphaTween);
+                const trackedCursorFilterTween = resourceManager.trackAnimation(cursorFilterTween);
+
+                if (trackedCursorAlphaTween) animations.push(trackedCursorAlphaTween);
+                if (trackedCursorFilterTween) animations.push(trackedCursorFilterTween);
+            } else {
+                animations.push(cursorAlphaTween, cursorFilterTween);
+            }
+        }
+
+        return animations;
+    }, [cursorImgEffect, resourceManager]);
+
+    const hideDisplacementEffects = useCallback(() => {
+        if (!initializationStateRef.current.isInitialized) return [];
+
+        const backgroundSprite = backgroundDisplacementSpriteRef.current;
+        const cursorSprite = cursorDisplacementSpriteRef.current;
+        const bgFilter = bgDispFilterRef.current;
+        const cursorFilter = cursorDispFilterRef.current;
+
+        const animations: gsap.core.Tween[] = [];
+
+        if (backgroundSprite && bgFilter) {
+            const bgAlphaTween = gsap.to(backgroundSprite, { alpha: 0, duration: 0.5 });
+            const bgFilterTween = gsap.to(bgFilter.scale, { x: 0, y: 0, duration: 0.5 });
+
+            // Safely track animations
+            if (resourceManager) {
+                const trackedBgAlphaTween = resourceManager.trackAnimation(bgAlphaTween);
+                const trackedBgFilterTween = resourceManager.trackAnimation(bgFilterTween);
+
+                if (trackedBgAlphaTween) animations.push(trackedBgAlphaTween);
+                if (trackedBgFilterTween) animations.push(trackedBgFilterTween);
+            } else {
+                animations.push(bgAlphaTween, bgFilterTween);
+            }
+        }
+
+        if (cursorImgEffect && cursorSprite && cursorFilter) {
+            const cursorAlphaTween = gsap.to(cursorSprite, { alpha: 0, duration: 0.5 });
+            const cursorFilterTween = gsap.to(cursorFilter.scale, { x: 0, y: 0, duration: 0.5 });
+
+            // Safely track animations
+            if (resourceManager) {
+                const trackedCursorAlphaTween = resourceManager.trackAnimation(cursorAlphaTween);
+                const trackedCursorFilterTween = resourceManager.trackAnimation(cursorFilterTween);
+
+                if (trackedCursorAlphaTween) animations.push(trackedCursorAlphaTween);
+                if (trackedCursorFilterTween) animations.push(trackedCursorFilterTween);
+            } else {
+                animations.push(cursorAlphaTween, cursorFilterTween);
+            }
+        }
+
+        return animations;
+    }, [cursorImgEffect, resourceManager]);
 
     // Effect to trigger initialization when app is ready
     useEffect(() => {
@@ -159,9 +267,8 @@ export const useDisplacementEffects = ({
             setupDisplacementEffects();
         }
 
-        // Cleanup function
+        // No cleanup needed as ResourceManager will handle resource disposal
         return () => {
-            isMountedRef.current = false;
             // Reset initialization state
             initializationStateRef.current = {
                 isInitializing: false,
@@ -169,53 +276,6 @@ export const useDisplacementEffects = ({
             };
         };
     }, [appRef.current?.stage, setupDisplacementEffects]);
-
-    // Displacement effect methods
-    const showDisplacementEffects = useCallback(() => {
-        if (!initializationStateRef.current.isInitialized) return;
-
-        const backgroundSprite = backgroundDisplacementSpriteRef.current;
-        const cursorSprite = cursorDisplacementSpriteRef.current;
-        const bgFilter = bgDispFilterRef.current;
-        const cursorFilter = cursorDispFilterRef.current;
-
-        if (backgroundSprite && bgFilter) {
-            gsap.to(backgroundSprite, { alpha: 1, duration: 0.5 });
-            gsap.to(bgFilter.scale, {
-                x: DEFAULT_BG_FILTER_SCALE,
-                y: DEFAULT_BG_FILTER_SCALE,
-                duration: 0.5
-            });
-        }
-
-        if (cursorImgEffect && cursorSprite && cursorFilter) {
-            gsap.to(cursorSprite, { alpha: 1, duration: 0.5 });
-            gsap.to(cursorFilter.scale, {
-                x: DEFAULT_CURSOR_FILTER_SCALE,
-                y: DEFAULT_CURSOR_FILTER_SCALE,
-                duration: 0.5
-            });
-        }
-    }, [cursorImgEffect]);
-
-    const hideDisplacementEffects = useCallback(() => {
-        if (!initializationStateRef.current.isInitialized) return;
-
-        const backgroundSprite = backgroundDisplacementSpriteRef.current;
-        const cursorSprite = cursorDisplacementSpriteRef.current;
-        const bgFilter = bgDispFilterRef.current;
-        const cursorFilter = cursorDispFilterRef.current;
-
-        if (backgroundSprite && bgFilter) {
-            gsap.to(backgroundSprite, { alpha: 0, duration: 0.5 });
-            gsap.to(bgFilter.scale, { x: 0, y: 0, duration: 0.5 });
-        }
-
-        if (cursorImgEffect && cursorSprite && cursorFilter) {
-            gsap.to(cursorSprite, { alpha: 0, duration: 0.5 });
-            gsap.to(cursorFilter.scale, { x: 0, y: 0, duration: 0.5 });
-        }
-    }, [cursorImgEffect]);
 
     return {
         showDisplacementEffects,
