@@ -3,6 +3,7 @@ import { Container, Sprite } from 'pixi.js';
 import { type FilterConfig } from '../filters/';
 import { FilterFactory } from '../filters/';
 import { type HookParams } from '../types';
+import ResourceManager from '../managers/ResourceManager';
 
 // Define a more specific type for the target objects we're applying filters to
 type FilterableObject = Sprite | Container;
@@ -20,12 +21,11 @@ interface FilterMap {
     };
 }
 
-
 /**
  * Hook to manage filters for slides and text containers
  */
 export const useFilters = (
-    { sliderRef, pixi, props }: HookParams
+    { sliderRef, pixi, props, resourceManager }: HookParams & { resourceManager?: ResourceManager | null }
 ) => {
     // Keep track of applied filters for easy updating
     const filterMapRef = useRef<FilterMap>({});
@@ -94,17 +94,7 @@ export const useFilters = (
         }
 
         return () => {
-            // Clean up all filters
-            Object.keys(filterMapRef.current).forEach(key => {
-                const entry = filterMapRef.current[key];
-                if (entry.target) {
-                    entry.target.filters = []; // Set to empty array instead of null
-                }
-            });
-            filterMapRef.current = {};
-            filtersInitializedRef.current = false;
-            filtersActiveRef.current = false;
-            console.log("Filters cleaned up");
+            // No need for manual cleanup - ResourceManager will handle disposal
         };
     }, [
         pixi.app.current,
@@ -147,6 +137,12 @@ export const useFilters = (
                     try {
                         console.log(`Creating ${config.type} filter for ${id}`);
                         const result = FilterFactory.createFilter(config);
+
+                        // Register the filter with ResourceManager if available
+                        if (resourceManager && result.filter) {
+                            resourceManager.trackFilter(result.filter);
+                        }
+
                         // Add initialIntensity to the result
                         return {
                             ...result,
@@ -191,7 +187,7 @@ export const useFilters = (
 
             console.log(`Applied ${customFilters.length} custom filters to ${id} (initial state: inactive)`);
         });
-    }, [pixi, props.cursorImgEffect]);
+    }, [pixi, props.cursorImgEffect, resourceManager]);
 
     // Function to reset all filters to inactive state
     const resetAllFilters = useCallback(() => {
@@ -242,7 +238,7 @@ export const useFilters = (
                 console.error(`Error cleaning up filters for ${id}:`, filterError);
             }
         });
-    }, [pixi.bgDispFilter]);
+    }, [pixi.bgDispFilter.current]);
 
     // Update filter intensities for hover effects
     const updateFilterIntensities = useCallback((active: boolean, forceUpdate = false) => {
@@ -356,7 +352,7 @@ export const useFilters = (
         } else {
             console.warn(`No filters found for ${currentTextId}`);
         }
-    }, [pixi.currentIndex, pixi.bgDispFilter, pixi.cursorDispFilter, props.cursorImgEffect, resetAllFilters]);
+    }, [pixi.currentIndex.current, pixi.bgDispFilter.current, pixi.cursorDispFilter.current, props.cursorImgEffect, resetAllFilters]);
 
     return {
         updateFilterIntensities,
