@@ -184,7 +184,10 @@ export const useFilters = (
 
             // Set the combined filters on the object
             object.filters = [...baseFilters, ...customFilters];
-
+            // Re-track the object after modifying its filters
+            if (resourceManager) {
+                resourceManager.trackDisplayObject(object);
+            }
             console.log(`Applied ${customFilters.length} custom filters to ${id} (initial state: inactive)`);
         });
     }, [pixi, props.cursorImgEffect, resourceManager]);
