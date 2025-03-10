@@ -1,29 +1,39 @@
-// src/components/KineticSlider3/managers/ResourceManager.ts
-
 import { Texture, Filter, Application } from 'pixi.js';
 import type { gsap } from 'gsap';
 
+type DisplayObject = any; // Use a more specific type if possible in your project
+type EventCallback = EventListenerOrEventListenerObject;
+type Timer = ReturnType<typeof setTimeout>;
+
+interface ResourceEntry<T> {
+    resource: T;
+    refCount: number;
+}
+
 /**
- * ResourceManager for KineticSlider
- * Centralized tracking and disposal of all WebGL resources, animations, events, and timers
+ * Centralized Resource Management for WebGL and Browser Resources
  */
 class ResourceManager {
-    private textures = new Map<string, { texture: Texture, refCount: number }>();
+    // Refined resource tracking with generic typed maps
+    private textures = new Map<string, ResourceEntry<Texture>>();
     private filters = new Set<Filter>();
-    private displayObjects = new Set<any>(); // Use any for Container/Sprite/etc.
+    private displayObjects = new Set<DisplayObject>();
     private pixiApps = new Set<Application>();
     private animations = new Set<gsap.core.Tween | gsap.core.Timeline>();
-    // Fixed: Use proper types for event listeners
-    private listeners = new Map<EventTarget, Map<string, Set<EventListenerOrEventListenerObject>>>();
-    private timeouts = new Set<number>();
-    private intervals = new Set<number>();
+
+    // Optimized event listener tracking
+    private listeners = new Map<EventTarget, Map<string, Set<EventCallback>>>();
+
+    // Tracked timers
+    private timeouts = new Set<Timer>();
+    private intervals = new Set<Timer>();
+
     private disposed = false;
-    private componentId: string;
     private unmounting = false;
+    private readonly componentId: string;
 
     constructor(componentId: string) {
         this.componentId = componentId;
-        console.log(`[ResourceManager:${componentId}] Initialized`);
     }
 
     /**
@@ -31,20 +41,19 @@ class ResourceManager {
      */
     markUnmounting(): void {
         this.unmounting = true;
-        console.log(`[ResourceManager:${this.componentId}] Marked as unmounting`);
     }
 
     /**
-     * Check if the resource manager is in unmounting or disposed state
+     * Check if the resource manager is active and can allocate resources
      */
     isActive(): boolean {
         return !this.unmounting && !this.disposed;
     }
 
     /**
-     * Track a GSAP animation for proper cleanup
+     * Track a GSAP animation with automatic cleanup
      */
-    trackAnimation(animation: gsap.core.Tween | gsap.core.Timeline): gsap.core.Tween | gsap.core.Timeline {
+    trackAnimation<T extends gsap.core.Tween | gsap.core.Timeline>(animation: T): T {
         if (!this.isActive()) {
             animation.kill();
             return animation;
@@ -55,39 +64,30 @@ class ResourceManager {
     }
 
     /**
-     * Stop and clean up all tracked GSAP animations
+     * Stop and clean up all tracked animations
      */
-    disposeAnimations(): void {
-        if (this.animations.size > 0) {
-            console.log(`[ResourceManager:${this.componentId}] Disposing ${this.animations.size} animations`);
-        }
-
-        this.animations.forEach(animation => {
-            animation.kill();
-        });
+    private disposeAnimations(): void {
+        this.animations.forEach(animation => animation.kill());
         this.animations.clear();
     }
 
     /**
-     * Track a texture with reference counting
+     * Track a texture with intelligent reference counting
      */
     trackTexture(url: string, texture: Texture): Texture {
-        if (!this.isActive()) {
-            console.warn(`[ResourceManager:${this.componentId}] Attempted to track texture during unmount:`, url);
-            return texture;
-        }
+        if (!this.isActive()) return texture;
 
         const entry = this.textures.get(url);
         if (entry) {
             entry.refCount++;
         } else {
-            this.textures.set(url, { texture, refCount: 1 });
+            this.textures.set(url, { resource: texture, refCount: 1 });
         }
         return texture;
     }
 
     /**
-     * Release a texture reference
+     * Release a texture, destroying it when no longer referenced
      */
     releaseTexture(url: string): void {
         const entry = this.textures.get(url);
@@ -96,16 +96,14 @@ class ResourceManager {
         entry.refCount--;
 
         if (entry.refCount <= 0) {
-            // Only destroy if not already destroyed
-            if (entry.texture && !entry.texture.destroyed) {
-                try {
-                    // In PIXI v8, we just destroy the texture
-                    entry.texture.destroy();
-                } catch (e) {
-                    console.warn(`[ResourceManager:${this.componentId}] Error destroying texture:`, e);
+            try {
+                entry.resource.destroy(true);
+            } catch (error) {
+                // Development-only logging (compatible with browser)
+                if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+                    console.warn(`Failed to destroy texture: ${url}`, error);
                 }
             }
-
             this.textures.delete(url);
         }
     }
@@ -114,45 +112,29 @@ class ResourceManager {
      * Track a filter for later cleanup
      */
     trackFilter(filter: Filter): Filter {
-        if (!this.isActive()) {
-            console.warn(`[ResourceManager:${this.componentId}] Attempted to track filter during unmount`);
-            return filter;
-        }
+        if (!this.isActive()) return filter;
 
         this.filters.add(filter);
         return filter;
     }
 
     /**
-     * Safely dispose a single filter with error handling
+     * Dispose of a single filter
      */
-    disposeFilter(filter: Filter): void {
-        if (!filter) return;
-
+    private disposeFilter(filter: Filter): void {
         try {
-            // In PIXI v8, filters have a simpler API
-            // Just call destroy() which should handle all resources
             filter.destroy();
-        } catch (error) {
-            console.warn(`[ResourceManager:${this.componentId}] Error disposing filter:`, error);
-
-            // Manual cleanup as a fallback
-            try {
-                // Most internal properties are private in v8
-                // Just set enabled to false
+        } catch {
+            // Fallback destruction
+            if (filter.enabled !== undefined) {
                 filter.enabled = false;
-            } catch (e) {
-                // Last resort - just log and continue
-                console.error(`[ResourceManager:${this.componentId}] Final cleanup attempt failed:`, e);
             }
         }
-
-        // Remove from tracker
         this.filters.delete(filter);
     }
 
     /**
-     * Track a PIXI.Application instance for proper cleanup
+     * Track a PIXI Application
      */
     trackPixiApp(app: Application): Application {
         if (!this.isActive()) {
@@ -165,127 +147,62 @@ class ResourceManager {
     }
 
     /**
-     * Properly dispose a PIXI.Application instance
+     * Dispose of a PIXI Application
      */
-    disposePixiApp(app: Application): void {
-        if (!app) return;
-
+    private disposePixiApp(app: Application): void {
         try {
-            // Stop the render loop
             app.stop();
 
-            // Remove the canvas from DOM if it exists
+            // Remove canvas from DOM
             if (app.canvas instanceof HTMLCanvasElement) {
-                const parent = app.canvas.parentNode;
-                if (parent) {
-                    parent.removeChild(app.canvas);
-                }
+                app.canvas.remove();
             }
 
-            // Destroy the application
-            // Fixed: Use correct destroy options for PIXI v8
-            app.destroy(true, {
-                children: true,
-                texture: false // Don't destroy textures here - we handle those separately
-            });
-        } catch (error) {
-            console.warn(`[ResourceManager:${this.componentId}] Error disposing PIXI application:`, error);
-        }
+            app.destroy(true);
+        } catch {}
 
         this.pixiApps.delete(app);
     }
 
     /**
-     * Track a display object (Sprite, Container, etc.)
+     * Track a display object
      */
-    trackDisplayObject<T>(displayObject: T): T {
-        if (!this.isActive()) {
-            console.warn(`[ResourceManager:${this.componentId}] Attempted to track display object during unmount`);
-            return displayObject;
-        }
+    trackDisplayObject<T extends DisplayObject>(displayObject: T): T {
+        if (!this.isActive()) return displayObject;
 
         this.displayObjects.add(displayObject);
         return displayObject;
     }
 
     /**
-     * Clean up a display object
+     * Dispose of a display object
      */
-    disposeDisplayObject(displayObject: any): void {
-        if (!displayObject) return;
-
+    private disposeDisplayObject(displayObject: DisplayObject): void {
         try {
-            // Remove from parent if it has one
-            if (displayObject.parent) {
-                displayObject.parent.removeChild(displayObject);
-            }
+            // Remove from parent
+            displayObject.parent?.removeChild(displayObject);
 
-            // Clear filters if any
-            if (displayObject.filters && displayObject.filters.length) {
-                // First remove reference to filters
-                const filters = Array.isArray(displayObject.filters) ?
-                    displayObject.filters : [displayObject.filters];
-
-                // Remove filters from display object
+            // Clear and dispose filters
+            if (displayObject.filters) {
+                displayObject.filters.forEach((filter: Filter) =>
+                    this.disposeFilter(filter)
+                );
                 displayObject.filters = null;
-
-                // Dispose each filter
-                filters.forEach((filter: Filter) => {
-                    if (filter) this.disposeFilter(filter);
-                });
             }
 
-            // Destroy the display object
-            // Use correct options for PIXI v8
-            displayObject.destroy({
-                children: true,
-                texture: false // Don't destroy textures here - we handle those separately
-            });
-        } catch (error) {
-            console.warn(`[ResourceManager:${this.componentId}] Error disposing display object:`, error);
-        }
+            displayObject.destroy({ children: true, texture: false });
+        } catch {}
 
-        // Remove from tracker
         this.displayObjects.delete(displayObject);
     }
 
     /**
-     * Track an event listener for proper cleanup
-     * Generic version that preserves event types
-     */
-    addEventListener<K extends keyof HTMLElementEventMap>(
-        element: HTMLElement,
-        eventType: K,
-        callback: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any,
-        options?: boolean | AddEventListenerOptions
-    ): void;
-    addEventListener<K extends keyof DocumentEventMap>(
-        element: Document,
-        eventType: K,
-        callback: (this: Document, ev: DocumentEventMap[K]) => any,
-        options?: boolean | AddEventListenerOptions
-    ): void;
-    addEventListener<K extends keyof WindowEventMap>(
-        element: Window,
-        eventType: K,
-        callback: (this: Window, ev: WindowEventMap[K]) => any,
-        options?: boolean | AddEventListenerOptions
-    ): void;
-    addEventListener<K extends keyof ElementEventMap>(
-        element: Element,
-        eventType: K,
-        callback: (this: Element, ev: ElementEventMap[K]) => any,
-        options?: boolean | AddEventListenerOptions
-    ): void;
-    /**
-     * Track an event listener for proper cleanup
-     * Generic EventTarget version for custom events
+     * Add an event listener with tracking
      */
     addEventListener(
         element: EventTarget,
         eventType: string,
-        callback: EventListenerOrEventListenerObject,
-        options?: boolean | AddEventListenerOptions
+        callback: EventCallback
     ): void {
         if (!this.isActive()) return;
 
@@ -300,146 +217,83 @@ class ResourceManager {
 
         const callbacks = elementListeners.get(eventType)!;
         callbacks.add(callback);
-
-        element.addEventListener(eventType, callback, options);
+        element.addEventListener(eventType, callback);
     }
 
     /**
-     * Remove a specific tracked event listener
-     * Generic version that preserves event types
+     * Remove event listeners
      */
-    removeEventListener<K extends keyof HTMLElementEventMap>(
-        element: HTMLElement,
-        eventType: K,
-        callback: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any,
-        options?: boolean | EventListenerOptions
-    ): void;
-    removeEventListener<K extends keyof DocumentEventMap>(
-        element: Document,
-        eventType: K,
-        callback: (this: Document, ev: DocumentEventMap[K]) => any,
-        options?: boolean | EventListenerOptions
-    ): void;
-    removeEventListener<K extends keyof WindowEventMap>(
-        element: Window,
-        eventType: K,
-        callback: (this: Window, ev: WindowEventMap[K]) => any,
-        options?: boolean | EventListenerOptions
-    ): void;
-    removeEventListener<K extends keyof ElementEventMap>(
-        element: Element,
-        eventType: K,
-        callback: (this: Element, ev: ElementEventMap[K]) => any,
-        options?: boolean | EventListenerOptions
-    ): void;
-    removeEventListener(
-        element: EventTarget,
-        eventType: string,
-        callback: EventListenerOrEventListenerObject,
-        options?: boolean | EventListenerOptions
-    ): void {
-        if (!this.listeners.has(element)) return;
-
-        const elementListeners = this.listeners.get(element)!;
-        if (!elementListeners.has(eventType)) return;
-
-        const callbacks = elementListeners.get(eventType)!;
-        if (!callbacks.has(callback)) return;
-
-        element.removeEventListener(eventType, callback, options);
-        callbacks.delete(callback);
-
-        // Clean up empty sets and maps
-        if (callbacks.size === 0) {
-            elementListeners.delete(eventType);
-        }
-
-        if (elementListeners.size === 0) {
-            this.listeners.delete(element);
-        }
-    }
-
-    /**
-     * Remove all tracked event listeners
-     */
-    removeAllEventListeners(): void {
+    private removeAllEventListeners(): void {
         this.listeners.forEach((eventMap, element) => {
             eventMap.forEach((callbacks, eventType) => {
-                callbacks.forEach(callback => {
-                    element.removeEventListener(eventType, callback);
-                });
+                callbacks.forEach(callback =>
+                    element.removeEventListener(eventType, callback)
+                );
             });
         });
         this.listeners.clear();
     }
 
     /**
-     * Create a timeout with automatic tracking
+     * Create a setTimeout with tracking
      */
-    setTimeout(callback: () => void, delay: number): number {
-        if (!this.isActive()) return 0;
+    setTimeout(callback: () => void, delay: number): Timer {
+        if (!this.isActive()) return setTimeout(() => {}, 0);
 
-        const id = window.setTimeout(() => {
-            this.timeouts.delete(id);
+        const timeout = setTimeout(() => {
+            this.timeouts.delete(timeout);
             callback();
         }, delay);
 
-        this.timeouts.add(id);
-        return id;
+        this.timeouts.add(timeout);
+        return timeout;
+    }
+
+    /**
+     * Create a setInterval with tracking
+     */
+    setInterval(callback: () => void, delay: number): Timer {
+        if (!this.isActive()) return setInterval(() => {}, 0);
+
+        const interval = setInterval(callback, delay);
+        this.intervals.add(interval);
+        return interval;
     }
 
     /**
      * Clear a tracked timeout
      */
-    clearTimeout(id: number): void {
-        window.clearTimeout(id);
+    clearTimeout(id: Timer): void {
+        globalThis.clearTimeout(id);
         this.timeouts.delete(id);
-    }
-
-    /**
-     * Clear all tracked timeouts
-     */
-    clearAllTimeouts(): void {
-        this.timeouts.forEach(id => {
-            window.clearTimeout(id);
-        });
-        this.timeouts.clear();
-    }
-
-    /**
-     * Create an interval with automatic tracking
-     */
-    setInterval(callback: () => void, delay: number): number {
-        if (!this.isActive()) return 0;
-
-        const id = window.setInterval(() => {
-            callback();
-        }, delay);
-
-        this.intervals.add(id);
-        return id;
     }
 
     /**
      * Clear a tracked interval
      */
-    clearInterval(id: number): void {
-        window.clearInterval(id);
+    clearInterval(id: Timer): void {
+        globalThis.clearInterval(id);
         this.intervals.delete(id);
+    }
+
+    /**
+     * Clear all tracked timeouts
+     */
+    private clearAllTimeouts(): void {
+        this.timeouts.forEach(id => globalThis.clearTimeout(id));
+        this.timeouts.clear();
     }
 
     /**
      * Clear all tracked intervals
      */
-    clearAllIntervals(): void {
-        this.intervals.forEach(id => {
-            window.clearInterval(id);
-        });
+    private clearAllIntervals(): void {
+        this.intervals.forEach(id => globalThis.clearInterval(id));
         this.intervals.clear();
     }
 
     /**
-     * Dispose all resources
+     * Clear all tracked resources
      */
     dispose(): void {
         if (this.disposed) return;
@@ -447,61 +301,36 @@ class ResourceManager {
         this.disposed = true;
         this.markUnmounting();
 
-        console.log(`[ResourceManager:${this.componentId}] Disposing all resources:`);
-        console.log(`- Timeouts: ${this.timeouts.size}`);
-        console.log(`- Intervals: ${this.intervals.size}`);
-        console.log(`- Animations: ${this.animations.size}`);
-        console.log(`- Event listeners: ${this.listeners.size} elements`);
-        console.log(`- PIXI Apps: ${this.pixiApps.size}`);
-        console.log(`- Display objects: ${this.displayObjects.size}`);
-        console.log(`- Filters: ${this.filters.size}`);
-        console.log(`- Textures: ${this.textures.size}`);
-
-        // Clear all timeouts and intervals first
-        this.clearAllTimeouts();
-        this.clearAllIntervals();
-
-        // Kill all GSAP animations
+        // Dispose resources systematically
         this.disposeAnimations();
-
-        // Remove all event listeners
         this.removeAllEventListeners();
 
-        // Dispose PIXI applications
-        this.pixiApps.forEach(app => {
-            this.disposePixiApp(app);
-        });
+        // Dispose PIXI resources
+        this.pixiApps.forEach(app => this.disposePixiApp(app));
         this.pixiApps.clear();
 
-        // Dispose display objects
-        this.displayObjects.forEach(displayObject => {
-            this.disposeDisplayObject(displayObject);
-        });
+        // Dispose display objects and filters
+        this.displayObjects.forEach(obj => this.disposeDisplayObject(obj));
         this.displayObjects.clear();
 
-        // Dispose filters
-        this.filters.forEach(filter => {
-            this.disposeFilter(filter);
-        });
+        this.filters.forEach(filter => this.disposeFilter(filter));
         this.filters.clear();
 
-        // Dispose textures
+        // Release textures
         this.textures.forEach((entry, url) => {
             try {
-                if (entry.texture && !entry.texture.destroyed) {
-                    entry.texture.destroy();
-                }
-            } catch (e) {
-                console.warn(`[ResourceManager:${this.componentId}] Error destroying texture ${url}:`, e);
-            }
+                entry.resource.destroy(true);
+            } catch {}
         });
         this.textures.clear();
 
-        console.log(`[ResourceManager:${this.componentId}] All resources disposed`);
+        // Clear timers
+        this.clearAllTimeouts();
+        this.clearAllIntervals();
     }
 
     /**
-     * Get current resource statistics for debugging
+     * Get current resource statistics (useful for debugging)
      */
     getStats(): Record<string, number> {
         return {
