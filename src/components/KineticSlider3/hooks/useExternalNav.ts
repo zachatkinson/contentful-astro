@@ -68,11 +68,13 @@ const useExternalNav = ({
             }
         };
 
-        // Attach event listeners using resourceManager if available
+        // Use ResourceManager for event listener tracking if available
         if (resourceManager) {
+            // Cast to HTMLElement for type safety
             const prevElement = prevNav as HTMLElement;
             const nextElement = nextNav as HTMLElement;
-            // Use the generic element event listener overload
+
+            // Use ResourceManager's addEventListener method
             resourceManager.addEventListener(prevElement, 'click', handlePrevClick);
             resourceManager.addEventListener(nextElement, 'click', handleNextClick);
         } else {
@@ -86,7 +88,8 @@ const useExternalNav = ({
             // Mark as unmounted first
             isMountedRef.current = false;
 
-            // Clean up event listeners if resourceManager wasn't used
+            // If ResourceManager was used, it will handle event cleanup
+            // If not, manually remove event listeners
             if (!resourceManager) {
                 if (prevNav) {
                     prevNav.removeEventListener('click', handlePrevClick);
@@ -95,9 +98,15 @@ const useExternalNav = ({
                     nextNav.removeEventListener('click', handleNextClick);
                 }
             }
-            // Note: ResourceManager will handle event cleanup when disposed
         };
-    }, [externalNav, navElement.prev, navElement.next, handleNext, handlePrev, resourceManager]);
+    }, [
+        externalNav,
+        navElement.prev,
+        navElement.next,
+        handleNext,
+        handlePrev,
+        resourceManager
+    ]);
 
     // Return current elements for potential external use
     return {
