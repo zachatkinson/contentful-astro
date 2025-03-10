@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from "react";
 import { Sprite } from "pixi.js";
 import { gsap } from "gsap";
+import ResourceManager from '../managers/ResourceManager';
 
 interface UseMouseDragProps {
     sliderRef: RefObject<HTMLDivElement | null>;
@@ -10,6 +11,7 @@ interface UseMouseDragProps {
     swipeDistance: number;
     onSwipeLeft: () => void;
     onSwipeRight: () => void;
+    resourceManager?: ResourceManager | null;
 }
 
 const useMouseDrag = ({
@@ -20,6 +22,7 @@ const useMouseDrag = ({
                           swipeDistance,
                           onSwipeLeft,
                           onSwipeRight,
+                          resourceManager
                       }: UseMouseDragProps) => {
     useEffect(() => {
         // Skip during server-side rendering
@@ -51,6 +54,12 @@ const useMouseDrag = ({
                     y: (currentSlide as any).baseScale * newScale,
                     duration: 0.1,
                     ease: "power2.out",
+                    onComplete: () => {
+                        // Re-track the sprite after animation
+                        if (resourceManager && currentSlide) {
+                            resourceManager.trackDisplayObject(currentSlide);
+                        }
+                    }
                 });
             }
         };
@@ -66,6 +75,12 @@ const useMouseDrag = ({
                     y: (currentSlide as any).baseScale,
                     duration: 0.2,
                     ease: "power2.out",
+                    onComplete: () => {
+                        // Re-track the sprite after animation
+                        if (resourceManager && currentSlide) {
+                            resourceManager.trackDisplayObject(currentSlide);
+                        }
+                    }
                 });
             }
             if (Math.abs(deltaX) > swipeDistance) {
@@ -87,6 +102,12 @@ const useMouseDrag = ({
                         y: (currentSlide as any).baseScale,
                         duration: 0.2,
                         ease: "power2.out",
+                        onComplete: () => {
+                            // Re-track the sprite after animation
+                            if (resourceManager && currentSlide) {
+                                resourceManager.trackDisplayObject(currentSlide);
+                            }
+                        }
                     });
                 }
             }
@@ -111,6 +132,7 @@ const useMouseDrag = ({
         swipeDistance,
         onSwipeLeft,
         onSwipeRight,
+        resourceManager
     ]);
 };
 
