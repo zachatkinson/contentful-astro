@@ -2,6 +2,9 @@ import { useEffect, useRef, useCallback } from 'react';
 import { type NavElement } from '../types';
 import type ResourceManager from "../managers/ResourceManager";
 
+// Development environment check
+const isDevelopment = import.meta.env?.MODE === 'development';
+
 interface UseExternalNavProps {
     externalNav: boolean;
     navElement: NavElement;
@@ -11,7 +14,7 @@ interface UseExternalNavProps {
 }
 
 /**
- * Hook to setup external navigation elements for the slider
+ * Hook to set up external navigation elements for the slider
  */
 const useExternalNav = ({
                             externalNav,
@@ -20,9 +23,6 @@ const useExternalNav = ({
                             handlePrev,
                             resourceManager
                         }: UseExternalNavProps) => {
-    // Track the mounted state
-    const isMountedRef = useRef(true);
-
     // Track found elements to avoid unnecessary DOM queries
     const elementsRef = useRef<{
         prevNav: Element | null;
@@ -30,9 +30,6 @@ const useExternalNav = ({
     }>({ prevNav: null, nextNav: null });
 
     useEffect(() => {
-        // Reset mounted state on each mount
-        isMountedRef.current = true;
-
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
 
@@ -46,26 +43,24 @@ const useExternalNav = ({
         // Store references to found elements
         elementsRef.current = { prevNav, nextNav };
 
-        if (!prevNav || !nextNav) {
-            console.warn(`KineticSlider: External navigation elements not found. Make sure elements matching selectors "${navElement.prev}" and "${navElement.next}" exist in the DOM.`);
+        // Log warning in development if navigation elements are not found
+        if (isDevelopment && (!prevNav || !nextNav)) {
+            console.warn(`KineticSlider: External navigation elements not found. Ensure elements matching selectors "${navElement.prev}" and "${navElement.next}" exist in the DOM.`);
             return;
         }
 
-        // Define event handlers with mounted checks
+        // Ensure both navigation elements exist before proceeding
+        if (!prevNav || !nextNav) return;
+
+        // Define event handlers with prevention of multiple bindings
         const handlePrevClick = useCallback((e: Event) => {
             e.preventDefault();
-            // Only trigger if component is still mounted
-            if (isMountedRef.current) {
-                handlePrev();
-            }
+            handlePrev();
         }, [handlePrev]);
 
         const handleNextClick = useCallback((e: Event) => {
             e.preventDefault();
-            // Only trigger if component is still mounted
-            if (isMountedRef.current) {
-                handleNext();
-            }
+            handleNext();
         }, [handleNext]);
 
         // Use ResourceManager for event listener tracking if available
@@ -85,9 +80,6 @@ const useExternalNav = ({
 
         // Cleanup on unmount
         return () => {
-            // Mark as unmounted first
-            isMountedRef.current = false;
-
             // If ResourceManager was used, it will handle event cleanup
             // If not, manually remove event listeners
             if (!resourceManager) {
