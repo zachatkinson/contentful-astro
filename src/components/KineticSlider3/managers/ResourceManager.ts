@@ -1,4 +1,5 @@
 import { Texture, Filter, Container, Application } from 'pixi.js';
+import { gsap } from 'gsap';
 
 /**
  * Types for resource tracking and management

@@ -94,11 +94,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     // Initialize ResourceManager on mount
     useEffect(() => {
         const componentId = `kinetic-slider-${Math.random().toString(36).substring(2, 9)}`;
-        resourceManagerRef.current = new ResourceManager(componentId, {
-            // Enable logging and metrics in development
-            logLevel: import.meta.env.DEV ? 'debug' : 'warn',
-            enableMetrics: import.meta.env.DEV
-        });
+        resourceManagerRef.current = new ResourceManager(componentId);
 
         return () => {
             // Mark as unmounting to prevent new resource allocation
@@ -246,7 +242,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
                 // Track the application with the resource manager
                 if (resourceManagerRef.current) {
-                    resourceManagerRef.current.trackPixiApp(app);
+                    resourceManagerRef.current.trackDisplayObject(app);
                 }
 
                 // Add canvas to DOM
@@ -298,6 +294,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     // Use slides and get transition function
     const { transitionToSlide } = useSlides(hookParams);
 
+    // Use text containers
     // Use text containers
     useTextContainers({
         sliderRef,
@@ -452,44 +449,6 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         cursorDisplacementSpriteRef
     });
 
-    // Effect to ensure filters are disabled on initial load
-    useEffect(() => {
-        if (!isAppReady || !resourceManagerRef.current) return;
-
-        console.log("Ensuring filters are disabled on initial load");
-
-        // Disable all filters on slides
-        slidesRef.current.forEach(slide => {
-            if (slide.filters) {
-                resourceManagerRef.current?.disableFiltersOnObject(slide);
-            }
-        });
-
-        // Disable all filters on text containers
-        textContainersRef.current.forEach(container => {
-            if (container.filters) {
-                resourceManagerRef.current?.disableFiltersOnObject(container);
-            }
-        });
-
-        // Explicitly set displacement filter scales to 0
-        if (bgDispFilterRef.current && bgDispFilterRef.current.scale) {
-            bgDispFilterRef.current.scale.x = 0;
-            bgDispFilterRef.current.scale.y = 0;
-        }
-
-        if (cursorDispFilterRef.current && cursorDispFilterRef.current.scale) {
-            cursorDispFilterRef.current.scale.x = 0;
-            cursorDispFilterRef.current.scale.y = 0;
-        }
-
-        // Force a reset of all filters
-        if (resetAllFilters) {
-            resetAllFilters();
-        }
-
-    }, [isAppReady, slidesRef.current.length, textContainersRef.current.length]);
-
     // Memoize handlers to prevent unnecessary re-renders
     const handleMouseEnter = useCallback(() => {
         if (!isAppReady) return;
@@ -510,6 +469,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
         setIsInteracting(true);
     }, [isAppReady, showDisplacementEffects, updateFilterIntensities]);
+
 
     // Mouse leave handler - FIXED to ensure all effects are removed
     const handleMouseLeave = useCallback(() => {
@@ -538,20 +498,6 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         setIsInteracting(false);
     }, [isAppReady, hideDisplacementEffects, resetAllFilters, updateFilterIntensities]);
 
-    useEffect(() => {
-        if (isInteracting && cursorActiveRef.current) {
-            // Check if displacement filters are active
-            if (bgDispFilterRef.current) {
-                console.log("BG filter scale:", bgDispFilterRef.current.scale.x, bgDispFilterRef.current.scale.y);
-            }
-
-            // Check current filters
-            const currentSlide = slidesRef.current[currentSlideIndex];
-            if (currentSlide && currentSlide.filters) {
-                console.log("Current slide has filters:", currentSlide.filters);
-            }
-        }
-    }, [isInteracting]);
     // Render component
     return (
         <div
