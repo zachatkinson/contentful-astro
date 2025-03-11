@@ -7,6 +7,7 @@ import ResourceManager from '../managers/ResourceManager';
 const isDevelopment = import.meta.env?.MODE === 'development';
 
 interface UseDisplacementEffectsProps {
+    sliderRef: RefObject<HTMLDivElement | null>; // Add this line
     bgDispFilterRef: RefObject<DisplacementFilter | null>;
     cursorDispFilterRef: RefObject<DisplacementFilter | null>;
     backgroundDisplacementSpriteRef: RefObject<Sprite | null>;
