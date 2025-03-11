@@ -61,55 +61,93 @@ export const useDisplacementEffects = ({
         try {
             const app = appRef.current;
 
-            // Load background displacement texture
+            // Batch load assets using Assets API - with parallel loading
             const bgDisplacementUrl = backgroundDisplacementSpriteLocation || '/images/background-displace.jpg';
-            const bgTexture = await Assets.load(bgDisplacementUrl);
+            const cursorDisplacementUrl = cursorImgEffect
+                ? cursorDisplacementSpriteLocation || '/images/cursor-displace.png'
+                : null;
+
+            // Define assets to load
+            const assetsToLoad = [
+                { id: 'bgDisplacement', url: bgDisplacementUrl }
+            ];
+
+            if (cursorDisplacementUrl) {
+                assetsToLoad.push({ id: 'cursorDisplacement', url: cursorDisplacementUrl });
+            }
+
+            // Load all textures in parallel with Promise.all
+            const loadingPromises = assetsToLoad.map(asset =>
+                Assets.load(asset.url).then(texture => ({ id: asset.id, url: asset.url, texture }))
+            );
+
+            const loadedAssets = await Promise.all(loadingPromises);
+
+            // Organize textures by both ID and URL for flexible access
+            const textures = new Map();
+            const texturesById = new Map();
+
+            loadedAssets.forEach(asset => {
+                textures.set(asset.url, asset.texture);
+                texturesById.set(asset.id, asset.texture);
+            });
+
+            // Track all textures in a batch if ResourceManager available
+            if (resourceManager) {
+                resourceManager.trackTextureBatch(textures);
+            }
+
+
+
+            // Create all displacement sprites in a consistent way
+            const displayObjects = [];
+            const centerX = app.screen.width / 2;
+            const centerY = app.screen.height / 2;
 
             // Create background displacement sprite
-            const backgroundDisplacementSprite = new Sprite(bgTexture);
-            backgroundDisplacementSprite.anchor.set(0.5);
-            backgroundDisplacementSprite.x = app.screen.width / 2;
-            backgroundDisplacementSprite.y = app.screen.height / 2;
-            backgroundDisplacementSprite.scale.set(2);
-            backgroundDisplacementSprite.alpha = 0;
-
-            // Track with resource manager
-            resourceManager?.trackDisplayObject(backgroundDisplacementSprite);
-            resourceManager?.trackTexture(bgDisplacementUrl, bgTexture);
-
-            // Store background displacement sprite
+            const backgroundDisplacementSprite = new Sprite(texturesById.get('bgDisplacement'));
+            Object.assign(backgroundDisplacementSprite, {
+                anchor: { x: 0.5, y: 0.5 },
+                position: { x: centerX, y: centerY },
+                scale: { x: 2, y: 2 },
+                alpha: 0
+            });
+            displayObjects.push(backgroundDisplacementSprite);
             backgroundDisplacementSpriteRef.current = backgroundDisplacementSprite;
 
-            // Cursor displacement (conditional)
+            // Create cursor displacement sprite if enabled
             let cursorDisplacementSprite = null;
-            if (cursorImgEffect) {
-                const cursorDisplacementUrl = cursorDisplacementSpriteLocation || '/images/cursor-displace.png';
-                const cursorTexture = await Assets.load(cursorDisplacementUrl);
-
-                cursorDisplacementSprite = new Sprite(cursorTexture);
-                cursorDisplacementSprite.anchor.set(0.5);
-                cursorDisplacementSprite.x = app.screen.width / 2;
-                cursorDisplacementSprite.y = app.screen.height / 2;
-                cursorDisplacementSprite.scale.set(cursorScaleIntensity || 0.65);
-                cursorDisplacementSprite.alpha = 0;
-
-                // Track with resource manager
-                resourceManager?.trackDisplayObject(cursorDisplacementSprite);
-                resourceManager?.trackTexture(cursorDisplacementUrl, cursorTexture);
-
+            if (cursorImgEffect && texturesById.has('cursorDisplacement')) {
+                cursorDisplacementSprite = new Sprite(texturesById.get('cursorDisplacement'));
+                Object.assign(cursorDisplacementSprite, {
+                    anchor: { x: 0.5, y: 0.5 },
+                    position: { x: centerX, y: centerY },
+                    scale: { x: cursorScaleIntensity || 0.65, y: cursorScaleIntensity || 0.65 },
+                    alpha: 0
+                });
+                displayObjects.push(cursorDisplacementSprite);
                 cursorDisplacementSpriteRef.current = cursorDisplacementSprite;
             }
 
-            // Create displacement filters
-            const backgroundDisplacementFilter = new DisplacementFilter(backgroundDisplacementSprite);
-            const cursorDisplacementFilter = cursorImgEffect && cursorDisplacementSprite
-                ? new DisplacementFilter(cursorDisplacementSprite)
-                : null;
+            // Track all display objects in a batch
+            if (resourceManager && displayObjects.length > 0) {
+                resourceManager.trackDisplayObjectBatch(displayObjects);
+            }
 
-            // Track filters with resource manager
-            resourceManager?.trackFilter(backgroundDisplacementFilter);
-            if (cursorDisplacementFilter) {
-                resourceManager?.trackFilter(cursorDisplacementFilter);
+            // Create displacement filters
+            const filters = [];
+            const backgroundDisplacementFilter = new DisplacementFilter(backgroundDisplacementSprite);
+            filters.push(backgroundDisplacementFilter);
+
+            let cursorDisplacementFilter = null;
+            if (cursorImgEffect && cursorDisplacementSprite) {
+                cursorDisplacementFilter = new DisplacementFilter(cursorDisplacementSprite);
+                filters.push(cursorDisplacementFilter);
+            }
+
+            // Track filters in batch
+            if (resourceManager && filters.length > 0) {
+                resourceManager.trackFilterBatch(filters);
             }
 
             // Store filter references
@@ -179,46 +217,29 @@ export const useDisplacementEffects = ({
         const bgFilter = bgDispFilterRef.current;
         const cursorFilter = cursorDispFilterRef.current;
 
-        const animations: gsap.core.Tween[] = [];
+        // Define all animation targets and properties in a consistent structure
+        const animationTargets = [];
 
         if (backgroundSprite && bgFilter) {
-            const bgAlphaTween = gsap.to(backgroundSprite, { alpha: 1, duration: 0.5 });
-            const bgFilterTween = gsap.to(bgFilter.scale, {
-                x: DEFAULT_BG_FILTER_SCALE,
-                y: DEFAULT_BG_FILTER_SCALE,
-                duration: 0.5
-            });
-
-            // Safely track animations
-            if (resourceManager) {
-                const trackedBgAlphaTween = resourceManager.trackAnimation(bgAlphaTween);
-                const trackedBgFilterTween = resourceManager.trackAnimation(bgFilterTween);
-
-                if (trackedBgAlphaTween) animations.push(trackedBgAlphaTween);
-                if (trackedBgFilterTween) animations.push(trackedBgFilterTween);
-            } else {
-                animations.push(bgAlphaTween, bgFilterTween);
-            }
+            animationTargets.push(
+                { target: backgroundSprite, props: { alpha: 1, duration: 0.5 } },
+                { target: bgFilter.scale, props: { x: DEFAULT_BG_FILTER_SCALE, y: DEFAULT_BG_FILTER_SCALE, duration: 0.5 } }
+            );
         }
 
         if (cursorImgEffect && cursorSprite && cursorFilter) {
-            const cursorAlphaTween = gsap.to(cursorSprite, { alpha: 1, duration: 0.5 });
-            const cursorFilterTween = gsap.to(cursorFilter.scale, {
-                x: DEFAULT_CURSOR_FILTER_SCALE,
-                y: DEFAULT_CURSOR_FILTER_SCALE,
-                duration: 0.5
-            });
+            animationTargets.push(
+                { target: cursorSprite, props: { alpha: 1, duration: 0.5 } },
+                { target: cursorFilter.scale, props: { x: DEFAULT_CURSOR_FILTER_SCALE, y: DEFAULT_CURSOR_FILTER_SCALE, duration: 0.5 } }
+            );
+        }
 
-            // Safely track animations
-            if (resourceManager) {
-                const trackedCursorAlphaTween = resourceManager.trackAnimation(cursorAlphaTween);
-                const trackedCursorFilterTween = resourceManager.trackAnimation(cursorFilterTween);
+        // Create all animations at once
+        const animations = animationTargets.map(item => gsap.to(item.target, item.props));
 
-                if (trackedCursorAlphaTween) animations.push(trackedCursorAlphaTween);
-                if (trackedCursorFilterTween) animations.push(trackedCursorFilterTween);
-            } else {
-                animations.push(cursorAlphaTween, cursorFilterTween);
-            }
+        // Track all animations in a batch if available
+        if (resourceManager && animations.length > 0) {
+            resourceManager.trackAnimationBatch(animations);
         }
 
         return animations;
@@ -239,38 +260,29 @@ export const useDisplacementEffects = ({
         const bgFilter = bgDispFilterRef.current;
         const cursorFilter = cursorDispFilterRef.current;
 
-        const animations: gsap.core.Tween[] = [];
+        // Define all animation targets and properties in a consistent structure
+        const animationTargets = [];
 
         if (backgroundSprite && bgFilter) {
-            const bgAlphaTween = gsap.to(backgroundSprite, { alpha: 0, duration: 0.5 });
-            const bgFilterTween = gsap.to(bgFilter.scale, { x: 0, y: 0, duration: 0.5 });
-
-            // Safely track animations
-            if (resourceManager) {
-                const trackedBgAlphaTween = resourceManager.trackAnimation(bgAlphaTween);
-                const trackedBgFilterTween = resourceManager.trackAnimation(bgFilterTween);
-
-                if (trackedBgAlphaTween) animations.push(trackedBgAlphaTween);
-                if (trackedBgFilterTween) animations.push(trackedBgFilterTween);
-            } else {
-                animations.push(bgAlphaTween, bgFilterTween);
-            }
+            animationTargets.push(
+                { target: backgroundSprite, props: { alpha: 0, duration: 0.5 } },
+                { target: bgFilter.scale, props: { x: 0, y: 0, duration: 0.5 } }
+            );
         }
 
         if (cursorImgEffect && cursorSprite && cursorFilter) {
-            const cursorAlphaTween = gsap.to(cursorSprite, { alpha: 0, duration: 0.5 });
-            const cursorFilterTween = gsap.to(cursorFilter.scale, { x: 0, y: 0, duration: 0.5 });
+            animationTargets.push(
+                { target: cursorSprite, props: { alpha: 0, duration: 0.5 } },
+                { target: cursorFilter.scale, props: { x: 0, y: 0, duration: 0.5 } }
+            );
+        }
 
-            // Safely track animations
-            if (resourceManager) {
-                const trackedCursorAlphaTween = resourceManager.trackAnimation(cursorAlphaTween);
-                const trackedCursorFilterTween = resourceManager.trackAnimation(cursorFilterTween);
+        // Create all animations at once
+        const animations = animationTargets.map(item => gsap.to(item.target, item.props));
 
-                if (trackedCursorAlphaTween) animations.push(trackedCursorAlphaTween);
-                if (trackedCursorFilterTween) animations.push(trackedCursorFilterTween);
-            } else {
-                animations.push(cursorAlphaTween, cursorFilterTween);
-            }
+        // Track all animations in a batch if available
+        if (resourceManager && animations.length > 0) {
+            resourceManager.trackAnimationBatch(animations);
         }
 
         return animations;
