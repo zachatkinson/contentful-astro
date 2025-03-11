@@ -6,6 +6,7 @@ import ResourceManager from '../managers/ResourceManager';
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
 
+// Type definitions for function parameters
 interface UseIdleTimerProps {
     sliderRef: RefObject<HTMLDivElement | null>;
     cursorActive: RefObject<boolean>;
@@ -18,6 +19,13 @@ interface UseIdleTimerProps {
     resourceManager?: ResourceManager | null;
 }
 
+// Interface for animation state tracking
+interface AnimationState {
+    isAnimating: boolean;
+    activeAnimations: gsap.core.Tween[];
+    pendingBatchAnimations: gsap.core.Tween[];
+}
+
 /**
  * Hook to manage idle timer for resetting displacement effects
  * Fully optimized with:
@@ -26,6 +34,7 @@ interface UseIdleTimerProps {
  * - Comprehensive error handling
  * - Memory leak prevention
  * - Optimized animation management
+ * - Cancellation mechanisms
  */
 const useIdleTimer = ({
                           sliderRef,
@@ -41,46 +50,84 @@ const useIdleTimer = ({
     // Store idle timer reference
     const idleTimerRef = useRef<number | null>(null);
 
-    // Store batch animation collections for efficient tracking
-    const animationBatchRef = useRef<{
-        activeAnimations: gsap.core.Tween[];
-        pendingForCleanup: gsap.core.Tween[];
-    }>({
+    // Store animation state with a ref to avoid re-renders
+    const animationStateRef = useRef<AnimationState>({
+        isAnimating: false,
         activeAnimations: [],
-        pendingForCleanup: []
+        pendingBatchAnimations: []
     });
 
     // Flag to prevent operations during unmounting
     const isUnmountingRef = useRef(false);
 
+    // Last animation operation timestamp for performance tracking
+    const lastAnimationOpRef = useRef<number>(0);
+
     /**
-     * Process pending animations in batch
+     * Process pending animations in batch for better performance
      */
     const processPendingAnimations = useCallback(() => {
         try {
             // Skip if unmounting or no resource manager
             if (isUnmountingRef.current || !resourceManager) return;
 
-            const { activeAnimations } = animationBatchRef.current;
+            const { pendingBatchAnimations } = animationStateRef.current;
 
             // Process animations in batch if any exist
-            if (activeAnimations.length > 0) {
-                resourceManager.trackAnimationBatch(activeAnimations);
-                activeAnimations.length = 0; // Clear the array after tracking
+            if (pendingBatchAnimations.length > 0) {
+                if (isDevelopment) {
+                    console.log(`Processing batch of ${pendingBatchAnimations.length} animations`);
+                }
+
+                resourceManager.trackAnimationBatch(pendingBatchAnimations);
+
+                // Clear the array after tracking (more efficient than creating a new array)
+                pendingBatchAnimations.length = 0;
+
+                // Record performance metrics
+                const now = performance.now();
+                const opTime = now - lastAnimationOpRef.current;
+                if (isDevelopment && lastAnimationOpRef.current > 0) {
+                    console.debug(`Animation batch processing took ${opTime.toFixed(2)}ms`);
+                }
+                lastAnimationOpRef.current = now;
             }
         } catch (error) {
             if (isDevelopment) {
                 console.error('Error processing pending animations:', error);
             }
             // Clear batch even on error to avoid stuck state
-            animationBatchRef.current.activeAnimations = [];
+            animationStateRef.current.pendingBatchAnimations = [];
         }
     }, [resourceManager]);
 
-    // Removed unused trackAnimationForBatch function
+    /**
+     * Add an animation to the pending batch collection
+     * @param animation - The animation to track
+     * @returns The same animation for chaining
+     */
+    const trackAnimationForBatch = useCallback((animation: gsap.core.Tween): gsap.core.Tween => {
+        try {
+            // Skip if unmounting
+            if (isUnmountingRef.current) return animation;
+
+            // Add to pending batch
+            animationStateRef.current.pendingBatchAnimations.push(animation);
+
+            // Also track in active animations for cleanup
+            animationStateRef.current.activeAnimations.push(animation);
+
+            return animation;
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error tracking animation for batch:', error);
+            }
+            return animation;
+        }
+    }, []);
 
     /**
-     * Clean up any pending timers safely
+     * Clean up any active timers safely
      */
     const clearIdleTimer = useCallback(() => {
         if (idleTimerRef.current !== null) {
@@ -101,7 +148,46 @@ const useIdleTimer = ({
     }, [resourceManager]);
 
     /**
+     * Clean up any active animations
+     */
+    const cleanupAnimations = useCallback(() => {
+        try {
+            const { activeAnimations, pendingBatchAnimations } = animationStateRef.current;
+
+            // Kill all active animations
+            activeAnimations.forEach(tween => {
+                if (tween && tween.isActive()) {
+                    tween.kill();
+                }
+            });
+
+            // Clear arrays
+            activeAnimations.length = 0;
+            pendingBatchAnimations.length = 0;
+
+            // Update animation state
+            animationStateRef.current.isAnimating = false;
+
+            if (isDevelopment) {
+                console.log('All animations cleaned up');
+            }
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error cleaning up animations:', error);
+            }
+
+            // Reset arrays even on error
+            animationStateRef.current.activeAnimations = [];
+            animationStateRef.current.pendingBatchAnimations = [];
+            animationStateRef.current.isAnimating = false;
+        }
+    }, []);
+
+    /**
      * Apply filter animations with batch processing
+     * @param targetScale - Target scale for the filter
+     * @param duration - Animation duration in seconds
+     * @param onComplete - Optional callback when animation completes
      */
     const animateFilters = useCallback((
         targetScale: number,
@@ -111,6 +197,9 @@ const useIdleTimer = ({
         try {
             // Skip if unmounting
             if (isUnmountingRef.current) return;
+
+            // Record start time for performance tracking
+            lastAnimationOpRef.current = performance.now();
 
             // Set up completion callback with batch processing
             const handleCompletion = () => {
@@ -130,7 +219,7 @@ const useIdleTimer = ({
                     x: targetScale,
                     y: targetScale,
                     duration,
-                    ease: 'power2.out',
+                    ease: "power2.out",
                     onComplete: () => {
                         // Re-track the filter after animation
                         if (resourceManager && bgDispFilterRef.current) {
@@ -140,6 +229,7 @@ const useIdleTimer = ({
                 });
 
                 animations.push(bgTween);
+                trackAnimationForBatch(bgTween);
             }
 
             // Create cursor displacement filter animation if enabled
@@ -149,7 +239,7 @@ const useIdleTimer = ({
                     x: cursorScale,
                     y: cursorScale,
                     duration,
-                    ease: 'power2.out',
+                    ease: "power2.out",
                     onComplete: () => {
                         // Re-track the filter after animation
                         if (resourceManager && cursorDispFilterRef.current) {
@@ -162,6 +252,7 @@ const useIdleTimer = ({
                 });
 
                 animations.push(cursorTween);
+                trackAnimationForBatch(cursorTween);
             } else if (animations.length > 0) {
                 // If only bg animation exists, add completion callback to it
                 animations[0].eventCallback('onComplete', () => {
@@ -176,10 +267,8 @@ const useIdleTimer = ({
                 });
             }
 
-            // Track all animations in a batch
-            if (resourceManager && animations.length > 0) {
-                resourceManager.trackAnimationBatch(animations);
-            }
+            // Process all pending animations in batch
+            processPendingAnimations();
 
             return animations;
         } catch (error) {
@@ -197,7 +286,8 @@ const useIdleTimer = ({
         cursorImgEffect,
         defaultCursorFilterScale,
         resourceManager,
-        processPendingAnimations
+        processPendingAnimations,
+        trackAnimationForBatch
     ]);
 
     /**
@@ -207,12 +297,22 @@ const useIdleTimer = ({
         try {
             // Only run if cursor is still active to avoid conflicts
             if (cursorActive.current) {
-                animateFilters(0);
+                if (isDevelopment) {
+                    console.log('Resetting filters to idle state');
+                }
+
+                animateFilters(0, 0.5, () => {
+                    // Mark as not animating after reset completes
+                    animationStateRef.current.isAnimating = false;
+                });
             }
         } catch (error) {
             if (isDevelopment) {
                 console.error('Error resetting filters to idle state:', error);
             }
+
+            // Mark as not animating in case of errors
+            animationStateRef.current.isAnimating = false;
         }
     }, [cursorActive, animateFilters]);
 
@@ -224,6 +324,14 @@ const useIdleTimer = ({
             // Only run if cursor is active
             if (!cursorActive.current) return;
 
+            if (isDevelopment) {
+                console.log('Activating filter effects');
+            }
+
+            // Mark as animating
+            animationStateRef.current.isAnimating = true;
+
+            // Animate filters to active state
             animateFilters(defaultBgFilterScale);
 
             // Set new timer for idle effects
@@ -249,6 +357,9 @@ const useIdleTimer = ({
             if (isDevelopment) {
                 console.error('Error resetting filters to active state:', error);
             }
+
+            // Mark as not animating in case of errors
+            animationStateRef.current.isAnimating = false;
         }
     }, [
         cursorActive,
@@ -301,27 +412,28 @@ const useIdleTimer = ({
             // Add event listener with passive flag for performance
             node.addEventListener('mousemove', handleMouseMove, { passive: true });
 
+            // Track event listener with ResourceManager if available
+            if (resourceManager) {
+                resourceManager.addEventListener(node, 'mousemove', handleMouseMove);
+            }
+
             // Return cleanup function
             return () => {
                 // Set unmounting flag to prevent new operations
                 isUnmountingRef.current = true;
 
                 try {
-                    // Remove event listener
-                    node.removeEventListener('mousemove', handleMouseMove);
+                    // ResourceManager will handle cleanup if available
+                    if (!resourceManager) {
+                        // Remove event listener
+                        node.removeEventListener('mousemove', handleMouseMove);
+                    }
 
                     // Clear any pending timeout
                     clearIdleTimer();
 
-                    // Kill any active animations
-                    animationBatchRef.current.activeAnimations.forEach(tween => {
-                        if (tween && tween.isActive()) {
-                            tween.kill();
-                        }
-                    });
-
-                    // Clear the animations array
-                    animationBatchRef.current.activeAnimations = [];
+                    // Clean up any active animations
+                    cleanupAnimations();
                 } catch (cleanupError) {
                     if (isDevelopment) {
                         console.error('Error during useIdleTimer cleanup:', cleanupError);
@@ -339,12 +451,17 @@ const useIdleTimer = ({
         sliderRef,
         cursorActive,
         clearIdleTimer,
-        resetFiltersToActive
+        resetFiltersToActive,
+        cleanupAnimations,
+        resourceManager
     ]);
 
-    // No public API needed - the hook works internally
+    // Return hook API
     return {
-        isActive: idleTimerRef.current !== null
+        isActive: idleTimerRef.current !== null,
+        isAnimating: animationStateRef.current.isAnimating,
+        resetToIdle: resetFiltersToIdle,
+        resetToActive: resetFiltersToActive
     };
 };
 
