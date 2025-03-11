@@ -1,10 +1,10 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Container, Sprite, Filter } from 'pixi.js';
 import { type FilterConfig } from '../filters/';
-import { FilterFactory } from '../filters/FilterFactory';
+import { FilterFactory } from '../filters/';
 import { type HookParams } from '../types';
 import ResourceManager from '../managers/ResourceManager';
-import { type FilterResult } from '../filters/types';
+import { type FilterResult } from '../filters/';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
