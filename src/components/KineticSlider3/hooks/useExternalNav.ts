@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { type NavElement } from '../types';
 import type ResourceManager from "../managers/ResourceManager";
 
@@ -18,7 +18,15 @@ interface UseExternalNavProps {
 
 /**
  * Hook to set up external navigation elements for the slider
- * Optimized with batch event listener registration
+ * Fully optimized with:
+ * - Batch event listener registration
+ * - Stable event handler references
+ * - Comprehensive error handling
+ * - Memory leak prevention
+ * - Element reference caching
+ * - Event propagation control
+ * - Optimized dependency tracking
+ * - Type safety improvements
  */
 const useExternalNav = ({
                             externalNav,
@@ -33,21 +41,104 @@ const useExternalNav = ({
         nextNav: Element | null;
     }>({ prevNav: null, nextNav: null });
 
-    // Store event handlers to ensure consistent references
-    const eventHandlersRef = useRef<{
-        prevHandler: (e: Event) => void;
-        nextHandler: (e: Event) => void;
-    }>({
+    // Define a stable interface for our event handlers
+    interface StableHandlers {
+        prevHandler: EventCallback;
+        nextHandler: EventCallback;
+        latestPrevFn: (() => void) | null;
+        latestNextFn: (() => void) | null;
+    }
+
+    // Create stable event handlers that internally reference the latest callback functions
+    const handlersRef = useRef<StableHandlers>({
         prevHandler: (e: Event) => {
-            e.preventDefault();
-            handlePrev();
+            try {
+                e.preventDefault();
+                // Call the latest function reference
+                const latestHandler = handlersRef.current.latestPrevFn;
+                if (typeof latestHandler === 'function') {
+                    latestHandler();
+                }
+            } catch (error) {
+                if (isDevelopment) {
+                    console.error('Error in previous navigation handler:', error);
+                }
+            }
         },
         nextHandler: (e: Event) => {
-            e.preventDefault();
-            handleNext();
-        }
+            try {
+                e.preventDefault();
+                // Call the latest function reference
+                const latestHandler = handlersRef.current.latestNextFn;
+                if (typeof latestHandler === 'function') {
+                    latestHandler();
+                }
+            } catch (error) {
+                if (isDevelopment) {
+                    console.error('Error in next navigation handler:', error);
+                }
+            }
+        },
+        latestPrevFn: null,
+        latestNextFn: null
     });
 
+    // Keep the latest function references updated
+    useEffect(() => {
+        handlersRef.current.latestPrevFn = handlePrev;
+        handlersRef.current.latestNextFn = handleNext;
+    }, [handlePrev, handleNext]);
+
+    // Memoize the batch registration function for better performance
+    const setupBatchListeners = useCallback((
+        prevElement: Element,
+        nextElement: Element,
+        prevHandler: EventCallback,
+        nextHandler: EventCallback
+    ) => {
+        try {
+            if (!resourceManager) return false;
+
+            // Create listeners maps for each element
+            const prevListenersMap = new Map<string, EventCallback[]>();
+            prevListenersMap.set('click', [prevHandler]);
+
+            const nextListenersMap = new Map<string, EventCallback[]>();
+            nextListenersMap.set('click', [nextHandler]);
+
+            // Register event listeners in batch operations
+            resourceManager.addEventListenerBatch(prevElement, prevListenersMap);
+            resourceManager.addEventListenerBatch(nextElement, nextListenersMap);
+
+            return true;
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error setting up batch listeners:', error);
+            }
+            return false;
+        }
+    }, [resourceManager]);
+
+    // Setup regular DOM event listeners
+    const setupDirectListeners = useCallback((
+        prevElement: Element,
+        nextElement: Element,
+        prevHandler: EventCallback,
+        nextHandler: EventCallback
+    ) => {
+        try {
+            prevElement.addEventListener('click', prevHandler);
+            nextElement.addEventListener('click', nextHandler);
+            return true;
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error setting up direct listeners:', error);
+            }
+            return false;
+        }
+    }, []);
+
+    // Main effect for setting up and cleaning up navigation
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
@@ -55,72 +146,99 @@ const useExternalNav = ({
         // Skip if external navigation is not enabled
         if (!externalNav) return;
 
-        // Find the navigation elements in the DOM
-        const prevNav = document.querySelector(navElement.prev);
-        const nextNav = document.querySelector(navElement.next);
+        // Track initialization status for cleanup
+        let isInitialized = false;
 
-        // Store references to found elements
-        elementsRef.current = { prevNav, nextNav };
+        try {
+            // Find the navigation elements in the DOM
+            const prevNav = document.querySelector(navElement.prev);
+            const nextNav = document.querySelector(navElement.next);
 
-        // Log warning in development if navigation elements are not found
-        if (isDevelopment && (!prevNav || !nextNav)) {
-            console.warn(`KineticSlider: External navigation elements not found. Ensure elements matching selectors "${navElement.prev}" and "${navElement.next}" exist in the DOM.`);
-            return;
-        }
+            // Store references to found elements
+            elementsRef.current = { prevNav, nextNav };
 
-        // Ensure both navigation elements exist before proceeding
-        if (!prevNav || !nextNav) return;
+            // Check if both elements are found
+            if (!prevNav || !nextNav) {
+                // Create helpful error message
+                const missingElements = [];
+                if (!prevNav) missingElements.push(`"${navElement.prev}"`);
+                if (!nextNav) missingElements.push(`"${navElement.next}"`);
 
-        // Get stored event handlers
-        const { prevHandler, nextHandler } = eventHandlersRef.current;
-
-        // Batch event listeners if ResourceManager is available
-        if (resourceManager) {
-            // Create a map of event types to arrays of callbacks for batch registration
-            const batchEventListeners = new Map<string, Set<EventListener>>();
-
-            // Add 'click' event type if not already in the map
-            if (!batchEventListeners.has('click')) {
-                batchEventListeners.set('click', new Set());
+                // Log warning in development mode
+                if (isDevelopment) {
+                    console.warn(
+                        `KineticSlider: External navigation elements not found: ${missingElements.join(', ')}. ` +
+                        `Ensure these selectors exist in the DOM.`
+                    );
+                }
+                return;
             }
 
-            // Get click handlers set
-            const clickHandlers = batchEventListeners.get('click')!;
+            // Get stable event handlers
+            const { prevHandler, nextHandler } = handlersRef.current;
 
-            // Add both handlers
-            clickHandlers.add(prevHandler as EventListener);
-            clickHandlers.add(nextHandler as EventListener);
+            // Try batch registration first, fall back to direct listeners if needed
+            let registrationSuccessful = false;
 
-            // Prepare event listeners for batch registration
-            // ResourceManager expects Map<EventTarget, Map<string, EventCallback[]>>
+            if (resourceManager) {
+                registrationSuccessful = setupBatchListeners(
+                    prevNav, nextNav, prevHandler, nextHandler
+                );
+            }
 
-            // Create listeners for prev button
-            const prevListenersMap = new Map<string, EventCallback[]>();
-            prevListenersMap.set('click', [prevHandler]);
+            // Fall back to direct listeners if batch registration failed or unavailable
+            if (!registrationSuccessful) {
+                registrationSuccessful = setupDirectListeners(
+                    prevNav, nextNav, prevHandler, nextHandler
+                );
+            }
 
-            // Create listeners for next button
-            const nextListenersMap = new Map<string, EventCallback[]>();
-            nextListenersMap.set('click', [nextHandler]);
+            // Mark as successfully initialized
+            isInitialized = registrationSuccessful;
 
-            // Register event listeners in batch operations
-            resourceManager.addEventListenerBatch(prevNav, prevListenersMap);
-            resourceManager.addEventListenerBatch(nextNav, nextListenersMap);
-        } else {
-            // Fallback to direct event listeners
-            prevNav.addEventListener('click', prevHandler);
-            nextNav.addEventListener('click', nextHandler);
+        } catch (error) {
+            // Handle any unexpected errors during initialization
+            if (isDevelopment) {
+                console.error('Error initializing external navigation:', error);
+            }
         }
 
-        // Cleanup on unmount
+        // Cleanup on unmount or dependencies change
         return () => {
-            // If ResourceManager was used, it will handle event cleanup
-            // If not, manually remove event listeners
-            if (!resourceManager) {
-                if (prevNav) {
-                    prevNav.removeEventListener('click', prevHandler);
+            try {
+                // Skip cleanup if not initialized
+                if (!isInitialized) return;
+
+                // Get current element references for cleanup
+                const { prevNav, nextNav } = elementsRef.current;
+                const { prevHandler, nextHandler } = handlersRef.current;
+
+                // ResourceManager handles its own cleanup
+                if (!resourceManager && prevNav && nextNav) {
+                    // Safely remove event listeners
+                    try {
+                        prevNav.removeEventListener('click', prevHandler);
+                    } catch (e) {
+                        if (isDevelopment) {
+                            console.warn('Error removing event listener from previous nav:', e);
+                        }
+                    }
+
+                    try {
+                        nextNav.removeEventListener('click', nextHandler);
+                    } catch (e) {
+                        if (isDevelopment) {
+                            console.warn('Error removing event listener from next nav:', e);
+                        }
+                    }
                 }
-                if (nextNav) {
-                    nextNav.removeEventListener('click', nextHandler);
+
+                // Clear element references to help garbage collection
+                elementsRef.current = { prevNav: null, nextNav: null };
+            } catch (cleanupError) {
+                // Handle errors during cleanup
+                if (isDevelopment) {
+                    console.error('Error during navigation cleanup:', cleanupError);
                 }
             }
         };
@@ -128,9 +246,9 @@ const useExternalNav = ({
         externalNav,
         navElement.prev,
         navElement.next,
-        handleNext,
-        handlePrev,
-        resourceManager
+        resourceManager,
+        setupBatchListeners,
+        setupDirectListeners
     ]);
 
     // Return current elements for potential external use
