@@ -5,6 +5,9 @@ import { FilterFactory } from '../filters/';
 import { type HookParams } from '../types';
 import ResourceManager from '../managers/ResourceManager';
 
+// Development environment check
+const isDevelopment = import.meta.env?.MODE === 'development';
+
 // Define a more specific type for the target objects we're applying filters to
 type FilterableObject = Sprite | Container;
 
@@ -16,7 +19,7 @@ interface FilterMap {
             instance: any;
             updateIntensity: (intensity: number) => void;
             reset: () => void;
-            initialIntensity: number; // Store initial intensity setting
+            initialIntensity: number;
         }[];
     };
 }
@@ -25,55 +28,36 @@ interface FilterMap {
  * Hook to manage filters for slides and text containers
  */
 export const useFilters = (
-    { sliderRef, pixi, props, resourceManager }: HookParams & { resourceManager?: ResourceManager | null }
+    { pixi, props, resourceManager }:
+        Omit<HookParams, 'sliderRef'> & { resourceManager?: ResourceManager | null }
 ) => {
     // Keep track of applied filters for easy updating
     const filterMapRef = useRef<FilterMap>({});
     const filtersInitializedRef = useRef<boolean>(false);
     const filtersActiveRef = useRef<boolean>(false);
 
-    // Track whether component is mounted
-    const isMountedRef = useRef<boolean>(true);
-
     // Initialize filters
     useEffect(() => {
-        // Reset mount state
-        isMountedRef.current = true;
-
         // Skip if app or stage not ready
-        if (!pixi.app.current || !pixi.app.current.stage) {
-            console.log("App or stage not available for filters, deferring initialization");
-            return;
-        }
+        if (!pixi.app.current || !pixi.app.current.stage) return;
 
         // Wait until slides and text containers are created
-        if (!pixi.slides.current.length || !pixi.textContainers.current.length) {
-            console.log("Waiting for slides and text containers to be available for filters");
-            return;
-        }
+        if (!pixi.slides.current.length || !pixi.textContainers.current.length) return;
 
         // Avoid reinitializing filters if already done
-        if (filtersInitializedRef.current) {
-            console.log("Filters already initialized, skipping");
-            return;
-        }
-
-        console.log("Setting up filters...");
+        if (filtersInitializedRef.current) return;
 
         try {
             // Use provided filter configurations or defaults
             const imageFilters = props.imageFilters
                 ? (Array.isArray(props.imageFilters) ? props.imageFilters : [props.imageFilters])
-                : [{ type: 'rgb-split', enabled: true, intensity: 15 }]; // Default RGB split filter
+                : [{ type: 'rgb-split', enabled: true, intensity: 15 }];
 
             const textFilters = props.textFilters
                 ? (Array.isArray(props.textFilters) ? props.textFilters : [props.textFilters])
-                : [{ type: 'rgb-split', enabled: true, intensity: 5 }]; // Default RGB split filter
-
-            console.log(`Applying ${imageFilters.length} image filters and ${textFilters.length} text filters`);
+                : [{ type: 'rgb-split', enabled: true, intensity: 5 }];
 
             // Apply filters to slides and text containers with initial creation
-            // This will add the filter instances but not activate them yet
             applyFiltersToObjects(pixi.slides.current, imageFilters as FilterConfig[], 'slide-');
             applyFiltersToObjects(pixi.textContainers.current, textFilters as FilterConfig[], 'text-');
 
@@ -82,10 +66,11 @@ export const useFilters = (
                 const entry = filterMapRef.current[id];
                 entry.filters.forEach(filter => {
                     try {
-                        // Reset each filter to ensure it starts in inactive state
                         filter.reset();
                     } catch (error) {
-                        console.error(`Error initializing filter for ${id}:`, error);
+                        if (isDevelopment) {
+                            console.error(`Error initializing filter for ${id}:`, error);
+                        }
                     }
                 });
             });
@@ -93,19 +78,13 @@ export const useFilters = (
             // Mark as initialized in inactive state
             filtersInitializedRef.current = true;
             filtersActiveRef.current = false;
-
-            console.log("Filters initialized successfully (inactive state)");
         } catch (error) {
-            console.error("Error setting up filters:", error);
+            if (isDevelopment) {
+                console.error("Error setting up filters:", error);
+            }
         }
 
-        // Clean up on unmount
-        return () => {
-            // Mark as unmounted first
-            isMountedRef.current = false;
-
-            // Note: ResourceManager will handle disposal of all filters
-        };
+        // No need for cleanup as ResourceManager will handle resource disposal
     }, [
         pixi.app.current,
         pixi.slides.current,
@@ -122,16 +101,14 @@ export const useFilters = (
         idPrefix: string
     ) => {
         if (!objects.length) {
-            console.warn(`No ${idPrefix} objects available to apply filters`);
+            if (isDevelopment) {
+                console.warn(`No ${idPrefix} objects available to apply filters`);
+            }
             return;
         }
 
         objects.forEach((object, index) => {
-            // Skip if component is unmounted
-            if (!isMountedRef.current) return;
-
             const id = `${idPrefix}${index}`;
-            console.log(`Applying filters to ${id}`);
 
             // Create filter entries if they don't exist
             if (!filterMapRef.current[id]) {
@@ -149,7 +126,6 @@ export const useFilters = (
                 .filter(config => config.enabled)
                 .map(config => {
                     try {
-                        console.log(`Creating ${config.type} filter for ${id}`);
                         const result = FilterFactory.createFilter(config);
 
                         // Register the filter with ResourceManager if available
@@ -163,14 +139,16 @@ export const useFilters = (
                             initialIntensity: config.intensity
                         };
                     } catch (error) {
-                        console.error(`Failed to create ${config.type} filter:`, error);
+                        if (isDevelopment) {
+                            console.error(`Failed to create ${config.type} filter:`, error);
+                        }
                         return null;
                     }
                 })
                 .filter((result): result is NonNullable<typeof result> => result !== null);
 
             // Check if we have any valid filters
-            if (activeFilters.length === 0) {
+            if (activeFilters.length === 0 && isDevelopment) {
                 console.warn(`No valid filters created for ${id}`);
             }
 
@@ -179,7 +157,7 @@ export const useFilters = (
                 instance: result.filter,
                 updateIntensity: result.updateIntensity,
                 reset: result.reset,
-                initialIntensity: result.initialIntensity // Store the initial intensity
+                initialIntensity: result.initialIntensity
             }));
 
             // Apply base displacement filter if it exists
@@ -203,59 +181,45 @@ export const useFilters = (
             if (resourceManager) {
                 resourceManager.trackDisplayObject(object);
             }
-
-            console.log(`Applied ${customFilters.length} custom filters to ${id} (initial state: inactive)`);
         });
-    }, [pixi, props.cursorImgEffect, resourceManager, isMountedRef]);
+    }, [pixi, props.cursorImgEffect, resourceManager]);
 
     // Function to reset all filters to inactive state
     const resetAllFilters = useCallback(() => {
-        // Skip if component is unmounted
-        if (!isMountedRef.current) return;
-
-        if (!filtersInitializedRef.current) {
-            console.log("Filters not initialized yet, skipping reset");
-            return;
-        }
-
-        console.log("Resetting ALL filters to inactive state - hard reset");
+        if (!filtersInitializedRef.current) return;
 
         // First, mark as inactive to prevent race conditions
         filtersActiveRef.current = false;
 
-        // Reset all object filters with extra logging
+        // Reset all object filters
         Object.keys(filterMapRef.current).forEach(id => {
-            // Skip if component is unmounted
-            if (!isMountedRef.current) return;
-
             const entry = filterMapRef.current[id];
-            console.log(`Resetting filters for ${id}`);
 
-            entry.filters.forEach((filter, index) => {
+            entry.filters.forEach((filter) => {
                 try {
-                    console.log(`Resetting filter ${index} for ${id}`);
                     filter.reset();
                 } catch (error) {
-                    console.error(`Error resetting filter ${index} for ${id}:`, error);
+                    if (isDevelopment) {
+                        console.error(`Error resetting filter for ${id}:`, error);
+                    }
                 }
             });
 
-            // Also ensure these are the only filters applied (remove any transition filters)
+            // Ensure only base filters are applied
             try {
                 const baseFilters = [];
 
-                // Add base displacement filters if they exist, but with zero scales
+                // Add base displacement filters with zero scales
                 if (pixi.bgDispFilter.current) {
-                    // Make sure scale is set to zero
-                    if (pixi.bgDispFilter.current.scale) {
-                        pixi.bgDispFilter.current.scale.x = 0;
-                        pixi.bgDispFilter.current.scale.y = 0;
+                    const bgFilter = pixi.bgDispFilter.current;
+                    if (bgFilter.scale) {
+                        bgFilter.scale.x = 0;
+                        bgFilter.scale.y = 0;
                     }
-                    baseFilters.push(pixi.bgDispFilter.current);
+                    baseFilters.push(bgFilter);
                 }
 
-                // Only keep the base displacement filters but with zero scale
-                // so they exist but have no visual effect
+                // Only keep the base displacement filters
                 if (entry.target.filters) {
                     entry.target.filters = [...baseFilters];
 
@@ -265,29 +229,20 @@ export const useFilters = (
                     }
                 }
             } catch (filterError) {
-                console.error(`Error cleaning up filters for ${id}:`, filterError);
+                if (isDevelopment) {
+                    console.error(`Error cleaning up filters for ${id}:`, filterError);
+                }
             }
         });
-    }, [pixi.bgDispFilter.current, resourceManager, isMountedRef]);
+    }, [pixi.bgDispFilter.current, resourceManager]);
 
     // Update filter intensities for hover effects
     const updateFilterIntensities = useCallback((active: boolean, forceUpdate = false) => {
-        // Skip if component is unmounted
-        if (!isMountedRef.current) return;
-
         // Skip if filters haven't been initialized yet
-        if (!filtersInitializedRef.current) {
-            console.log("Filters not initialized yet, skipping intensity update");
-            return;
-        }
+        if (!filtersInitializedRef.current) return;
 
-        console.log(`${active ? 'Activating' : 'Deactivating'} filter intensities${forceUpdate ? ' (FORCED)' : ''}`);
-
-        // If current state matches requested state and not forced, don't do anything to avoid flickering
-        if (filtersActiveRef.current === active && !forceUpdate) {
-            console.log(`Filters already in ${active ? 'active' : 'inactive'} state, skipping update`);
-            return;
-        }
+        // If current state matches requested state and not forced, don't do anything
+        if (filtersActiveRef.current === active && !forceUpdate) return;
 
         // Update filter active state
         filtersActiveRef.current = active;
@@ -301,126 +256,55 @@ export const useFilters = (
         const currentSlideId = `slide-${pixi.currentIndex.current}`;
         const currentTextId = `text-${pixi.currentIndex.current}`;
 
-        console.log(`Activating filters for slide ${currentSlideId} and text ${currentTextId}`);
-
-        // First, make sure we have the right filter arrays applied to the objects
-        // This ensures proper filter application after a slide change
-        if (filterMapRef.current[currentSlideId]) {
-            try {
-                // Skip if component is unmounted
-                if (!isMountedRef.current) return;
-
-                const slideFilters = filterMapRef.current[currentSlideId];
-                const target = slideFilters.target;
-
-                // Collect base filters
-                const baseFilters = [];
-                if (pixi.bgDispFilter.current) {
-                    baseFilters.push(pixi.bgDispFilter.current);
-                }
-                if (props.cursorImgEffect && pixi.cursorDispFilter.current) {
-                    baseFilters.push(pixi.cursorDispFilter.current);
-                }
-
-                // Get the custom filters
-                const customFilters = slideFilters.filters.map(f => f.instance);
-
-                // Set the combined filters on the object
-                target.filters = [...baseFilters, ...customFilters];
-
-                // Re-track the object after modifying filters
-                if (resourceManager) {
-                    resourceManager.trackDisplayObject(target);
-                }
-
-                console.log(`Reapplied filter array to slide ${currentSlideId} with ${customFilters.length} custom filters`);
-            } catch (error) {
-                console.error(`Error reapplying filter array to ${currentSlideId}:`, error);
-            }
-        }
-
-        // Similarly for text filters
-        if (filterMapRef.current[currentTextId]) {
-            try {
-                // Skip if component is unmounted
-                if (!isMountedRef.current) return;
-
-                const textFilters = filterMapRef.current[currentTextId];
-                const target = textFilters.target;
-
-                // Collect base filters
-                const baseFilters = [];
-                if (pixi.bgDispFilter.current) {
-                    baseFilters.push(pixi.bgDispFilter.current);
-                }
-
-                // Get the custom filters
-                const customFilters = textFilters.filters.map(f => f.instance);
-
-                // Set the combined filters on the object
-                target.filters = [...baseFilters, ...customFilters];
-
-                // Re-track the object after modifying filters
-                if (resourceManager) {
-                    resourceManager.trackDisplayObject(target);
-                }
-
-                console.log(`Reapplied filter array to text ${currentTextId} with ${customFilters.length} custom filters`);
-            } catch (error) {
-                console.error(`Error reapplying filter array to ${currentTextId}:`, error);
-            }
-        }
-
-        // Now activate the filter intensities
         // Update slide filters
-        if (filterMapRef.current[currentSlideId]) {
-            // Skip if component is unmounted
-            if (!isMountedRef.current) return;
+        const updateSlideFilters = (id: string) => {
+            const filterEntry = filterMapRef.current[id];
+            if (!filterEntry) return;
 
-            filterMapRef.current[currentSlideId].filters.forEach((filter, index) => {
+            const target = filterEntry.target;
+
+            // Collect base filters
+            const baseFilters = [];
+            if (pixi.bgDispFilter.current) {
+                baseFilters.push(pixi.bgDispFilter.current);
+            }
+            if (props.cursorImgEffect && pixi.cursorDispFilter.current && id.startsWith('slide-')) {
+                baseFilters.push(pixi.cursorDispFilter.current);
+            }
+
+            // Get the custom filters
+            const customFilters = filterEntry.filters.map(f => f.instance);
+
+            // Set the combined filters on the object
+            target.filters = [...baseFilters, ...customFilters];
+
+            // Re-track the object after modifying filters
+            if (resourceManager) {
+                resourceManager.trackDisplayObject(target);
+            }
+
+            // Update filter intensities
+            filterEntry.filters.forEach((filter) => {
                 try {
-                    // Skip if component is unmounted
-                    if (!isMountedRef.current) return;
-
-                    // Use the filter's own update intensity function with the stored initial intensity
-                    console.log(`Activating slide filter ${index} for ${currentSlideId} with intensity ${filter.initialIntensity}`);
-                    filter.updateIntensity(filter.initialIntensity); // Use initial intensity instead of hardcoded value
+                    filter.updateIntensity(filter.initialIntensity);
                 } catch (error) {
-                    console.error(`Error activating slide filter ${index}:`, error);
+                    if (isDevelopment) {
+                        console.error(`Error activating filter for ${id}:`, error);
+                    }
                 }
             });
-        } else {
-            console.warn(`No filters found for ${currentSlideId}`);
-        }
+        };
 
-        // Update text filters
-        if (filterMapRef.current[currentTextId]) {
-            // Skip if component is unmounted
-            if (!isMountedRef.current) return;
-
-            filterMapRef.current[currentTextId].filters.forEach((filter, index) => {
-                try {
-                    // Skip if component is unmounted
-                    if (!isMountedRef.current) return;
-
-                    // Use the filter's own update intensity function with the stored initial intensity
-                    console.log(`Activating text filter ${index} for ${currentTextId} with intensity ${filter.initialIntensity}`);
-                    filter.updateIntensity(filter.initialIntensity); // Use initial intensity instead of hardcoded value
-                } catch (error) {
-                    console.error(`Error activating text filter ${index}:`, error);
-                }
-            });
-        } else {
-            console.warn(`No filters found for ${currentTextId}`);
-        }
+        // Apply filters to current slide and text
+        updateSlideFilters(currentSlideId);
+        updateSlideFilters(currentTextId);
     }, [
         pixi.currentIndex.current,
         pixi.bgDispFilter.current,
         pixi.cursorDispFilter.current,
         props.cursorImgEffect,
         resetAllFilters,
-        resourceManager,
-        isMountedRef
+        resourceManager
     ]);
 
     return {
