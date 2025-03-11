@@ -16,33 +16,32 @@ const MAX_ASSET_LOAD_RETRIES = 3;
  * @returns Promise that resolves when the font is loaded
  */
 const loadFont = async (fontPath: string, retries = MAX_ASSET_LOAD_RETRIES): Promise<boolean> => {
-    // Validate font path
-    if (!fontPath) {
-        console.warn('Invalid font path provided');
+    try {
+        // Validate font path
+        if (!fontPath) {
+            console.warn('Invalid font path provided');
+            return false;
+        }
+
+        // Try to load the font with exponential backoff
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                await Assets.load(fontPath);
+                return true;
+            } catch (error) {
+                if (attempt === retries) throw error;
+
+                // Exponential backoff
+                await new Promise(resolve =>
+                    setTimeout(resolve, Math.pow(2, attempt) * 100)
+                );
+            }
+        }
+        return false;
+    } catch (error) {
+        console.warn(`Failed to load font from ${fontPath}:`, error);
         return false;
     }
-
-    // Try to load the font with exponential backoff
-    for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-            await Assets.load(fontPath);
-            return true;
-        } catch (error) {
-            if (attempt === retries) {
-                // Log the final error without rethrowing
-                console.warn(`Failed to load font from ${fontPath} after ${retries} attempts:`, error);
-                return false;
-            }
-
-            // Exponential backoff
-            await new Promise(resolve =>
-                setTimeout(resolve, Math.pow(2, attempt) * 100)
-            );
-        }
-    }
-
-    // Fallback return in case of unexpected exit from loop
-    return false;
 };
 
 /**
