@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject, type MutableRefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { DisplacementFilter } from 'pixi.js';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
@@ -32,13 +32,7 @@ const useIdleTimer = ({
     // Store idle timer reference
     const idleTimerRef = useRef<number | null>(null);
 
-    // Track mounted state
-    const isMountedRef = useRef<boolean>(true);
-
     useEffect(() => {
-        // Reset mounted state
-        isMountedRef.current = true;
-
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
 
@@ -47,59 +41,8 @@ const useIdleTimer = ({
         const node = sliderRef.current;
 
         const handleMouseMove = () => {
-            // Skip if component unmounted
-            if (!isMountedRef.current) return;
-
             // Only apply scale effects if cursor is active (mouse is over the slider)
-            if (cursorActive.current) {
-                // Reset background displacement filter scale
-                if (bgDispFilterRef.current) {
-                    const bgTween = gsap.to(bgDispFilterRef.current.scale, {
-                        x: defaultBgFilterScale,
-                        y: defaultBgFilterScale,
-                        duration: 0.5,
-                        ease: 'power2.out',
-                        onComplete: () => {
-                            // Skip if component unmounted during animation
-                            if (!isMountedRef.current) return;
-
-                            // Re-track the filter after animation completes
-                            if (resourceManager && bgDispFilterRef.current) {
-                                resourceManager.trackFilter(bgDispFilterRef.current);
-                            }
-                        }
-                    });
-
-                    // Track the animation
-                    if (resourceManager) {
-                        resourceManager.trackAnimation(bgTween);
-                    }
-                }
-
-                // Reset cursor displacement filter scale if enabled
-                if (cursorImgEffect && cursorDispFilterRef.current) {
-                    const cursorTween = gsap.to(cursorDispFilterRef.current.scale, {
-                        x: defaultCursorFilterScale,
-                        y: defaultCursorFilterScale,
-                        duration: 0.5,
-                        ease: 'power2.out',
-                        onComplete: () => {
-                            // Skip if component unmounted during animation
-                            if (!isMountedRef.current) return;
-
-                            // Re-track the filter after animation completes
-                            if (resourceManager && cursorDispFilterRef.current) {
-                                resourceManager.trackFilter(cursorDispFilterRef.current);
-                            }
-                        }
-                    });
-
-                    // Track the animation
-                    if (resourceManager) {
-                        resourceManager.trackAnimation(cursorTween);
-                    }
-                }
-            }
+            if (!cursorActive.current) return;
 
             // Clear previous timer
             if (idleTimerRef.current !== null) {
@@ -111,13 +54,52 @@ const useIdleTimer = ({
                 idleTimerRef.current = null;
             }
 
-            // Set new timer
-            const setIdleTimer = () => {
-                // Skip if component unmounted
-                if (!isMountedRef.current) return;
+            // Reset background displacement filter scale
+            if (bgDispFilterRef.current) {
+                const bgTween = gsap.to(bgDispFilterRef.current.scale, {
+                    x: defaultBgFilterScale,
+                    y: defaultBgFilterScale,
+                    duration: 0.5,
+                    ease: 'power2.out',
+                    onComplete: () => {
+                        // Re-track the filter after animation completes
+                        if (resourceManager && bgDispFilterRef.current) {
+                            resourceManager.trackFilter(bgDispFilterRef.current);
+                        }
+                    }
+                });
 
-                // Gradually reset filter scales after idle time
+                // Track the animation
+                if (resourceManager) {
+                    resourceManager.trackAnimation(bgTween);
+                }
+            }
+
+            // Reset cursor displacement filter scale if enabled
+            if (cursorImgEffect && cursorDispFilterRef.current) {
+                const cursorTween = gsap.to(cursorDispFilterRef.current.scale, {
+                    x: defaultCursorFilterScale,
+                    y: defaultCursorFilterScale,
+                    duration: 0.5,
+                    ease: 'power2.out',
+                    onComplete: () => {
+                        // Re-track the filter after animation completes
+                        if (resourceManager && cursorDispFilterRef.current) {
+                            resourceManager.trackFilter(cursorDispFilterRef.current);
+                        }
+                    }
+                });
+
+                // Track the animation
+                if (resourceManager) {
+                    resourceManager.trackAnimation(cursorTween);
+                }
+            }
+
+            // Set new timer for idle effects
+            const setIdleTimer = () => {
                 if (cursorActive.current) {
+                    // Gradually reset filter scales
                     if (bgDispFilterRef.current) {
                         const bgIdleTween = gsap.to(bgDispFilterRef.current.scale, {
                             x: 0,
@@ -125,9 +107,6 @@ const useIdleTimer = ({
                             duration: 0.5,
                             ease: 'power2.out',
                             onComplete: () => {
-                                // Skip if component unmounted during animation
-                                if (!isMountedRef.current) return;
-
                                 // Re-track the filter after animation
                                 if (resourceManager && bgDispFilterRef.current) {
                                     resourceManager.trackFilter(bgDispFilterRef.current);
@@ -148,9 +127,6 @@ const useIdleTimer = ({
                             duration: 0.5,
                             ease: 'power2.out',
                             onComplete: () => {
-                                // Skip if component unmounted during animation
-                                if (!isMountedRef.current) return;
-
                                 // Re-track the filter after animation
                                 if (resourceManager && cursorDispFilterRef.current) {
                                     resourceManager.trackFilter(cursorDispFilterRef.current);
@@ -185,9 +161,6 @@ const useIdleTimer = ({
 
         // Cleanup on unmount
         return () => {
-            // Mark as unmounted first
-            isMountedRef.current = false;
-
             // Clear any pending timeout
             if (idleTimerRef.current !== null) {
                 if (resourceManager) {
@@ -214,7 +187,8 @@ const useIdleTimer = ({
         defaultBgFilterScale,
         defaultCursorFilterScale,
         idleTimeout,
-        resourceManager
+        resourceManager,
+        cursorActive
     ]);
 };
 
