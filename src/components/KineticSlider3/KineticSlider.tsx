@@ -242,7 +242,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
                 // Track the application with the resource manager
                 if (resourceManagerRef.current) {
-                    resourceManagerRef.current.trackDisplayObject(app);
+                    resourceManagerRef.current.trackPixiApp(app);
                 }
 
                 // Add canvas to DOM
