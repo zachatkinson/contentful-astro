@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, type RefObject } from 'react';
 import { Sprite, DisplacementFilter } from 'pixi.js';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
@@ -27,9 +27,6 @@ const useMouseTracking = ({
                               cursorMomentum,
                               resourceManager
                           }: UseMouseTrackingProps) => {
-    // Track mounted state
-    const isMountedRef = useRef(true);
-
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined' || !sliderRef.current) return;
@@ -37,9 +34,6 @@ const useMouseTracking = ({
         const node = sliderRef.current;
 
         const handleMouseMove = (e: MouseEvent) => {
-            // Check if component is still mounted
-            if (!isMountedRef.current) return;
-
             // Get relative mouse position within the slider
             const rect = node.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
@@ -63,56 +57,65 @@ const useMouseTracking = ({
                 distanceFromCenter / (maxDistance * 0.7)
             );
 
-            // Comprehensive debug logging
-            console.log('Displacement Tracking:', {
-                mouseX,
-                mouseY,
-                displacementIntensity,
-                backgroundSprite: backgroundDisplacementSpriteRef.current,
-                cursorSprite: cursorDisplacementSpriteRef.current,
-                backgroundFilter: backgroundDisplacementFilterRef?.current,
-                cursorFilter: cursorDisplacementFilterRef?.current
-            });
-
             // Animate background displacement sprite and filter
             if (backgroundDisplacementSpriteRef.current) {
                 // Move sprite
-                gsap.to(backgroundDisplacementSpriteRef.current, {
+                const bgSpriteTween = gsap.to(backgroundDisplacementSpriteRef.current, {
                     x: mouseX,
                     y: mouseY,
                     duration: cursorMomentum,
                     ease: 'power2.out'
                 });
 
+                // Track animation
+                if (resourceManager) {
+                    resourceManager.trackAnimation(bgSpriteTween);
+                }
+
                 // Update filter scale
                 if (backgroundDisplacementFilterRef?.current) {
-                    gsap.to(backgroundDisplacementFilterRef.current.scale, {
-                        x: displacementIntensity * 30,  // Increased scale range
+                    const bgFilterTween = gsap.to(backgroundDisplacementFilterRef.current.scale, {
+                        x: displacementIntensity * 30,
                         y: displacementIntensity * 30,
                         duration: cursorMomentum,
                         ease: 'power2.out'
                     });
+
+                    // Track animation
+                    if (resourceManager) {
+                        resourceManager.trackAnimation(bgFilterTween);
+                    }
                 }
             }
 
             // Update cursor displacement sprite and filter if enabled
             if (cursorImgEffect && cursorDisplacementSpriteRef.current) {
                 // Move sprite
-                gsap.to(cursorDisplacementSpriteRef.current, {
+                const cursorSpriteTween = gsap.to(cursorDisplacementSpriteRef.current, {
                     x: mouseX,
                     y: mouseY,
                     duration: cursorMomentum,
                     ease: 'power2.out'
                 });
 
+                // Track animation
+                if (resourceManager) {
+                    resourceManager.trackAnimation(cursorSpriteTween);
+                }
+
                 // Update filter scale
                 if (cursorDisplacementFilterRef?.current) {
-                    gsap.to(cursorDisplacementFilterRef.current.scale, {
-                        x: displacementIntensity * 15,  // Adjusted scale range
+                    const cursorFilterTween = gsap.to(cursorDisplacementFilterRef.current.scale, {
+                        x: displacementIntensity * 15,
                         y: displacementIntensity * 15,
                         duration: cursorMomentum,
                         ease: 'power2.out'
                     });
+
+                    // Track animation
+                    if (resourceManager) {
+                        resourceManager.trackAnimation(cursorFilterTween);
+                    }
                 }
             }
         };
@@ -122,7 +125,6 @@ const useMouseTracking = ({
 
         // Clean up on unmount
         return () => {
-            isMountedRef.current = false;
             node.removeEventListener('mousemove', handleMouseMove);
         };
     }, [
@@ -132,7 +134,8 @@ const useMouseTracking = ({
         backgroundDisplacementFilterRef,
         cursorDisplacementFilterRef,
         cursorImgEffect,
-        cursorMomentum
+        cursorMomentum,
+        resourceManager
     ]);
 };
 
