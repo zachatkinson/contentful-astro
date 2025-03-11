@@ -2,16 +2,54 @@ import { useEffect, useRef, useState, useCallback, type RefObject } from 'react'
 import type { KineticSliderProps } from '../types';
 import ResourceManager from '../managers/ResourceManager';
 
-// Development environment check
-const isDevelopment = import.meta.env?.MODE === 'development';
+// Development environment logging utility
+const createLogger = () => ({
+    info: (message: string, ...args: any[]) => {
+        if (import.meta.env?.MODE === 'development') {
+            console.log(`[usePixiSlider:INFO] ${message}`, ...args);
+        }
+    },
+    warn: (message: string, ...args: any[]) => {
+        if (import.meta.env?.MODE === 'development') {
+            console.warn(`[usePixiSlider:WARN] ${message}`, ...args);
+        }
+    },
+    error: (message: string, error?: unknown) => {
+        if (import.meta.env?.MODE === 'development') {
+            console.error(`[usePixiSlider:ERROR] ${message}`, error);
+        }
+    }
+});
 
-// Cancellation flag type
+// Comprehensive cancellation and lifecycle management interface
 interface CancellationFlags {
     isCancelled: boolean;
 }
 
+// Enhanced state interface with comprehensive typing
+interface SliderState {
+    isInitializing: boolean;
+    isInitialized: boolean;
+    currentSlide: number;
+    error?: string | null;
+}
+
+// Module cache interface for dynamic imports
+interface ModuleCache {
+    gsap?: any;
+    hooks?: any;
+    lastUpdated: number;
+}
+
+// Performance tracking interface
+interface PerformanceMetrics {
+    initializationStart?: number;
+    initializationEnd?: number;
+    totalInitTime?: number;
+}
+
 /**
- * Custom hook to initialize and manage the PixiJS slider
+ * Advanced PixiJS Slider Hook with Comprehensive Optimization
  */
 export const usePixiSlider = (
     sliderRef: RefObject<HTMLDivElement>,
@@ -19,79 +57,111 @@ export const usePixiSlider = (
     props: KineticSliderProps,
     resourceManager?: ResourceManager | null
 ) => {
-    // Cancellation flag to prevent race conditions
-    const cancellationRef = useRef<CancellationFlags>({ isCancelled: false });
+    // Logger initialization
+    const logger = createLogger();
 
-    // Track initialization status with a single state
-    const [sliderState, setSliderState] = useState({
+    // Refs for advanced state management
+    const cancellationRef = useRef<CancellationFlags>({ isCancelled: false });
+    const modulesRef = useRef<ModuleCache>({
+        lastUpdated: 0
+    });
+    const performanceRef = useRef<PerformanceMetrics>({});
+
+    // Comprehensive state management
+    const [sliderState, setSliderState] = useState<SliderState>({
         isInitializing: false,
         isInitialized: false,
-        currentSlide: 0
+        currentSlide: 0,
+        error: null
     });
 
-    // Track module imports with a ref to avoid re-renders
-    const modulesRef = useRef<{
-        gsap?: any;
-        hooks?: any;
-    }>({});
+    // Advanced module import with comprehensive error handling
+    const safeImportModule = useCallback(async <T>(
+        importFn: () => Promise<T>,
+        moduleName: string
+    ): Promise<T | null> => {
+        try {
+            logger.info(`Importing module: ${moduleName}`);
+            const startTime = performance.now();
 
-    // Memoized initialization function with improved error handling
+            const module = await importFn();
+
+            const endTime = performance.now();
+            logger.info(`Module ${moduleName} imported in ${(endTime - startTime).toFixed(2)}ms`);
+
+            return module;
+        } catch (error) {
+            logger.error(`Failed to import ${moduleName}`, error);
+
+            // Update state with error
+            setSliderState(prev => ({
+                ...prev,
+                error: `Module import failed: ${moduleName}`
+            }));
+
+            return null;
+        }
+    }, []);
+
+    // Comprehensive initialization function
     const initializeSlider = useCallback(async () => {
-        // Reset cancellation flag
-        cancellationRef.current.isCancelled = false;
+        // Reset performance tracking
+        performanceRef.current.initializationStart = performance.now();
 
-        // Skip during server-side rendering or if already initializing/initialized
-        if (
-            typeof window === 'undefined' ||
-            !sliderRef.current ||
-            !canvasContainerRef.current ||
-            sliderState.isInitializing ||
-            sliderState.isInitialized
-        ) {
+        // Reset cancellation and state
+        cancellationRef.current.isCancelled = false;
+        setSliderState(prev => ({
+            ...prev,
+            isInitializing: true,
+            error: null
+        }));
+
+        // Server-side and early exit checks
+        if (typeof window === 'undefined') {
+            logger.warn('Initialization cancelled: Server-side environment');
+            return false;
+        }
+
+        // Validate references
+        if (!sliderRef.current || !canvasContainerRef.current) {
+            logger.warn('Initialization cancelled: Missing references');
+            setSliderState(prev => ({
+                ...prev,
+                isInitializing: false,
+                error: 'Missing DOM references'
+            }));
             return false;
         }
 
         try {
-            // Update state to show initializing
-            setSliderState(prev => ({ ...prev, isInitializing: true }));
+            // Dynamic module imports with comprehensive error handling
+            const [gsapModule, hooksModule] = await Promise.all([
+                safeImportModule(() => import('gsap'), 'GSAP'),
+                safeImportModule(() => import('./index.ts'), 'Hooks')
+            ]);
 
-            if (isDevelopment) {
-                console.log('Initializing PixiJS slider');
+            // Check for cancellation after async operations
+            if (cancellationRef.current.isCancelled) {
+                logger.info('Initialization cancelled during module import');
+                return false;
             }
 
-            // Import GSAP only once with error handling
-            if (!modulesRef.current.gsap) {
-                const gsapModule = await import('gsap');
-                modulesRef.current.gsap = gsapModule.gsap;
-
-                try {
-                    const { default: PixiPlugin } = await import('gsap/PixiPlugin');
-                    modulesRef.current.gsap.registerPlugin(PixiPlugin);
-                } catch (pluginError) {
-                    console.warn('Could not load PixiPlugin for GSAP:', pluginError);
-                }
+            // Validate imported modules
+            if (!gsapModule || !hooksModule) {
+                throw new Error('Failed to import required modules');
             }
 
-            // Check for cancellation after async operation
-            if (cancellationRef.current.isCancelled) return false;
-
-            // Import hooks only once
-            if (!modulesRef.current.hooks) {
-                const hooks = await import('./index.ts');
-                modulesRef.current.hooks = hooks;
+            // Register GSAP plugin if available
+            try {
+                const { default: PixiPlugin } = await import('gsap/PixiPlugin');
+                gsapModule.gsap.registerPlugin(PixiPlugin);
+                logger.info('GSAP PixiPlugin registered successfully');
+            } catch (pluginError) {
+                logger.warn('Could not load PixiPlugin', pluginError);
             }
 
-            // Check for cancellation after async operation
-            if (cancellationRef.current.isCancelled) return false;
-
-            // Validate component is still mounted
-            if (!sliderRef.current || !canvasContainerRef.current) {
-                throw new Error('Component unmounted during initialization');
-            }
-
-            // Initialize the PixiJS application
-            const hooks = modulesRef.current.hooks;
-            const { pixiRefs, isInitialized: pixiInitialized } = await hooks.usePixiApp(
+            // Initialize PixiJS application
+            const { pixiRefs, isInitialized: pixiInitialized } = await hooksModule.usePixiApp(
                 sliderRef,
                 props.images,
                 [
@@ -101,42 +171,52 @@ export const usePixiSlider = (
                 resourceManager
             );
 
-            // Check for cancellation after async operation
-            if (cancellationRef.current.isCancelled) return false;
+            // Check for cancellation
+            if (cancellationRef.current.isCancelled) {
+                logger.info('Initialization cancelled during PixiJS setup');
+                return false;
+            }
 
-            // Validate Pixi initialization
+            // Validate PixiJS initialization
             if (!pixiInitialized) {
                 throw new Error('Failed to initialize PixiJS application');
             }
 
             // Setup slider components
-            await setupSliderComponents(pixiRefs, hooks, resourceManager, props);
+            await setupSliderComponents(pixiRefs, hooksModule, resourceManager, props);
 
-            // Check for cancellation after component setup
-            if (cancellationRef.current.isCancelled) return false;
+            // Check for final cancellation
+            if (cancellationRef.current.isCancelled) {
+                logger.info('Initialization cancelled during component setup');
+                return false;
+            }
 
             // Update state to show successful initialization
             setSliderState(prev => ({
                 ...prev,
                 isInitializing: false,
-                isInitialized: true
+                isInitialized: true,
+                error: null
             }));
 
-            if (isDevelopment) {
-                console.log('PixiJS slider initialized successfully');
-            }
+            // Record initialization performance
+            performanceRef.current.initializationEnd = performance.now();
+            performanceRef.current.totalInitTime =
+                performanceRef.current.initializationEnd -
+                performanceRef.current.initializationStart;
+
+            logger.info(`Slider initialized in ${performanceRef.current.totalInitTime?.toFixed(2)}ms`);
 
             return true;
         } catch (error) {
-            // Log error and reset state
-            if (isDevelopment) {
-                console.error('Error initializing PixiJS slider:', error);
-            }
+            // Comprehensive error handling
+            logger.error('Slider initialization failed', error);
 
             setSliderState(prev => ({
                 ...prev,
                 isInitializing: false,
-                isInitialized: false
+                isInitialized: false,
+                error: error instanceof Error ? error.message : 'Unknown initialization error'
             }));
 
             return false;
@@ -147,20 +227,24 @@ export const usePixiSlider = (
         props.images,
         props.backgroundDisplacementSpriteLocation,
         props.cursorDisplacementSpriteLocation,
-        resourceManager
+        resourceManager,
+        safeImportModule
     ]);
 
-    // Memoized setup function with async support and comprehensive error handling
+    // Comprehensive slider component setup
     const setupSliderComponents = useCallback(async (
         pixiRefs: any,
         hooks: any,
         resourceManager?: ResourceManager | null,
         sliderProps?: KineticSliderProps
     ) => {
-        if (!hooks || !sliderProps) return;
+        if (!hooks || !sliderProps) {
+            logger.warn('Cannot setup slider components: Missing hooks or props');
+            return;
+        }
 
         try {
-            // Create a hook params object to share with all hooks
+            // Create hook params object
             const hookParams = {
                 sliderRef,
                 pixi: pixiRefs,
@@ -168,33 +252,25 @@ export const usePixiSlider = (
                 resourceManager
             };
 
-            // Setup slides with error handling
-            try {
-                await hooks.useSlides(hookParams);
-            } catch (slidesError) {
-                if (isDevelopment) {
-                    console.error('Error setting up slides:', slidesError);
+            // Parallel component setup with error handling
+            await Promise.allSettled([
+                hooks.useSlides(hookParams),
+                hooks.useTextContainers(hookParams)
+            ].map(async (setupPromise) => {
+                try {
+                    await setupPromise;
+                } catch (error) {
+                    logger.error('Error in slider component setup', error);
                 }
-            }
+            }));
 
-            // Setup text containers with error handling
-            try {
-                await hooks.useTextContainers(hookParams);
-            } catch (textError) {
-                if (isDevelopment) {
-                    console.error('Error setting up text containers:', textError);
-                }
-            }
-
-            // Additional hooks can be set up here with similar error handling
         } catch (error) {
-            if (isDevelopment) {
-                console.error('Error in setupSliderComponents:', error);
-            }
+            logger.error('Comprehensive slider component setup failed', error);
+            throw error;
         }
     }, [sliderRef]);
 
-    // Initialize the slider
+    // Initialize the slider on mount
     useEffect(() => {
         // Attempt initialization
         initializeSlider();
@@ -208,7 +284,8 @@ export const usePixiSlider = (
             setSliderState({
                 isInitializing: false,
                 isInitialized: false,
-                currentSlide: 0
+                currentSlide: 0,
+                error: null
             });
         };
     }, [initializeSlider]);
@@ -221,7 +298,7 @@ export const usePixiSlider = (
             ...prev,
             currentSlide: (prev.currentSlide + 1) % props.images.length
         }));
-    }, [props.images.length]);
+    }, [props.images.length, sliderState.isInitialized]);
 
     const goToPrevSlide = useCallback(() => {
         if (!sliderState.isInitialized) return;
@@ -230,25 +307,26 @@ export const usePixiSlider = (
             ...prev,
             currentSlide: (prev.currentSlide - 1 + props.images.length) % props.images.length
         }));
-    }, [props.images.length]);
+    }, [props.images.length, sliderState.isInitialized]);
 
-    // Minimal interaction handlers
-    const handleMouseEnter = useCallback(() => {
-        // No-op as actual effects are handled by specific hooks
-    }, []);
-
-    const handleMouseLeave = useCallback(() => {
-        // No-op as actual effects are handled by specific hooks
-    }, []);
-
+    // Return comprehensive hook result
     return {
+        // Initialization states
         isInitialized: sliderState.isInitialized,
         isInitializing: sliderState.isInitializing,
+
+        // Current slide tracking
         currentSlide: sliderState.currentSlide,
+
+        // Error handling
+        error: sliderState.error,
+
+        // Navigation methods
         goToNextSlide,
         goToPrevSlide,
-        handleMouseEnter,
-        handleMouseLeave
+
+        // Performance metrics (optional)
+        performanceMetrics: performanceRef.current
     };
 };
 
