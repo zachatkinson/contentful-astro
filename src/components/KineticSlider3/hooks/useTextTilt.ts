@@ -6,6 +6,14 @@ import ResourceManager from '../managers/ResourceManager';
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
 
+// Enhanced error logging utility
+const logError = (context: string, error: unknown) => {
+    if (isDevelopment) {
+        console.error(`[useTextTilt:${context}] Error:`, error);
+    }
+};
+
+// Comprehensive interface for hook props
 interface UseTextTiltProps {
     sliderRef: RefObject<HTMLDivElement | null>;
     textContainersRef: RefObject<Container[]>;
@@ -16,12 +24,23 @@ interface UseTextTiltProps {
     cursorDispFilterRef: RefObject<DisplacementFilter | null>;
     cursorImgEffect: boolean;
     resourceManager?: ResourceManager | null;
-    throttleTime?: number; // Optional throttle time in ms
+    throttleTime?: number;
+}
+
+// Enhanced state management interface
+interface TiltState {
+    isAnimating: boolean;
+    lastOffsetX: number;
+    lastOffsetY: number;
+}
+
+// Cancellation and lifecycle management interface
+interface CancellationFlags {
+    isCancelled: boolean;
 }
 
 /**
- * Hook to create a 3D-like tilt effect on text when the mouse moves over the slider
- * This creates a parallax effect between title and subtitle text elements
+ * Advanced text tilt hook with comprehensive optimization
  */
 const useTextTilt = ({
                          sliderRef,
@@ -33,55 +52,70 @@ const useTextTilt = ({
                          cursorDispFilterRef,
                          cursorImgEffect,
                          resourceManager,
-                         throttleTime = 50 // Default throttle of 50ms
+                         throttleTime = 50
                      }: UseTextTiltProps) => {
-    // Store states in refs to avoid re-renders
+    // Enhanced refs with strict typing
     const lastMoveTimeRef = useRef<number>(0);
     const tiltTimeoutRef = useRef<number | null>(null);
-    const animationStateRef = useRef({
+    const animationStateRef = useRef<TiltState>({
         isAnimating: false,
         lastOffsetX: 0,
         lastOffsetY: 0
     });
-
-    // Ref to store GSAP animations for cleanup
+    const cancellationRef = useRef<CancellationFlags>({ isCancelled: false });
     const activeTweensRef = useRef<gsap.core.Tween[]>([]);
 
     useEffect(() => {
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
 
-        // Skip if effect is disabled or refs are missing
+        // Early exit if effect is disabled
         if (!cursorTextEffect || !sliderRef.current) {
             if (isDevelopment) {
-                console.log('Text tilt effect is disabled or slider ref is missing');
+                console.log('Text tilt effect disabled or missing slider reference');
             }
             return;
         }
 
+        // Reset cancellation flag
+        cancellationRef.current.isCancelled = false;
+
         const sliderElement = sliderRef.current;
 
         /**
-         * Clean up active tweens
+         * Comprehensive cleanup of active tweens
          */
         const cleanupActiveTweens = () => {
-            // Kill all active tweens
-            activeTweensRef.current.forEach(tween => {
-                tween.kill();
-            });
-            activeTweensRef.current = [];
+            try {
+                activeTweensRef.current.forEach(tween => {
+                    if (tween && tween.isActive()) {
+                        tween.kill();
+                    }
+                });
+                activeTweensRef.current = [];
+            } catch (error) {
+                logError('cleanupActiveTweens', error);
+            }
         };
 
         /**
-         * Calculate the position and amount of tilt based on mouse position
-         * @param mouseX - Mouse X position
-         * @param mouseY - Mouse Y position
-         * @returns Calculated offsets and shifts for the tilt effect
+         * Safe calculation of tilt values with comprehensive error handling
          */
         const calculateTiltValues = (mouseX: number, mouseY: number) => {
             try {
+                // Validate slider element
+                if (!sliderElement) {
+                    throw new Error('Slider element is undefined');
+                }
+
                 const containerWidth = sliderElement.clientWidth;
                 const containerHeight = sliderElement.clientHeight;
+
+                // Validate container dimensions
+                if (containerWidth <= 0 || containerHeight <= 0) {
+                    throw new Error('Invalid container dimensions');
+                }
+
                 const centerX = containerWidth / 2;
                 const centerY = containerHeight / 2;
 
@@ -93,15 +127,16 @@ const useTextTilt = ({
                 animationStateRef.current.lastOffsetX = offsetX;
                 animationStateRef.current.lastOffsetY = offsetY;
 
-                // Calculate shift amounts with appropriate constraints
+                // Constrained shift calculations
                 const rawContainerShiftX = offsetX * 0.05;
                 const rawContainerShiftY = offsetY * 0.1;
                 const maxShiftX = containerWidth * maxContainerShiftFraction;
                 const maxShiftY = containerHeight * maxContainerShiftFraction;
+
                 const containerShiftX = Math.max(Math.min(rawContainerShiftX, maxShiftX), -maxShiftX);
                 const containerShiftY = Math.max(Math.min(rawContainerShiftY, maxShiftY), -maxShiftY);
 
-                // Calculate title and subtitle shifts
+                // Title and subtitle shift calculations
                 const maxTitleShift = containerWidth * 0.1;
                 const titleRawShiftX = offsetX * 0.8;
                 const titleShiftX = Math.max(Math.min(titleRawShiftX, maxTitleShift), -maxTitleShift);
@@ -119,9 +154,7 @@ const useTextTilt = ({
                     centerY
                 };
             } catch (error) {
-                if (isDevelopment) {
-                    console.error("Error calculating tilt values:", error);
-                }
+                logError('calculateTiltValues', error);
 
                 // Return safe default values
                 return {
@@ -129,20 +162,20 @@ const useTextTilt = ({
                     containerShiftY: 0,
                     titleShiftX: 0,
                     subtitleShiftX: 0,
-                    centerX: sliderElement.clientWidth / 2,
-                    centerY: sliderElement.clientHeight / 2
+                    centerX: sliderElement?.clientWidth / 2 || 0,
+                    centerY: sliderElement?.clientHeight / 2 || 0
                 };
             }
         };
 
         /**
-         * Apply the tilt effect based on calculated values
+         * Apply tilt effect with comprehensive error handling and resource tracking
          */
-        const applyTiltEffect = (
-            { containerShiftX, containerShiftY, titleShiftX, subtitleShiftX, centerX, centerY }:
-            ReturnType<typeof calculateTiltValues>
-        ) => {
+        const applyTiltEffect = (tiltValues: ReturnType<typeof calculateTiltValues>) => {
             try {
+                // Check for cancellation
+                if (cancellationRef.current.isCancelled) return;
+
                 const activeTextContainer = textContainersRef.current[currentIndex.current];
 
                 if (!activeTextContainer || activeTextContainer.children.length < 2) {
@@ -152,88 +185,71 @@ const useTextTilt = ({
                 // Clear previous animations
                 cleanupActiveTweens();
 
-                // Create and track container animation
-                const containerTween = gsap.to(activeTextContainer, {
-                    x: centerX + containerShiftX,
-                    y: centerY + containerShiftY,
-                    duration: 0.5,
-                    ease: "expo.out",
-                    onComplete: () => {
-                        // Re-track the container after animation
-                        if (resourceManager && activeTextContainer) {
-                            resourceManager.trackDisplayObject(activeTextContainer);
+                // Create and track animations
+                const createTrackedTween = (target: any, props: any) => {
+                    const tween = gsap.to(target, {
+                        ...props,
+                        onComplete: () => {
+                            // Re-track the object after animation
+                            if (resourceManager) {
+                                resourceManager.trackDisplayObject(target);
+                            }
                         }
+                    });
+
+                    // Track the animation
+                    if (resourceManager) {
+                        resourceManager.trackAnimation(tween);
                     }
+
+                    activeTweensRef.current.push(tween);
+                    return tween;
+                };
+
+                // Container animation
+                createTrackedTween(activeTextContainer, {
+                    x: tiltValues.centerX + tiltValues.containerShiftX,
+                    y: tiltValues.centerY + tiltValues.containerShiftY,
+                    duration: 0.5,
+                    ease: "expo.out"
                 });
 
-                // Add to active tweens
-                activeTweensRef.current.push(containerTween);
-
-                // Track with ResourceManager
-                if (resourceManager) {
-                    resourceManager.trackAnimation(containerTween);
-                }
-
-                // Create and track title animation if exists
+                // Title animation
                 if (activeTextContainer.children[0]) {
-                    const titleTween = gsap.to(activeTextContainer.children[0], {
-                        x: titleShiftX,
+                    createTrackedTween(activeTextContainer.children[0], {
+                        x: tiltValues.titleShiftX,
                         duration: 0.5,
-                        ease: "expo.out",
-                        onComplete: () => {
-                            // Re-track the text object after animation
-                            if (resourceManager && activeTextContainer && activeTextContainer.children[0]) {
-                                resourceManager.trackDisplayObject(activeTextContainer.children[0]);
-                            }
-                        }
+                        ease: "expo.out"
                     });
-
-                    // Add to active tweens
-                    activeTweensRef.current.push(titleTween);
-
-                    // Track with ResourceManager
-                    if (resourceManager) {
-                        resourceManager.trackAnimation(titleTween);
-                    }
                 }
 
-                // Create and track subtitle animation if exists
+                // Subtitle animation
                 if (activeTextContainer.children[1]) {
-                    const subtitleTween = gsap.to(activeTextContainer.children[1], {
-                        x: subtitleShiftX,
+                    createTrackedTween(activeTextContainer.children[1], {
+                        x: tiltValues.subtitleShiftX,
                         duration: 0.5,
-                        ease: "expo.out",
-                        onComplete: () => {
-                            // Re-track the text object after animation
-                            if (resourceManager && activeTextContainer && activeTextContainer.children[1]) {
-                                resourceManager.trackDisplayObject(activeTextContainer.children[1]);
-                            }
-                        }
+                        ease: "expo.out"
                     });
-
-                    // Add to active tweens
-                    activeTweensRef.current.push(subtitleTween);
-
-                    // Track with ResourceManager
-                    if (resourceManager) {
-                        resourceManager.trackAnimation(subtitleTween);
-                    }
                 }
 
                 // Mark as animating
                 animationStateRef.current.isAnimating = true;
             } catch (error) {
-                if (isDevelopment) {
-                    console.error("Error applying tilt effect:", error);
-                }
+                logError('applyTiltEffect', error);
+
+                // Reset animation state on error
+                animationStateRef.current.isAnimating = false;
             }
         };
 
         /**
-         * Reset the tilt effect, returning elements to their default positions
+         * Reset tilt effect with comprehensive cleanup
          */
         const resetTiltEffect = () => {
             try {
+                // Check for cancellation
+                if (cancellationRef.current.isCancelled) return;
+
                 const activeContainer = textContainersRef.current[currentIndex.current];
 
                 if (!activeContainer) return;
@@ -241,146 +257,98 @@ const useTextTilt = ({
                 // Clear previous animations
                 cleanupActiveTweens();
 
-                // Get container dimensions
+                // Calculate center
                 const centerX = sliderElement.clientWidth / 2;
                 const centerY = sliderElement.clientHeight / 2;
 
-                // Create and track container reset animation
-                const containerResetTween = gsap.to(activeContainer, {
+                // Create reset animation function
+                const createResetTween = (target: any, props: any) => {
+                    const tween = gsap.to(target, {
+                        ...props,
+                        duration: 1,
+                        ease: "expo.inOut",
+                        onComplete: () => {
+                            // Re-track object after animation
+                            if (resourceManager) {
+                                resourceManager.trackDisplayObject(target);
+                            }
+                        }
+                    });
+
+                    // Track animation
+                    if (resourceManager) {
+                        resourceManager.trackAnimation(tween);
+                    }
+
+                    activeTweensRef.current.push(tween);
+                    return tween;
+                };
+
+                // Container reset
+                createResetTween(activeContainer, {
                     x: centerX,
                     y: centerY,
-                    duration: 1,
-                    ease: "expo.inOut",
                     onComplete: () => {
-                        // Re-track the container after animation
-                        if (resourceManager && activeContainer) {
-                            resourceManager.trackDisplayObject(activeContainer);
-                        }
-
-                        // Mark as not animating
                         animationStateRef.current.isAnimating = false;
                     }
                 });
 
-                // Add to active tweens
-                activeTweensRef.current.push(containerResetTween);
-
-                // Track with ResourceManager
-                if (resourceManager) {
-                    resourceManager.trackAnimation(containerResetTween);
-                }
-
-                // Create and track title reset animation if exists
+                // Reset title
                 if (activeContainer.children[0]) {
-                    const titleResetTween = gsap.to(activeContainer.children[0], {
-                        x: 0,
-                        duration: 1,
-                        ease: "expo.inOut",
-                        onComplete: () => {
-                            // Re-track the text object after animation
-                            if (resourceManager && activeContainer && activeContainer.children[0]) {
-                                resourceManager.trackDisplayObject(activeContainer.children[0]);
-                            }
-                        }
-                    });
-
-                    // Add to active tweens
-                    activeTweensRef.current.push(titleResetTween);
-
-                    // Track with ResourceManager
-                    if (resourceManager) {
-                        resourceManager.trackAnimation(titleResetTween);
-                    }
+                    createResetTween(activeContainer.children[0], { x: 0 });
                 }
 
-                // Create and track subtitle reset animation if exists
+                // Reset subtitle
                 if (activeContainer.children[1]) {
-                    const subtitleResetTween = gsap.to(activeContainer.children[1], {
-                        x: 0,
-                        duration: 1,
-                        ease: "expo.inOut",
-                        onComplete: () => {
-                            // Re-track the text object after animation
-                            if (resourceManager && activeContainer && activeContainer.children[1]) {
-                                resourceManager.trackDisplayObject(activeContainer.children[1]);
-                            }
-                        }
-                    });
-
-                    // Add to active tweens
-                    activeTweensRef.current.push(subtitleResetTween);
-
-                    // Track with ResourceManager
-                    if (resourceManager) {
-                        resourceManager.trackAnimation(subtitleResetTween);
-                    }
+                    createResetTween(activeContainer.children[1], { x: 0 });
                 }
 
-                // Reset filter effects if they exist
-                if (bgDispFilterRef.current) {
-                    const bgFilterResetTween = gsap.to(bgDispFilterRef.current.scale, {
-                        x: 0,
-                        y: 0,
-                        duration: 1,
-                        ease: "expo.inOut",
-                        onComplete: () => {
-                            // Re-track the filter after animation
-                            if (resourceManager && bgDispFilterRef.current) {
-                                resourceManager.trackFilter(bgDispFilterRef.current);
+                // Reset filters if they exist
+                const resetFilterTween = (filterRef: RefObject<DisplacementFilter | null>) => {
+                    if (filterRef.current) {
+                        const tween = gsap.to(filterRef.current.scale, {
+                            x: 0,
+                            y: 0,
+                            duration: 1,
+                            ease: "expo.inOut",
+                            onComplete: () => {
+                                if (resourceManager && filterRef.current) {
+                                    resourceManager.trackFilter(filterRef.current);
+                                }
                             }
+                        });
+
+                        if (resourceManager) {
+                            resourceManager.trackAnimation(tween);
                         }
-                    });
 
-                    // Add to active tweens
-                    activeTweensRef.current.push(bgFilterResetTween);
-
-                    // Track with ResourceManager
-                    if (resourceManager) {
-                        resourceManager.trackAnimation(bgFilterResetTween);
+                        activeTweensRef.current.push(tween);
                     }
-                }
+                };
 
-                if (cursorImgEffect && cursorDispFilterRef.current) {
-                    const cursorFilterResetTween = gsap.to(cursorDispFilterRef.current.scale, {
-                        x: 0,
-                        y: 0,
-                        duration: 1,
-                        ease: "expo.inOut",
-                        onComplete: () => {
-                            // Re-track the filter after animation
-                            if (resourceManager && cursorDispFilterRef.current) {
-                                resourceManager.trackFilter(cursorDispFilterRef.current);
-                            }
-                        }
-                    });
-
-                    // Add to active tweens
-                    activeTweensRef.current.push(cursorFilterResetTween);
-
-                    // Track with ResourceManager
-                    if (resourceManager) {
-                        resourceManager.trackAnimation(cursorFilterResetTween);
-                    }
+                resetFilterTween(bgDispFilterRef);
+                if (cursorImgEffect) {
+                    resetFilterTween(cursorDispFilterRef);
                 }
             } catch (error) {
-                if (isDevelopment) {
-                    console.error("Error resetting tilt effect:", error);
-                }
+                logError('resetTiltEffect', error);
 
-                // Mark as not animating in case of errors
+                // Ensure animation state is reset
                 animationStateRef.current.isAnimating = false;
             }
         };
 
         /**
-         * Main mouse move handler with throttling
+         * Throttled mouse move handler
          */
         const handleTextTilt = (e: MouseEvent) => {
             try {
-                // Get current time for throttling
+                // Skip if cancelled
+                if (cancellationRef.current.isCancelled) return;
+
                 const now = Date.now();
 
-                // Skip if not enough time has passed since last update (throttling)
+                // Throttle check
                 if (now - lastMoveTimeRef.current < throttleTime) {
                     return;
                 }
@@ -388,13 +356,13 @@ const useTextTilt = ({
                 // Update last move time
                 lastMoveTimeRef.current = now;
 
-                // Calculate the tilt values
+                // Calculate tilt values
                 const tiltValues = calculateTiltValues(e.clientX, e.clientY);
 
-                // Apply the tilt effect
+                // Apply tilt effect
                 applyTiltEffect(tiltValues);
 
-                // Clear any existing timeout
+                // Clear existing timeout
                 if (tiltTimeoutRef.current !== null) {
                     if (resourceManager) {
                         resourceManager.clearTimeout(tiltTimeoutRef.current);
@@ -404,7 +372,7 @@ const useTextTilt = ({
                     tiltTimeoutRef.current = null;
                 }
 
-                // Set timeout to reset the tilt effect after inactivity
+                // Set reset timeout
                 const setTimeoutFn = () => {
                     resetTiltEffect();
                     tiltTimeoutRef.current = null;
@@ -417,24 +385,25 @@ const useTextTilt = ({
                     tiltTimeoutRef.current = window.setTimeout(setTimeoutFn, 300);
                 }
             } catch (error) {
-                if (isDevelopment) {
-                    console.error("Error in text tilt handler:", error);
-                }
+                logError('handleTextTilt', error);
             }
         };
 
-        // Add event listener with a proper passive flag for better scrolling performance
+        // Add event listener
         sliderElement.addEventListener("mousemove", handleTextTilt, { passive: true });
 
         // Cleanup function
         return () => {
+            // Set cancellation flag
+            cancellationRef.current.isCancelled = true;
+
             // Remove event listener
             sliderElement.removeEventListener("mousemove", handleTextTilt);
 
-            // Clean up any active tweens
+            // Clean up tweens
             cleanupActiveTweens();
 
-            // Clear any pending timeout
+            // Clear timeout
             if (tiltTimeoutRef.current !== null) {
                 if (resourceManager) {
                     resourceManager.clearTimeout(tiltTimeoutRef.current);
