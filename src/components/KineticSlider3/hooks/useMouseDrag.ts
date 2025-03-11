@@ -27,9 +27,6 @@ const useMouseDrag = ({
                           onSwipeRight,
                           resourceManager
                       }: UseMouseDragProps) => {
-    // Track component mounted state
-    const isMountedRef = useRef(true);
-
     // Track drag state
     const dragStateRef = useRef({
         isDragging: false,
@@ -38,29 +35,30 @@ const useMouseDrag = ({
     });
 
     useEffect(() => {
-        // Reset mounted state on mount
-        isMountedRef.current = true;
-
         // Skip during server-side rendering
         if (typeof window === 'undefined') return;
 
         const slider = sliderRef.current;
         if (!slider) return;
 
-        const handleMouseDown = (e: MouseEvent) => {
-            // Skip if unmounted
-            if (!isMountedRef.current) return;
-
+        // Generalized event handler to work with both MouseEvent and Event types
+        const handleMouseDown = (evt: Event) => {
+            const mouseEvt = evt as MouseEvent;
+            // Explicitly use mouseEvt.clientX
             dragStateRef.current.isDragging = true;
-            dragStateRef.current.startX = e.clientX;
-            dragStateRef.current.endX = e.clientX;
+            dragStateRef.current.startX = mouseEvt.clientX;
+            dragStateRef.current.endX = mouseEvt.clientX;
+            // Prevent default to stop text selection during drag
+            evt.preventDefault();
         };
 
-        const handleMouseMove = (e: MouseEvent) => {
-            // Skip if unmounted or not dragging
-            if (!isMountedRef.current || !dragStateRef.current.isDragging) return;
+        const handleMouseMove = (evt: Event) => {
+            const mouseEvt = evt as MouseEvent;
+            // Skip if not dragging
+            if (!dragStateRef.current.isDragging) return;
 
-            dragStateRef.current.endX = e.clientX;
+            // Explicitly use mouseEvt.clientX
+            dragStateRef.current.endX = mouseEvt.clientX;
             const deltaX = dragStateRef.current.endX - dragStateRef.current.startX;
             const normalizedFactor = Math.min(Math.abs(deltaX) / swipeDistance, 1);
 
@@ -75,9 +73,6 @@ const useMouseDrag = ({
                     duration: 0.1,
                     ease: "power2.out",
                     onComplete: () => {
-                        // Skip if unmounted during animation
-                        if (!isMountedRef.current) return;
-
                         // Re-track the sprite after animation
                         if (resourceManager && currentSlide) {
                             resourceManager.trackDisplayObject(currentSlide);
@@ -90,13 +85,17 @@ const useMouseDrag = ({
                     resourceManager.trackAnimation(dragTween);
                 }
             }
+            // Prevent default to stop text selection during drag
+            evt.preventDefault();
         };
 
-        const handleMouseUp = () => {
-            // Skip if unmounted or not dragging
-            if (!isMountedRef.current || !dragStateRef.current.isDragging) return;
+        const handleMouseUp = (evt: Event) => {
+            const mouseEvt = evt as MouseEvent;
+            // Skip if not dragging
+            if (!dragStateRef.current.isDragging) return;
 
             dragStateRef.current.isDragging = false;
+            // Explicitly use mouseEvt.clientX
             const deltaX = dragStateRef.current.endX - dragStateRef.current.startX;
             const currentSlide = slidesRef.current[currentIndex.current];
 
@@ -108,9 +107,6 @@ const useMouseDrag = ({
                     duration: 0.2,
                     ease: "power2.out",
                     onComplete: () => {
-                        // Skip if unmounted during animation
-                        if (!isMountedRef.current) return;
-
                         // Re-track the sprite after animation
                         if (resourceManager && currentSlide) {
                             resourceManager.trackDisplayObject(currentSlide);
@@ -131,12 +127,11 @@ const useMouseDrag = ({
                     onSwipeRight();
                 }
             }
+            // Prevent default to stop text selection
+            evt.preventDefault();
         };
 
-        const handleMouseLeave = () => {
-            // Skip if unmounted
-            if (!isMountedRef.current) return;
-
+        const handleMouseLeave = (evt: Event) => {
             if (dragStateRef.current.isDragging) {
                 dragStateRef.current.isDragging = false;
                 const currentSlide = slidesRef.current[currentIndex.current];
@@ -149,9 +144,6 @@ const useMouseDrag = ({
                         duration: 0.2,
                         ease: "power2.out",
                         onComplete: () => {
-                            // Skip if unmounted during animation
-                            if (!isMountedRef.current) return;
-
                             // Re-track the sprite after animation
                             if (resourceManager && currentSlide) {
                                 resourceManager.trackDisplayObject(currentSlide);
@@ -165,6 +157,8 @@ const useMouseDrag = ({
                     }
                 }
             }
+            // Prevent default to stop text selection
+            evt.preventDefault();
         };
 
         // Add event listeners using ResourceManager if available
@@ -186,9 +180,6 @@ const useMouseDrag = ({
 
         // Cleanup on unmount
         return () => {
-            // Mark as unmounted first
-            isMountedRef.current = false;
-
             // Remove event listeners if ResourceManager not used
             if (!resourceManager) {
                 slider.removeEventListener("mousedown", handleMouseDown);
