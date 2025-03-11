@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { Application, Container, Assets } from 'pixi.js';
 import { type PixiRefs } from '../types';
 import { gsap } from 'gsap';
@@ -10,14 +10,12 @@ import ResourceManager from '../managers/ResourceManager';
  * @returns Promise that resolves when the font is loaded
  */
 const loadFont = async (fontPath: string): Promise<boolean> => {
-    // Existing implementation...
     try {
         // Try to load the font
         await Assets.load(fontPath);
-        console.log(`Successfully loaded font from ${fontPath}`);
         return true;
     } catch (error) {
-        console.warn(`Failed to load font from ${fontPath}`, error);
+        console.warn(`Failed to load font from ${fontPath}`);
         return false;
     }
 };
@@ -32,7 +30,7 @@ const loadFont = async (fontPath: string): Promise<boolean> => {
  * @returns Object containing Pixi application references and initialization status
  */
 export const usePixiApp = (
-    sliderRef: React.RefObject<HTMLDivElement | null>,
+    sliderRef: RefObject<HTMLDivElement | null>,
     images: string[],
     displacementImages: string[],
     resourceManager?: ResourceManager | null
@@ -60,12 +58,7 @@ export const usePixiApp = (
                 if (isInitializedRef.current) return;
 
                 // Skip if sliderRef is not available
-                if (!sliderRef.current) {
-                    console.warn("Slider element reference not available");
-                    return;
-                }
-
-                console.log("Initializing Pixi.js...");
+                if (!sliderRef.current) return;
 
                 // Dynamically import PixiPlugin and register it with GSAP
                 const { default: PixiPlugin } = await import('gsap/PixiPlugin');
@@ -81,7 +74,7 @@ export const usePixiApp = (
                 try {
                     // Try loading our default font
                     const defaultFontPath = '/fonts/Vamos.woff2';
-                    // Font loading implementation...
+                    await loadFont(defaultFontPath);
                 } catch (fontError) {
                     console.warn("Font loading error:", fontError);
                     // Continue without the font
@@ -89,8 +82,6 @@ export const usePixiApp = (
 
                 // Mark as initialized
                 isInitializedRef.current = true;
-
-                console.log("Pixi.js initialization complete");
             } catch (error) {
                 console.error("Error initializing Pixi.js:", error);
             }
@@ -109,8 +100,6 @@ export const usePixiApp = (
 
         const createPixiApp = async () => {
             try {
-                console.log("Creating Pixi application...");
-
                 // Preload all required assets with proper error handling
                 const assetsToLoad = [...images, ...displacementImages];
                 for (const asset of assetsToLoad) {
@@ -133,7 +122,7 @@ export const usePixiApp = (
 
                 // Track the application with ResourceManager if available
                 if (resourceManager) {
-                    resourceManager.trackDisplayObject(app);
+                    resourceManager.trackPixiApp(app);
                 }
 
                 // Append the canvas to the slider element
@@ -155,8 +144,6 @@ export const usePixiApp = (
                 if (resourceManager) {
                     resourceManager.trackDisplayObject(stage);
                 }
-
-                console.log("Pixi application created successfully");
             } catch (error) {
                 console.error("Failed to create Pixi application:", error);
             }
