@@ -1,9 +1,10 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Container, Sprite } from 'pixi.js';
+import { Container, Sprite, Filter } from 'pixi.js';
 import { type FilterConfig } from '../filters/';
-import { FilterFactory } from '../filters/';
+import { FilterFactory } from '../filters/FilterFactory';
 import { type HookParams } from '../types';
 import ResourceManager from '../managers/ResourceManager';
+import { type FilterResult } from '../filters/types';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
@@ -16,7 +17,7 @@ interface FilterMap {
     [id: string]: {
         target: FilterableObject;
         filters: {
-            instance: any;
+            instance: Filter;
             updateIntensity: (intensity: number) => void;
             reset: () => void;
             initialIntensity: number;
@@ -35,6 +36,65 @@ export const useFilters = (
     const filterMapRef = useRef<FilterMap>({});
     const filtersInitializedRef = useRef<boolean>(false);
     const filtersActiveRef = useRef<boolean>(false);
+
+    /**
+     * Completely suppress filter effects
+     * This goes beyond just resetting - it ensures filters have zero visual impact
+     */
+    const suppressFilterEffects = useCallback(() => {
+        Object.keys(filterMapRef.current).forEach(id => {
+            const entry = filterMapRef.current[id];
+
+            // Completely disable filters on the target object
+            if (entry.target.filters) {
+                entry.target.filters = [];
+            }
+
+            // Iterate through each filter and apply aggressive suppression
+            entry.filters.forEach(filterData => {
+                try {
+                    const filter = filterData.instance;
+
+                    // Aggressive suppression techniques
+                    if ('enabled' in filter) {
+                        (filter as any).enabled = false;
+                    }
+
+                    // Attempt to zero out various potential effect properties
+                    if ('alpha' in filter) {
+                        (filter as any).alpha = 0;
+                    }
+
+                    if ('strength' in filter) {
+                        (filter as any).strength = 0;
+                    }
+
+                    if ('scale' in filter) {
+                        const scale = (filter as any).scale;
+                        if (scale && typeof scale.x === 'number') {
+                            scale.x = 0;
+                            scale.y = 0;
+                        }
+                    }
+
+                    // Call reset method if available
+                    if (typeof filterData.reset === 'function') {
+                        filterData.reset();
+                    }
+
+                    // Additional safety: remove filter from active filters
+                    if (entry.target.filters) {
+                        entry.target.filters = entry.target.filters
+                            ? (entry.target.filters as Filter[]).filter((f: Filter) => f !== filter)
+                            : [];                    }
+                } catch (error) {
+                    if (isDevelopment) {
+                        console.error(`Error suppressing filter for ${id}:`, error);
+                    }
+                }
+            });
+        });
+    }, []);
 
     // Initialize filters
     useEffect(() => {
@@ -61,19 +121,8 @@ export const useFilters = (
             applyFiltersToObjects(pixi.slides.current, imageFilters as FilterConfig[], 'slide-');
             applyFiltersToObjects(pixi.textContainers.current, textFilters as FilterConfig[], 'text-');
 
-            // Ensure all filters are in an inactive state initially
-            Object.keys(filterMapRef.current).forEach(id => {
-                const entry = filterMapRef.current[id];
-                entry.filters.forEach(filter => {
-                    try {
-                        filter.reset();
-                    } catch (error) {
-                        if (isDevelopment) {
-                            console.error(`Error initializing filter for ${id}:`, error);
-                        }
-                    }
-                });
-            });
+            // After initializing filters, immediately suppress them
+            suppressFilterEffects();
 
             // Mark as initialized in inactive state
             filtersInitializedRef.current = true;
@@ -91,7 +140,8 @@ export const useFilters = (
         pixi.textContainers.current,
         props.imageFilters,
         props.textFilters,
-        resourceManager
+        resourceManager,
+        suppressFilterEffects
     ]);
 
     // Apply the configured filters to an array of objects
@@ -126,7 +176,7 @@ export const useFilters = (
                 .filter(config => config.enabled)
                 .map(config => {
                     try {
-                        const result = FilterFactory.createFilter(config);
+                        const result: FilterResult = FilterFactory.createFilter(config);
 
                         // Register the filter with ResourceManager if available
                         if (resourceManager && result.filter) {
@@ -135,7 +185,9 @@ export const useFilters = (
 
                         // Add initialIntensity to the result
                         return {
-                            ...result,
+                            instance: result.filter,
+                            updateIntensity: result.updateIntensity,
+                            reset: result.reset,
                             initialIntensity: config.intensity
                         };
                     } catch (error) {
@@ -153,88 +205,17 @@ export const useFilters = (
             }
 
             // Store the filter data and assign to the object
-            filterMapRef.current[id].filters = activeFilters.map(result => ({
-                instance: result.filter,
-                updateIntensity: result.updateIntensity,
-                reset: result.reset,
-                initialIntensity: result.initialIntensity
-            }));
+            filterMapRef.current[id].filters = activeFilters;
 
-            // Apply base displacement filter if it exists
-            const baseFilters = [];
-            if (pixi.bgDispFilter.current) {
-                baseFilters.push(pixi.bgDispFilter.current);
-            }
-
-            // Apply cursor displacement filter if enabled
-            if (props.cursorImgEffect && pixi.cursorDispFilter.current && idPrefix === 'slide-') {
-                baseFilters.push(pixi.cursorDispFilter.current);
-            }
-
-            // Add the custom filters
-            const customFilters = activeFilters.map(result => result.filter);
-
-            // Set the combined filters on the object
-            object.filters = [...baseFilters, ...customFilters];
+            // Initially set no filters
+            object.filters = [];
 
             // Re-track the object after modifying its filters
             if (resourceManager) {
                 resourceManager.trackDisplayObject(object);
             }
         });
-    }, [pixi, props.cursorImgEffect, resourceManager]);
-
-    // Function to reset all filters to inactive state
-    const resetAllFilters = useCallback(() => {
-        if (!filtersInitializedRef.current) return;
-
-        // First, mark as inactive to prevent race conditions
-        filtersActiveRef.current = false;
-
-        // Reset all object filters
-        Object.keys(filterMapRef.current).forEach(id => {
-            const entry = filterMapRef.current[id];
-
-            entry.filters.forEach((filter) => {
-                try {
-                    filter.reset();
-                } catch (error) {
-                    if (isDevelopment) {
-                        console.error(`Error resetting filter for ${id}:`, error);
-                    }
-                }
-            });
-
-            // Ensure only base filters are applied
-            try {
-                const baseFilters = [];
-
-                // Add base displacement filters with zero scales
-                if (pixi.bgDispFilter.current) {
-                    const bgFilter = pixi.bgDispFilter.current;
-                    if (bgFilter.scale) {
-                        bgFilter.scale.x = 0;
-                        bgFilter.scale.y = 0;
-                    }
-                    baseFilters.push(bgFilter);
-                }
-
-                // Only keep the base displacement filters
-                if (entry.target.filters) {
-                    entry.target.filters = [...baseFilters];
-
-                    // Re-track the object after modifying filters
-                    if (resourceManager) {
-                        resourceManager.trackDisplayObject(entry.target);
-                    }
-                }
-            } catch (filterError) {
-                if (isDevelopment) {
-                    console.error(`Error cleaning up filters for ${id}:`, filterError);
-                }
-            }
-        });
-    }, [pixi.bgDispFilter.current, resourceManager]);
+    }, [pixi, resourceManager]);
 
     // Update filter intensities for hover effects
     const updateFilterIntensities = useCallback((active: boolean, forceUpdate = false) => {
@@ -247,9 +228,9 @@ export const useFilters = (
         // Update filter active state
         filtersActiveRef.current = active;
 
-        // If deactivating, reset all filters
+        // If deactivating, completely suppress filters
         if (!active) {
-            resetAllFilters();
+            suppressFilterEffects();
             return;
         }
 
@@ -264,7 +245,7 @@ export const useFilters = (
             const target = filterEntry.target;
 
             // Collect base filters
-            const baseFilters = [];
+            const baseFilters: Filter[] = [];
             if (pixi.bgDispFilter.current) {
                 baseFilters.push(pixi.bgDispFilter.current);
             }
@@ -284,9 +265,9 @@ export const useFilters = (
             }
 
             // Update filter intensities
-            filterEntry.filters.forEach((filter) => {
+            filterEntry.filters.forEach((filterData) => {
                 try {
-                    filter.updateIntensity(filter.initialIntensity);
+                    filterData.updateIntensity(filterData.initialIntensity);
                 } catch (error) {
                     if (isDevelopment) {
                         console.error(`Error activating filter for ${id}:`, error);
@@ -303,13 +284,13 @@ export const useFilters = (
         pixi.bgDispFilter.current,
         pixi.cursorDispFilter.current,
         props.cursorImgEffect,
-        resetAllFilters,
+        suppressFilterEffects,
         resourceManager
     ]);
 
     return {
         updateFilterIntensities,
-        resetAllFilters,
+        resetAllFilters: suppressFilterEffects,
         isInitialized: filtersInitializedRef.current,
         isActive: filtersActiveRef.current
     };
