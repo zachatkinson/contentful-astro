@@ -26,7 +26,12 @@ export const usePixiSlider = (
     // Initialize the slider
     useEffect(() => {
         // Skip during server-side rendering
-        if (typeof window === 'undefined' || !sliderRef.current || !canvasContainerRef.current || isInitializing || isInitialized) {
+        if (typeof window === 'undefined' ||
+            !sliderRef.current ||
+            !canvasContainerRef.current ||
+            isInitializing ||
+            isInitialized
+        ) {
             return;
         }
 
@@ -56,7 +61,7 @@ export const usePixiSlider = (
                         sliderRef,
                         props.images,
                         [props.backgroundDisplacementSpriteLocation || '', props.cursorDisplacementSpriteLocation || ''],
-                        resourceManager // Pass resourceManager to usePixiApp
+                        resourceManager
                     );
 
                     if (!pixiInitialized) {
@@ -64,8 +69,7 @@ export const usePixiSlider = (
                     }
 
                     // Setup slider components using the hooks
-                    // Pass resourceManager to all hooks that need it
-                    setupSliderComponents(pixiRefs, hooks, resourceManager);
+                    setupSliderComponents(pixiRefs, hooks, resourceManager, props);
                     setIsInitialized(true);
                 }
             } catch (error) {
@@ -78,28 +82,57 @@ export const usePixiSlider = (
         initializeSlider();
 
         // No need for manual cleanup - ResourceManager will handle it
-    }, [sliderRef.current, canvasContainerRef.current, props.images, resourceManager]);
+        return () => {
+            // Reset states on unmount
+            setIsInitializing(false);
+            setIsInitialized(false);
+        };
+    }, [
+        sliderRef.current,
+        canvasContainerRef.current,
+        props.images,
+        resourceManager
+    ]);
 
     // Set up the slider components using the hooks
-    const setupSliderComponents = (pixiRefs: any, hooks: any, resourceManager?: ResourceManager | null) => {
-        // Implement the slider setup using hooks
-        // This is a simplified version - you would need to adapt this to your actual hooks
+    const setupSliderComponents = (
+        pixiRefs: any,
+        hooks: any,
+        resourceManager?: ResourceManager | null,
+        sliderProps?: KineticSliderProps
+    ) => {
+        if (hooks && resourceManager && sliderProps) {
+            // Use the refs and perform necessary setup
+            // Example of hook usage
+            hooks.useSlides({
+                pixi: pixiRefs,
+                props: sliderProps,
+                resourceManager
+            });
+
+            hooks.useTextContainers({
+                pixi: pixiRefs,
+                props: sliderProps,
+                resourceManager
+            });
+
+            // Additional hooks could be set up similarly
+            // e.g., hooks.useDisplacementEffects({...})
+        }
     };
 
     // Handle slide navigation
     const goToNextSlide = () => {
         if (!isInitialized) return;
         setCurrentSlide((prev) => (prev + 1) % props.images.length);
-        // Call the appropriate hook method to transition slides
     };
 
     const goToPrevSlide = () => {
         if (!isInitialized) return;
         setCurrentSlide((prev) => (prev - 1 + props.images.length) % props.images.length);
-        // Call the appropriate hook method to transition slides
     };
 
-// Handle mouse interaction states
+    // Handle mouse interaction states
     const handleMouseEnter = () => {
         if (!isInitialized) return;
         // Note: Actual displacement effects are handled directly by the
