@@ -2,9 +2,37 @@ import { useEffect, type RefObject } from 'react';
 import { Application, Container, Text, TextStyle, Sprite } from 'pixi.js';
 import { gsap } from 'gsap';
 import { type TextPair } from '../types';
-import { parseFontStack } from '../utils/fontUtils';
+import { setupCustomFonts } from '../utils/fontUtils';
 import ResourceManager from '../managers/ResourceManager';
 
+// Development environment check
+const isDevelopment = import.meta.env?.MODE === 'development';
+
+// Comprehensive logging utility
+const log = {
+    info: (message: string, ...args: any[]) => {
+        if (isDevelopment) {
+            console.log(`[useTextContainers:INFO] ${message}`, ...args);
+        }
+    },
+    warn: (message: string, ...args: any[]) => {
+        if (isDevelopment) {
+            console.warn(`[useTextContainers:WARN] ${message}`, ...args);
+        }
+    },
+    error: (message: string, error?: unknown) => {
+        if (isDevelopment) {
+            console.error(`[useTextContainers:ERROR] ${message}`, error);
+        }
+    }
+};
+
+// Cancellation and lifecycle management interface
+interface CancellationFlags {
+    isCancelled: boolean;
+}
+
+// Enhanced prop interface with comprehensive typing
 interface UseTextContainersProps {
     sliderRef: RefObject<HTMLDivElement | null>;
     appRef: RefObject<Application | null>;
@@ -13,11 +41,15 @@ interface UseTextContainersProps {
     currentIndex: RefObject<number>;
     buttonMode: boolean;
     texts: TextPair[];
+
+    // Title styling
     textTitleColor: string;
     textTitleSize: number;
     mobileTextTitleSize: number;
     textTitleLetterspacing: number;
     textTitleFontFamily?: string;
+
+    // Subtitle styling
     textSubTitleColor: string;
     textSubTitleSize: number;
     mobileTextSubTitleSize: number;
@@ -25,34 +57,47 @@ interface UseTextContainersProps {
     textSubTitleOffsetTop: number;
     mobileTextSubTitleOffsetTop: number;
     textSubTitleFontFamily?: string;
+
     resourceManager?: ResourceManager | null;
 }
 
-// Default font fallbacks
-const DEFAULT_TITLE_FONT = 'Georgia, Times, "Times New Roman", serif';
-const DEFAULT_SUBTITLE_FONT = 'Helvetica, Arial, sans-serif';
+// Default font fallbacks with more comprehensive options
+const DEFAULT_FONTS = {
+    title: 'Georgia, Times, "Times New Roman", serif',
+    subtitle: 'Helvetica, Arial, sans-serif'
+};
 
 /**
- * Helper function to prepare font family string for PIXI.js
- * PIXI.js needs custom fonts to be properly available in the DOM
- *
- * @param fontStack - Font family string from props
- * @param defaultStack - Default font stack to use if none provided
- * @returns Processed font family string
+ * Prepare font family string with comprehensive fallback handling
  */
-function prepareFontFamily(fontStack?: string, defaultStack = DEFAULT_TITLE_FONT): string {
-    if (!fontStack) return defaultStack;
+function prepareFontFamily(
+    fontStack?: string,
+    defaultStack = DEFAULT_FONTS.title
+): string {
+    try {
+        // If no font stack provided, return default
+        if (!fontStack) {
+            log.info(`No font stack provided, using default: ${defaultStack}`);
+            return defaultStack;
+        }
 
-    // Parse the font stack to get the first (primary) font
-    const fonts = parseFontStack(fontStack);
-    if (!fonts.length) return defaultStack;
+        // Trim and clean font stack
+        const cleanedStack = fontStack
+            .split(',')
+            .map(font => font.trim().replace(/['"]/g, ''))
+            .filter(Boolean)
+            .join(', ');
 
-    // Return the full original font stack to maintain fallbacks
-    return fontStack;
+        log.info(`Processed font stack: ${cleanedStack}`);
+        return cleanedStack || defaultStack;
+    } catch (error) {
+        log.error('Error processing font family', error);
+        return defaultStack;
+    }
 }
 
 /**
- * Hook to create and manage text containers for slide titles and subtitles
+ * Advanced text containers hook with comprehensive optimization
  */
 const useTextContainers = ({
                                sliderRef,
@@ -62,11 +107,15 @@ const useTextContainers = ({
                                currentIndex,
                                buttonMode,
                                texts,
+
+                               // Title props
                                textTitleColor,
                                textTitleSize,
                                mobileTextTitleSize,
                                textTitleLetterspacing,
                                textTitleFontFamily,
+
+                               // Subtitle props
                                textSubTitleColor,
                                textSubTitleSize,
                                mobileTextSubTitleSize,
@@ -74,123 +123,260 @@ const useTextContainers = ({
                                textSubTitleOffsetTop,
                                mobileTextSubTitleOffsetTop,
                                textSubTitleFontFamily,
+
                                resourceManager
                            }: UseTextContainersProps) => {
-    // Create text containers
+    // Cancellation mechanism
+    const cancellationRef = { current: { isCancelled: false } };
+
+    // Text containers creation effect
     useEffect(() => {
-        // Skip during server-side rendering
+        // Server-side rendering guard
         if (typeof window === 'undefined') return;
 
-        if (!appRef.current || !slidesRef.current.length || !texts.length) return;
+        // Reset cancellation flag
+        cancellationRef.current.isCancelled = false;
 
-        const app = appRef.current;
-        const stage = app.stage.children[0];
+        // Validate essential references
+        if (!appRef.current || !slidesRef.current.length || !texts.length) {
+            log.warn('Initialization aborted due to missing references');
+            return;
+        }
 
-        // Clear existing text containers
-        textContainersRef.current.forEach(container => {
-            if (container.parent) {
-                container.parent.removeChild(container);
-            }
-        });
-        textContainersRef.current = [];
+        // Async font setup
+        const setupFontsAndCreateContainers = async () => {
+            try {
+                // Preload fonts if custom fonts are specified
+                if (textTitleFontFamily || textSubTitleFontFamily) {
+                    log.info('Setting up custom fonts', {
+                        titleFont: textTitleFontFamily,
+                        subtitleFont: textSubTitleFontFamily
+                    });
+                    await setupCustomFonts(textTitleFontFamily, textSubTitleFontFamily);
+                }
 
-        // Compute responsive text sizes
-        const isMobile = window.innerWidth < 768;
-        const computedTitleSize = isMobile ? mobileTextTitleSize : textTitleSize;
-        const computedSubTitleSize = isMobile ? mobileTextSubTitleSize : textSubTitleSize;
-        const computedSubTitleOffset = isMobile ? mobileTextSubTitleOffsetTop : textSubTitleOffsetTop;
+                // Check for cancellation after font setup
+                if (cancellationRef.current.isCancelled) return;
 
-        // Process and prepare font families
-        const titleFontFamily = prepareFontFamily(textTitleFontFamily, DEFAULT_TITLE_FONT);
-        const subtitleFontFamily = prepareFontFamily(textSubTitleFontFamily, DEFAULT_SUBTITLE_FONT);
+                const app = appRef.current!;
+                const stage = app.stage.children[0] as Container;
 
-        console.log('Creating text containers with fonts:', { titleFontFamily, subtitleFontFamily });
+                // Clear existing text containers
+                textContainersRef.current.forEach(container => {
+                    try {
+                        if (container.parent) {
+                            container.parent.removeChild(container);
+                        }
+                    } catch (removeError) {
+                        log.error('Error removing existing text container', removeError);
+                    }
+                });
+                textContainersRef.current = [];
 
-        // Create new text containers for each text pair
-        texts.forEach((textPair, index) => {
-            const [title, subtitle] = textPair;
-            const textContainer = new Container();
-            textContainer.x = app.screen.width / 2;
-            textContainer.y = app.screen.height / 2;
+                // Compute responsive text sizes
+                const isMobile = window.innerWidth < 768;
+                const computedTitleSize = isMobile ? mobileTextTitleSize : textTitleSize;
+                const computedSubTitleSize = isMobile ? mobileTextSubTitleSize : textSubTitleSize;
+                const computedSubTitleOffset = isMobile ? mobileTextSubTitleOffsetTop : textSubTitleOffsetTop;
 
-            // Track the container with ResourceManager if available
-            if (resourceManager) {
-                resourceManager.trackDisplayObject(textContainer);
-            }
+                // Prepare font families
+                const titleFontFamily = prepareFontFamily(textTitleFontFamily);
+                const subtitleFontFamily = prepareFontFamily(textSubTitleFontFamily, DEFAULT_FONTS.subtitle);
 
-            // Create title text
-            const titleStyle = new TextStyle({
-                fill: textTitleColor,
-                fontSize: computedTitleSize,
-                letterSpacing: textTitleLetterspacing,
-                fontWeight: 'bold',
-                align: 'center',
-                fontFamily: titleFontFamily
-            });
-            const titleText = new Text({ text: title, style: titleStyle });
-            titleText.anchor.set(0.5, 0);
-            titleText.y = 0;
-
-            // Track the text object with ResourceManager if available
-            if (resourceManager) {
-                resourceManager.trackDisplayObject(titleText);
-            }
-
-            // Create subtitle text
-            const subtitleStyle = new TextStyle({
-                fill: textSubTitleColor,
-                fontSize: computedSubTitleSize,
-                letterSpacing: textSubTitleLetterspacing,
-                align: 'center',
-                fontFamily: subtitleFontFamily
-            });
-            const subText = new Text({text: subtitle, style: subtitleStyle});
-            subText.anchor.set(0.5, 0);
-            subText.y = titleText.height + computedSubTitleOffset;
-
-            // Track the text object with ResourceManager if available
-            if (resourceManager) {
-                resourceManager.trackDisplayObject(subText);
-            }
-
-            textContainer.addChild(titleText, subText);
-            textContainer.pivot.y = textContainer.height / 2;
-
-            // Set initial state - only show the first container
-            textContainer.alpha = index === 0 ? 1 : 0;
-
-            // IMPORTANT: Set visibility property for all but the first text container
-            textContainer.visible = index === 0;
-
-            // Enable button mode if specified
-            if (buttonMode) {
-                textContainer.eventMode = 'static'; // Modern PIXI.js interaction system
-                textContainer.cursor = 'pointer';
-
-                textContainer.on('pointerover', () => {
-                    gsap.to(titleText.scale, { x: 1.1, y: 1.1, duration: 0.2 });
+                log.info('Creating text containers', {
+                    titleFont: titleFontFamily,
+                    subtitleFont: subtitleFontFamily
                 });
 
-                textContainer.on('pointerout', () => {
-                    gsap.to(titleText.scale, { x: 1, y: 1, duration: 0.2 });
+                // Create text containers
+                texts.forEach((textPair, index) => {
+                    const [title, subtitle] = textPair;
+
+                    // Create container
+                    const textContainer = new Container();
+                    textContainer.x = app.screen.width / 2;
+                    textContainer.y = app.screen.height / 2;
+
+                    // Track container with ResourceManager
+                    if (resourceManager) {
+                        resourceManager.trackDisplayObject(textContainer);
+                    }
+
+                    // Create title text
+                    const titleStyle = new TextStyle({
+                        fill: textTitleColor,
+                        fontSize: computedTitleSize,
+                        letterSpacing: textTitleLetterspacing,
+                        fontWeight: 'bold',
+                        align: 'center',
+                        fontFamily: titleFontFamily
+                    });
+                    const titleText = new Text({ text: title, style: titleStyle });
+                    titleText.anchor.set(0.5, 0);
+                    titleText.y = 0;
+
+                    // Track title with ResourceManager
+                    if (resourceManager) {
+                        resourceManager.trackDisplayObject(titleText);
+                    }
+
+                    // Create subtitle text
+                    const subtitleStyle = new TextStyle({
+                        fill: textSubTitleColor,
+                        fontSize: computedSubTitleSize,
+                        letterSpacing: textSubTitleLetterspacing,
+                        align: 'center',
+                        fontFamily: subtitleFontFamily
+                    });
+                    const subText = new Text({ text: subtitle, style: subtitleStyle });
+                    subText.anchor.set(0.5, 0);
+                    subText.y = titleText.height + computedSubTitleOffset;
+
+                    // Track subtitle with ResourceManager
+                    if (resourceManager) {
+                        resourceManager.trackDisplayObject(subText);
+                    }
+
+                    // Add texts to container
+                    textContainer.addChild(titleText, subText);
+                    textContainer.pivot.y = textContainer.height / 2;
+
+                    // Set initial visibility
+                    textContainer.alpha = index === 0 ? 1 : 0;
+                    textContainer.visible = index === 0;
+
+                    // Button mode configuration
+                    if (buttonMode) {
+                        textContainer.eventMode = 'static';
+                        textContainer.cursor = 'pointer';
+
+                        // Hover effects with GSAP
+                        textContainer.on('pointerover', () => {
+                            gsap.to(titleText.scale, {
+                                x: 1.1,
+                                y: 1.1,
+                                duration: 0.2,
+                                onComplete: () => {
+                                    if (resourceManager) {
+                                        resourceManager.trackDisplayObject(titleText);
+                                    }
+                                }
+                            });
+                        });
+
+                        textContainer.on('pointerout', () => {
+                            gsap.to(titleText.scale, {
+                                x: 1,
+                                y: 1,
+                                duration: 0.2,
+                                onComplete: () => {
+                                    if (resourceManager) {
+                                        resourceManager.trackDisplayObject(titleText);
+                                    }
+                                }
+                            });
+                        });
+
+                        // Slide change on click
+                        textContainer.on('pointerdown', () => {
+                            const nextIndex = (currentIndex.current + 1) % slidesRef.current.length;
+                            window.dispatchEvent(new CustomEvent('slideChange', {
+                                detail: { nextIndex }
+                            }));
+                        });
+                    }
+
+                    // Add to stage and store reference
+                    stage.addChild(textContainer);
+                    textContainersRef.current.push(textContainer);
                 });
 
-                textContainer.on('pointerdown', () => {
-                    // Move to next slide if clicked
-                    const nextIndex = (currentIndex.current + 1) % slidesRef.current.length;
-                    // Dispatch a custom event that can be caught by other components
-                    window.dispatchEvent(new CustomEvent('slideChange', { detail: { nextIndex } }));
-                });
+                log.info(`Created ${texts.length} text containers`);
+            } catch (error) {
+                log.error('Error in text containers setup', error);
             }
+        };
 
-            // Add to stage and store reference
-            stage.addChild(textContainer);
-            textContainersRef.current.push(textContainer);
-        });
+        // Execute font and container setup
+        setupFontsAndCreateContainers();
 
-        // No manual cleanup necessary as ResourceManager will handle it
-        // during component unmount
+        // Resize handling effect
+        const handleResize = () => {
+            try {
+                // Skip if cancelled or references missing
+                if (cancellationRef.current.isCancelled ||
+                    !appRef.current ||
+                    !sliderRef.current ||
+                    !textContainersRef.current.length) return;
+
+                const containerWidth = sliderRef.current.clientWidth || 0;
+                const containerHeight = sliderRef.current.clientHeight || 0;
+                const isMobile = window.innerWidth < 768;
+
+                // Compute responsive sizes
+                const computedTitleSize = isMobile ? mobileTextTitleSize : textTitleSize;
+                const computedSubTitleSize = isMobile ? mobileTextSubTitleSize : textSubTitleSize;
+                const computedSubTitleOffset = isMobile ? mobileTextSubTitleOffsetTop : textSubTitleOffsetTop;
+
+                // Prepare font families
+                const titleFontFamily = prepareFontFamily(textTitleFontFamily);
+                const subtitleFontFamily = prepareFontFamily(textSubTitleFontFamily, DEFAULT_FONTS.subtitle);
+
+                // Update each text container
+                textContainersRef.current.forEach(container => {
+                    // Reposition container
+                    container.x = containerWidth / 2;
+                    container.y = containerHeight / 2;
+
+                    // Update title text
+                    const titleText = container.children[0] as Text;
+                    titleText.style.fontSize = computedTitleSize;
+                    titleText.style.fontFamily = titleFontFamily;
+                    // Force text update
+                    titleText.text = titleText.text;
+
+                    // Update subtitle text
+                    const subText = container.children[1] as Text;
+                    subText.style.fontSize = computedSubTitleSize;
+                    subText.style.fontFamily = subtitleFontFamily;
+                    // Reposition subtitle
+                    subText.y = titleText.height + computedSubTitleOffset;
+                    // Force text update
+                    subText.text = subText.text;
+
+                    // Update container pivot
+                    container.pivot.y = container.height / 2;
+
+                    // Track updates with ResourceManager
+                    if (resourceManager) {
+                        resourceManager.trackDisplayObject(container);
+                        resourceManager.trackDisplayObject(titleText);
+                        resourceManager.trackDisplayObject(subText);
+                    }
+                });
+
+                log.info('Text containers resized');
+            } catch (error) {
+                log.error('Error during text containers resize', error);
+            }
+        };
+
+        // Add resize listener
+        window.addEventListener('resize', handleResize);
+
+        // Initial resize
+        handleResize();
+
+        // Cleanup function
+        return () => {
+            // Set cancellation flag
+            cancellationRef.current.isCancelled = true;
+
+            // Remove resize listener
+            window.removeEventListener('resize', handleResize);
+        };
     }, [
+        // Dependency array with all props for comprehensive updates
         appRef.current,
         texts,
         textTitleColor,
@@ -209,105 +395,7 @@ const useTextContainers = ({
         resourceManager
     ]);
 
-    // Handle window resize for text containers
-    useEffect(() => {
-        // Skip during server-side rendering
-        if (typeof window === 'undefined') return;
-
-        if (!appRef.current || !sliderRef.current) return;
-
-        const handleResize = () => {
-            if (!appRef.current || !textContainersRef.current.length) return;
-
-            const containerWidth = sliderRef.current?.clientWidth || 0;
-            const containerHeight = sliderRef.current?.clientHeight || 0;
-            const isMobile = window.innerWidth < 768;
-
-            // Compute updated text sizes
-            const computedTitleSize = isMobile ? mobileTextTitleSize : textTitleSize;
-            const computedSubTitleSize = isMobile ? mobileTextSubTitleSize : textSubTitleSize;
-            const computedSubTitleOffset = isMobile ? mobileTextSubTitleOffsetTop : textSubTitleOffsetTop;
-
-            // Process and prepare font families
-            const titleFontFamily = prepareFontFamily(textTitleFontFamily, DEFAULT_TITLE_FONT);
-            const subtitleFontFamily = prepareFontFamily(textSubTitleFontFamily, DEFAULT_SUBTITLE_FONT);
-
-            // Update each text container's position and text styles
-            textContainersRef.current.forEach(container => {
-                container.x = containerWidth / 2;
-                container.y = containerHeight / 2;
-
-                // Update title text
-                if (container.children[0] && container.children[0] instanceof Text) {
-                    const titleText = container.children[0] as Text;
-                    titleText.style.fontSize = computedTitleSize;
-                    titleText.style.fontFamily = titleFontFamily;
-
-                    // Force text to update
-                    titleText.text = titleText.text; // This triggers an internal update
-
-                    // Re-track the text object after style updates
-                    if (resourceManager) {
-                        resourceManager.trackDisplayObject(titleText);
-                    }
-                }
-
-                // Update subtitle text
-                if (container.children[1] && container.children[1] instanceof Text) {
-                    const subText = container.children[1] as Text;
-                    subText.style.fontSize = computedSubTitleSize;
-                    subText.style.fontFamily = subtitleFontFamily;
-
-                    // Force text to update
-                    subText.text = subText.text; // This triggers an internal update
-
-                    // Update position after title is updated
-                    if (container.children[0] instanceof Text) {
-                        const titleText = container.children[0] as Text;
-                        subText.y = titleText.height + computedSubTitleOffset;
-                    }
-
-                    // Re-track the text object after style and position updates
-                    if (resourceManager) {
-                        resourceManager.trackDisplayObject(subText);
-                    }
-                }
-
-                // Re-center pivot after text updates
-                container.pivot.y = container.height / 2;
-
-                // Re-track the container after position and pivot updates
-                if (resourceManager) {
-                    resourceManager.trackDisplayObject(container);
-                }
-            });
-        };
-
-        window.addEventListener('resize', handleResize);
-
-        // Initial sizing
-        handleResize();
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, [
-        sliderRef.current,
-        appRef.current,
-        textTitleSize,
-        mobileTextTitleSize,
-        textSubTitleSize,
-        mobileTextSubTitleSize,
-        textSubTitleOffsetTop,
-        mobileTextSubTitleOffsetTop,
-        textTitleFontFamily,
-        textSubTitleFontFamily,
-        resourceManager
-    ]);
-
-    return {
-        textContainers: textContainersRef.current
-    };
+    // No return value needed as this is a side-effect hook
 };
 
 export default useTextContainers;
