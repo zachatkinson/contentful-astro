@@ -69,6 +69,9 @@ export interface KineticSliderProps {
     // Atlas configuration
     slidesAtlas?: string;
     effectsAtlas?: string;
+
+    useSlidesAtlas?: boolean;
+    useEffectsAtlas?: boolean;
 }
 
 /**
