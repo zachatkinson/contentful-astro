@@ -128,7 +128,7 @@ export interface UsePixiAppResult {
 }
 
 export interface UseDisplacementEffectsProps {
-    sliderRef: RefObject<HTMLDivElement | null>; // Add this line
+    sliderRef: RefObject<HTMLDivElement | null>;
     bgDispFilterRef: RefObject<DisplacementFilter | null>;
     cursorDispFilterRef: RefObject<DisplacementFilter | null>;
     backgroundDisplacementSpriteRef: RefObject<Sprite | null>;
@@ -139,5 +139,6 @@ export interface UseDisplacementEffectsProps {
     cursorImgEffect: boolean;
     cursorScaleIntensity: number;
     resourceManager?: ResourceManager | null;
-    atlasManager?: AtlasManager
+    atlasManager?: AtlasManager;
+    effectsAtlas?: string;
 }

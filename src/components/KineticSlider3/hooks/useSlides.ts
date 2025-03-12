@@ -1,9 +1,10 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
-import { Sprite, Container, Assets } from 'pixi.js';
+import { Sprite, Container, Assets, Texture } from 'pixi.js';
 import { type EnhancedSprite, type HookParams } from '../types';
 import { calculateSpriteScale } from '../utils/calculateSpriteScale';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
+import { AtlasManager } from '../managers/AtlasManager';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
@@ -16,10 +17,13 @@ interface UseSlidesResult {
 }
 
 /**
- * Hook to create and manage slide sprites
+ * Hook to create and manage slide sprites with atlas support
  */
 export const useSlides = (
-    { sliderRef, pixi, props, resourceManager }: HookParams & { resourceManager?: ResourceManager | null }
+    { sliderRef, pixi, props, resourceManager, atlasManager }: HookParams & {
+        resourceManager?: ResourceManager | null,
+        atlasManager?: AtlasManager | null
+    }
 ): UseSlidesResult => {
     // Track loading state
     const [isLoading, setIsLoading] = useState(false);
@@ -28,7 +32,39 @@ export const useSlides = (
     // Ref to store active transitions
     const activeTransitionRef = useRef<gsap.core.Timeline | null>(null);
 
-    // Batch loading of assets for better performance
+    // Efficiently extract filename from path for atlas frame lookup
+    const getFrameName = (imagePath: string): string => {
+        return imagePath.split('/').pop() || imagePath;
+    };
+
+    // Check if assets are available in atlas
+    const areAssetsInAtlas = useCallback((): boolean => {
+        if (!atlasManager || !props.slidesAtlas) {
+            return false;
+        }
+
+        // Check if all images are in the atlas
+        const missingFrames: string[] = [];
+        const result = props.images.every(imagePath => {
+            const frameName = getFrameName(imagePath);
+            const atlasId = atlasManager.hasFrame(frameName);
+
+            if (!atlasId && isDevelopment) {
+                missingFrames.push(frameName);
+            }
+
+            return !!atlasId;
+        });
+
+        // In development mode, log which frames are missing if any
+        if (isDevelopment && missingFrames.length > 0) {
+            console.warn(`[KineticSlider] The following frames are missing from atlas: ${missingFrames.join(', ')}`);
+        }
+
+        return result;
+    }, [atlasManager, props.images, props.slidesAtlas]);
+
+    // Effect to create slides from atlas or individual images
     useEffect(() => {
         if (!pixi.app.current || !pixi.app.current.stage) {
             if (isDevelopment) {
@@ -85,71 +121,76 @@ export const useSlides = (
             });
             pixi.slides.current = [];
 
-            // Load slides with improved asset management
-            loadSlides(slidesContainer);
+            // Choose the loading method based on atlas availability
+            const useAtlas = atlasManager && props.slidesAtlas && areAssetsInAtlas();
+
+            if (isDevelopment) {
+                if (useAtlas) {
+                    console.log(`%c[KineticSlider] Using texture atlas: ${props.slidesAtlas} for ${props.images.length} slides`, 'background: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;');
+                } else {
+                    const reason = !atlasManager
+                        ? "AtlasManager not available"
+                        : !props.slidesAtlas
+                            ? "No slidesAtlas property specified"
+                            : "Not all images found in atlas";
+                    console.log(`%c[KineticSlider] Using individual images (${reason})`, 'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
+                }
+            }
+
+            if (useAtlas) {
+                loadSlidesFromAtlas(slidesContainer);
+            } else {
+                loadSlidesFromIndividualImages(slidesContainer);
+            }
         } catch (error) {
             if (isDevelopment) {
                 console.error("Error setting up slides container:", error);
             }
             setIsLoading(false);
         }
-    }, [pixi.app.current, props.images, resourceManager, sliderRef]);
+    }, [pixi.app.current, props.images, resourceManager, sliderRef, atlasManager, props.slidesAtlas]);
 
     /**
-     * Optimized batch loading of slide images
+     * Load slides from texture atlas
      */
-    const loadSlides = async (slidesContainer: Container) => {
-        if (!pixi.app.current || !sliderRef.current) return;
+    const loadSlidesFromAtlas = async (slidesContainer: Container) => {
+        if (!pixi.app.current || !sliderRef.current || !atlasManager) return;
 
         try {
             setIsLoading(true);
             setLoadingProgress(0);
 
             if (isDevelopment) {
-                console.log(`Loading ${props.images.length} slide images...`);
+                console.log(`%c[KineticSlider] Loading ${props.images.length} slide images from atlas: ${props.slidesAtlas}`, 'color: #2196F3');
             }
 
-            // Prepare the list of images to load
             const app = pixi.app.current;
             const sliderWidth = sliderRef.current.clientWidth;
             const sliderHeight = sliderRef.current.clientHeight;
 
-            if (isDevelopment) {
-                console.log(`Slider dimensions: ${sliderWidth}x${sliderHeight}`);
-            }
+            // Prepare for loading from atlas
+            const totalImages = props.images.length;
+            let loadedCount = 0;
 
-            const imagesToLoad = props.images.filter(image => !Assets.cache.has(image));
-
-            if (isDevelopment && imagesToLoad.length < props.images.length) {
-                console.log(`Using ${props.images.length - imagesToLoad.length} cached images`);
-            }
-
-            // Add assets to a bundle for batch loading and progress tracking
-            if (imagesToLoad.length > 0) {
-                // Create an assets bundle
-                Assets.addBundle('slider-images', imagesToLoad.reduce((acc, image, index) => {
-                    acc[`slide-${index}`] = image;
-                    return acc;
-                }, {} as Record<string, string>));
-
-                // Load the bundle with progress tracking
-                await Assets.loadBundle('slider-images', (progress) => {
-                    setLoadingProgress(progress * 100);
-                });
-            }
-
-            // Create sprites for each image
-            props.images.forEach((image, index) => {
+            // Create sprites for each image using the atlas
+            for (const [index, imagePath] of props.images.entries()) {
                 try {
-                    // Get texture from cache
-                    const texture = Assets.get(image);
+                    // Get frame name (filename without path)
+                    const frameName = getFrameName(imagePath);
+
+                    // Get texture from atlas
+                    const texture = atlasManager.getFrameTexture(frameName, props.slidesAtlas);
+
+                    if (!texture) {
+                        throw new Error(`Frame ${frameName} not found in atlas ${props.slidesAtlas}`);
+                    }
 
                     // Track texture with resource manager if available
                     if (resourceManager) {
-                        resourceManager.trackTexture(image, texture);
+                        resourceManager.trackTexture(frameName, texture);
                     }
 
-                    // Create the sprite
+                    // Create the sprite with the texture from atlas
                     const sprite = new Sprite(texture) as EnhancedSprite;
                     sprite.anchor.set(0.5);
                     sprite.x = app.screen.width / 2;
@@ -189,9 +230,94 @@ export const useSlides = (
                     slidesContainer.addChild(sprite);
                     pixi.slides.current.push(sprite);
 
+                    // Update progress
+                    loadedCount++;
+                    const progress = (loadedCount / totalImages) * 100;
+                    setLoadingProgress(progress);
+
                     if (isDevelopment) {
-                        console.log(`Created slide ${index} for ${image}`);
+                        console.log(`Created slide ${index} for ${imagePath} from atlas (progress: ${progress.toFixed(1)}%)`);
                     }
+                } catch (error) {
+                    if (isDevelopment) {
+                        console.error(`Error creating slide for ${imagePath} from atlas:`, error);
+                    }
+                    // Fallback to individual image loading if atlas frame not found
+                    const texture = await Assets.load(imagePath);
+                    createSlideFromTexture(texture, imagePath, index, slidesContainer, app, sliderWidth, sliderHeight);
+
+                    // Update progress
+                    loadedCount++;
+                    setLoadingProgress((loadedCount / totalImages) * 100);
+                }
+            }
+
+            setIsLoading(false);
+            setLoadingProgress(100);
+
+            if (isDevelopment) {
+                console.log(`Finished loading ${loadedCount} slides from atlas`);
+            }
+        } catch (error) {
+            if (isDevelopment) {
+                console.error("Error loading slides from atlas:", error);
+            }
+            // Fallback to individual image loading
+            loadSlidesFromIndividualImages(slidesContainer);
+        }
+    };
+
+    /**
+     * Load slides from individual images (fallback method)
+     */
+    const loadSlidesFromIndividualImages = async (slidesContainer: Container) => {
+        if (!pixi.app.current || !sliderRef.current) return;
+
+        try {
+            setIsLoading(true);
+            setLoadingProgress(0);
+
+            if (isDevelopment) {
+                console.log(`%c[KineticSlider] Loading ${props.images.length} slide images individually (atlas not available or incomplete)`, 'color: #FF9800');
+            }
+
+            // Prepare the list of images to load
+            const app = pixi.app.current;
+            const sliderWidth = sliderRef.current.clientWidth;
+            const sliderHeight = sliderRef.current.clientHeight;
+
+            if (isDevelopment) {
+                console.log(`Slider dimensions: ${sliderWidth}x${sliderHeight}`);
+            }
+
+            const imagesToLoad = props.images.filter(image => !Assets.cache.has(image));
+
+            if (isDevelopment && imagesToLoad.length < props.images.length) {
+                console.log(`Using ${props.images.length - imagesToLoad.length} cached images`);
+            }
+
+            // Add assets to a bundle for batch loading and progress tracking
+            if (imagesToLoad.length > 0) {
+                // Create an assets bundle
+                Assets.addBundle('slider-images', imagesToLoad.reduce((acc, image, index) => {
+                    acc[`slide-${index}`] = image;
+                    return acc;
+                }, {} as Record<string, string>));
+
+                // Load the bundle with progress tracking
+                await Assets.loadBundle('slider-images', (progress) => {
+                    setLoadingProgress(progress * 100);
+                });
+            }
+
+            // Create sprites for each image
+            props.images.forEach((image, index) => {
+                try {
+                    // Get texture from cache
+                    const texture = Assets.get(image);
+
+                    // Create slide sprite
+                    createSlideFromTexture(texture, image, index, slidesContainer, app, sliderWidth, sliderHeight);
                 } catch (error) {
                     if (isDevelopment) {
                         console.error(`Error creating slide for ${image}:`, error);
@@ -206,6 +332,68 @@ export const useSlides = (
                 console.error("Error loading slide images:", error);
             }
             setIsLoading(false);
+        }
+    };
+
+    /**
+     * Helper to create a slide sprite from a texture
+     */
+    const createSlideFromTexture = (
+        texture: Texture,
+        imagePath: string,
+        index: number,
+        slidesContainer: Container,
+        app: any,
+        sliderWidth: number,
+        sliderHeight: number
+    ) => {
+        // Track texture with resource manager if available
+        if (resourceManager) {
+            resourceManager.trackTexture(imagePath, texture);
+        }
+
+        // Create the sprite
+        const sprite = new Sprite(texture) as EnhancedSprite;
+        sprite.anchor.set(0.5);
+        sprite.x = app.screen.width / 2;
+        sprite.y = app.screen.height / 2;
+
+        // Set initial state - only show the first slide
+        sprite.alpha = index === 0 ? 1 : 0;
+        sprite.visible = index === 0;
+
+        // Calculate and apply scale
+        try {
+            const { scale, baseScale } = calculateSpriteScale(
+                texture.width,
+                texture.height,
+                sliderWidth,
+                sliderHeight
+            );
+
+            sprite.scale.set(scale);
+            sprite.baseScale = baseScale;
+        } catch (scaleError) {
+            if (isDevelopment) {
+                console.warn(`Error calculating scale for slide ${index}:`, scaleError);
+            }
+
+            // Fallback scaling
+            sprite.scale.set(1);
+            sprite.baseScale = 1;
+        }
+
+        // Track the sprite with resource manager if available
+        if (resourceManager) {
+            resourceManager.trackDisplayObject(sprite);
+        }
+
+        // Add to container and store reference
+        slidesContainer.addChild(sprite);
+        pixi.slides.current.push(sprite);
+
+        if (isDevelopment) {
+            console.log(`Created slide ${index} for ${imagePath}`);
         }
     };
 

@@ -1,18 +1,18 @@
-import { useEffect, useRef, useCallback, type RefObject } from 'react';
-import { Sprite, DisplacementFilter, Assets, Application } from 'pixi.js';
+import { useEffect, useRef, useCallback } from 'react';
+import { Sprite, DisplacementFilter, Assets, Texture } from 'pixi.js';
 import { gsap } from 'gsap';
-import ResourceManager from '../managers/ResourceManager';
-import { type UseDisplacementEffectsProps } from '../types'
+import { AtlasManager } from '../managers/AtlasManager';
+import { type UseDisplacementEffectsProps } from '../types';
+
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
-
-
 
 // Default filter scales
 const DEFAULT_BG_FILTER_SCALE = 20;
 const DEFAULT_CURSOR_FILTER_SCALE = 10;
 
 export const useDisplacementEffects = ({
+                                           sliderRef,
                                            bgDispFilterRef,
                                            cursorDispFilterRef,
                                            backgroundDisplacementSpriteRef,
@@ -22,13 +22,84 @@ export const useDisplacementEffects = ({
                                            cursorDisplacementSpriteLocation,
                                            cursorImgEffect,
                                            cursorScaleIntensity,
-                                           resourceManager
-                                       }: UseDisplacementEffectsProps) => {
+                                           resourceManager,
+                                           atlasManager,
+                                           effectsAtlas
+                                       }: UseDisplacementEffectsProps & {
+    atlasManager?: AtlasManager | null,
+    effectsAtlas?: string
+}) => {
     // Track initialization state with more granular control
     const initializationStateRef = useRef({
         isInitializing: false,
         isInitialized: false
     });
+
+    // Efficiently extract filename from path for atlas frame lookup
+    const getFrameName = (imagePath: string): string => {
+        return imagePath.split('/').pop() || imagePath;
+    };
+
+    // Check if a texture is available in the atlas
+    const isTextureInAtlas = useCallback((imagePath: string): boolean => {
+        if (!atlasManager || !effectsAtlas || !imagePath) {
+            return false;
+        }
+
+        const frameName = getFrameName(imagePath);
+        return !!atlasManager.hasFrame(frameName);
+    }, [atlasManager, effectsAtlas]);
+
+    // Load a texture from atlas or as individual image
+    const loadTextureFromAtlasOrIndividual = useCallback(async (
+        imagePath: string
+    ): Promise<{ texture: Texture, source: string, fromAtlas: boolean } | null> => {
+        if (!imagePath) {
+            return null;
+        }
+
+        try {
+            // First try to get from atlas
+            if (atlasManager && effectsAtlas) {
+                const frameName = getFrameName(imagePath);
+
+                // Check if in atlas
+                if (atlasManager.hasFrame(frameName)) {
+                    const texture = atlasManager.getFrameTexture(frameName, effectsAtlas);
+
+                    if (texture) {
+                        return {
+                            texture,
+                            source: frameName,
+                            fromAtlas: true
+                        };
+                    }
+                }
+            }
+
+            // Fallback to individual loading
+            let texture: Texture;
+
+            // Check if already in cache
+            if (Assets.cache.has(imagePath)) {
+                texture = Assets.cache.get(imagePath);
+            } else {
+                // Load the texture
+                texture = await Assets.load(imagePath);
+            }
+
+            return {
+                texture,
+                source: imagePath,
+                fromAtlas: false
+            };
+        } catch (error) {
+            if (isDevelopment) {
+                console.error(`Failed to load texture: ${imagePath}`, error);
+            }
+            return null;
+        }
+    }, [atlasManager, effectsAtlas]);
 
     // Centralized displacement setup method
     const setupDisplacementEffects = useCallback(async () => {
@@ -49,109 +120,111 @@ export const useDisplacementEffects = ({
         try {
             const app = appRef.current;
 
-            // Batch load assets using Assets API - with parallel loading
-            const bgDisplacementUrl = backgroundDisplacementSpriteLocation || '/images/background-displace.jpg';
-            const cursorDisplacementUrl = cursorImgEffect
-                ? cursorDisplacementSpriteLocation || '/images/cursor-displace.png'
-                : null;
+            // Check and log atlas usage for displacement textures
+            const bgInAtlas = isTextureInAtlas(backgroundDisplacementSpriteLocation);
+            const cursorInAtlas = cursorImgEffect && isTextureInAtlas(cursorDisplacementSpriteLocation);
 
-            // Define assets to load
-            const assetsToLoad = [
-                { id: 'bgDisplacement', url: bgDisplacementUrl }
-            ];
-
-            if (cursorDisplacementUrl) {
-                assetsToLoad.push({ id: 'cursorDisplacement', url: cursorDisplacementUrl });
+            if (isDevelopment) {
+                if (bgInAtlas && (!cursorImgEffect || cursorInAtlas)) {
+                    console.log(`%c[KineticSlider] Using texture atlas: ${effectsAtlas} for displacement effects`,
+                        'background: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;');
+                } else if (bgInAtlas || cursorInAtlas) {
+                    console.log(`%c[KineticSlider] Using mixed sources for displacement effects (partially from atlas)`,
+                        'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
+                } else {
+                    const reason = !atlasManager
+                        ? "AtlasManager not available"
+                        : !effectsAtlas
+                            ? "No effectsAtlas property specified"
+                            : "Displacement textures not found in atlas";
+                    console.log(`%c[KineticSlider] Using individual images for displacement effects (${reason})`,
+                        'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
+                }
             }
 
-            // Load all textures in parallel with Promise.all
-            const loadingPromises = assetsToLoad.map(asset =>
-                Assets.load(asset.url).then(texture => ({ id: asset.id, url: asset.url, texture }))
-            );
+            // Load background displacement texture
+            const bgResult = await loadTextureFromAtlasOrIndividual(backgroundDisplacementSpriteLocation);
 
-            const loadedAssets = await Promise.all(loadingPromises);
-
-            // Organize textures by both ID and URL for flexible access
-            const textures = new Map();
-            const texturesById = new Map();
-
-            loadedAssets.forEach(asset => {
-                textures.set(asset.url, asset.texture);
-                texturesById.set(asset.id, asset.texture);
-            });
-
-            // Track all textures in a batch if ResourceManager available
-            if (resourceManager) {
-                resourceManager.trackTextureBatch(textures);
+            if (!bgResult) {
+                throw new Error("Failed to load background displacement texture");
             }
 
+            if (isDevelopment) {
+                console.log(`%c[KineticSlider] Loaded background displacement from ${bgResult.fromAtlas ? 'atlas' : 'file'}: ${bgResult.source}`,
+                    `color: ${bgResult.fromAtlas ? '#2196F3' : '#FF9800'}`);
+            }
 
-
-            // Create all displacement sprites in a consistent way
-            const displayObjects = [];
+            // Create background displacement sprite
             const centerX = app.screen.width / 2;
             const centerY = app.screen.height / 2;
 
-            // Create background displacement sprite
-            const backgroundDisplacementSprite = new Sprite(texturesById.get('bgDisplacement'));
+            const backgroundDisplacementSprite = new Sprite(bgResult.texture);
             Object.assign(backgroundDisplacementSprite, {
                 anchor: { x: 0.5, y: 0.5 },
                 position: { x: centerX, y: centerY },
                 scale: { x: 2, y: 2 },
                 alpha: 0
             });
-            displayObjects.push(backgroundDisplacementSprite);
+
+            // Create background displacement filter
+            const backgroundDisplacementFilter = new DisplacementFilter(backgroundDisplacementSprite);
+            backgroundDisplacementFilter.scale.set(0);
+
+            // Track with ResourceManager
+            if (resourceManager) {
+                resourceManager.trackDisplayObject(backgroundDisplacementSprite);
+                resourceManager.trackFilter(backgroundDisplacementFilter);
+            }
+
+            // Store references
             backgroundDisplacementSpriteRef.current = backgroundDisplacementSprite;
+            bgDispFilterRef.current = backgroundDisplacementFilter;
+
+            // Add background sprite to stage
+            app.stage.addChild(backgroundDisplacementSprite);
 
             // Create cursor displacement sprite if enabled
             let cursorDisplacementSprite = null;
-            if (cursorImgEffect && texturesById.has('cursorDisplacement')) {
-                cursorDisplacementSprite = new Sprite(texturesById.get('cursorDisplacement'));
-                Object.assign(cursorDisplacementSprite, {
-                    anchor: { x: 0.5, y: 0.5 },
-                    position: { x: centerX, y: centerY },
-                    scale: { x: cursorScaleIntensity || 0.65, y: cursorScaleIntensity || 0.65 },
-                    alpha: 0
-                });
-                displayObjects.push(cursorDisplacementSprite);
-                cursorDisplacementSpriteRef.current = cursorDisplacementSprite;
-            }
-
-            // Track all display objects in a batch
-            if (resourceManager && displayObjects.length > 0) {
-                resourceManager.trackDisplayObjectBatch(displayObjects);
-            }
-
-            // Create displacement filters
-            const filters = [];
-            const backgroundDisplacementFilter = new DisplacementFilter(backgroundDisplacementSprite);
-            filters.push(backgroundDisplacementFilter);
-
             let cursorDisplacementFilter = null;
-            if (cursorImgEffect && cursorDisplacementSprite) {
-                cursorDisplacementFilter = new DisplacementFilter(cursorDisplacementSprite);
-                filters.push(cursorDisplacementFilter);
-            }
 
-            // Track filters in batch
-            if (resourceManager && filters.length > 0) {
-                resourceManager.trackFilterBatch(filters);
-            }
+            if (cursorImgEffect) {
+                // Load cursor displacement texture
+                const cursorResult = await loadTextureFromAtlasOrIndividual(cursorDisplacementSpriteLocation);
 
-            // Store filter references
-            bgDispFilterRef.current = backgroundDisplacementFilter;
-            cursorDispFilterRef.current = cursorDisplacementFilter;
+                if (cursorResult) {
+                    if (isDevelopment) {
+                        console.log(`%c[KineticSlider] Loaded cursor displacement from ${cursorResult.fromAtlas ? 'atlas' : 'file'}: ${cursorResult.source}`,
+                            `color: ${cursorResult.fromAtlas ? '#2196F3' : '#FF9800'}`);
+                    }
 
-            // Initialize filter scales to 0
-            backgroundDisplacementFilter.scale.set(0);
-            if (cursorDisplacementFilter) {
-                cursorDisplacementFilter.scale.set(0);
-            }
+                    // Create cursor displacement sprite
+                    cursorDisplacementSprite = new Sprite(cursorResult.texture);
+                    Object.assign(cursorDisplacementSprite, {
+                        anchor: { x: 0.5, y: 0.5 },
+                        position: { x: centerX, y: centerY },
+                        scale: { x: cursorScaleIntensity || 0.65, y: cursorScaleIntensity || 0.65 },
+                        alpha: 0
+                    });
 
-            // Add sprites to stage
-            app.stage.addChild(backgroundDisplacementSprite);
-            if (cursorImgEffect && cursorDisplacementSprite) {
-                app.stage.addChild(cursorDisplacementSprite);
+                    // Create cursor displacement filter
+                    cursorDisplacementFilter = new DisplacementFilter(cursorDisplacementSprite);
+                    cursorDisplacementFilter.scale.set(0);
+
+                    // Track with ResourceManager
+                    if (resourceManager) {
+                        resourceManager.trackDisplayObject(cursorDisplacementSprite);
+                        resourceManager.trackFilter(cursorDisplacementFilter);
+                    }
+
+                    // Store references
+                    cursorDisplacementSpriteRef.current = cursorDisplacementSprite;
+                    cursorDispFilterRef.current = cursorDisplacementFilter;
+
+                    // Add cursor sprite to stage
+                    app.stage.addChild(cursorDisplacementSprite);
+                } else if (isDevelopment) {
+                    console.warn('[KineticSlider] Failed to load cursor displacement texture, cursor effect disabled');
+                }
             }
 
             // Mark as fully initialized
@@ -191,9 +264,15 @@ export const useDisplacementEffects = ({
         cursorImgEffect,
         cursorScaleIntensity,
         resourceManager,
+        atlasManager,
+        effectsAtlas,
         bgDispFilterRef,
         backgroundDisplacementSpriteRef,
-        cursorDisplacementSpriteRef
+        cursorDisplacementSpriteRef,
+        cursorDispFilterRef,
+        appRef,
+        isTextureInAtlas,
+        loadTextureFromAtlasOrIndividual
     ]);
 
     // Displacement effect methods
