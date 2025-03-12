@@ -1,4 +1,5 @@
 import { Application, Sprite, Container, DisplacementFilter, Filter } from 'pixi.js';
+import {AtlasManager} from "./managers/AtlasManager";
 
 export type NavElement = {
     prev: string;
@@ -105,4 +106,17 @@ export interface HookParams {
 
 export interface LoadingIndicatorProps {
     message?: string;
+}
+
+export interface UsePixiAppResult {
+    pixiRefs: PixiRefs;
+    atlasManager: AtlasManager | null;
+    isInitialized: boolean;
+    isInitializing: boolean;
+    loadingProgress: {
+        isLoading: boolean;
+        progress: number;
+        assetsLoaded: number;
+        assetsTotal: number;
+    };
 }
