@@ -2,23 +2,11 @@ import { useEffect, useRef, useCallback, type RefObject } from 'react';
 import { Sprite, DisplacementFilter, Assets, Application } from 'pixi.js';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
-
+import { type UseDisplacementEffectsProps } from '../types'
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
 
-interface UseDisplacementEffectsProps {
-    sliderRef: RefObject<HTMLDivElement | null>; // Add this line
-    bgDispFilterRef: RefObject<DisplacementFilter | null>;
-    cursorDispFilterRef: RefObject<DisplacementFilter | null>;
-    backgroundDisplacementSpriteRef: RefObject<Sprite | null>;
-    cursorDisplacementSpriteRef: RefObject<Sprite | null>;
-    appRef: RefObject<Application | null>;
-    backgroundDisplacementSpriteLocation: string;
-    cursorDisplacementSpriteLocation: string;
-    cursorImgEffect: boolean;
-    cursorScaleIntensity: number;
-    resourceManager?: ResourceManager | null;
-}
+
 
 // Default filter scales
 const DEFAULT_BG_FILTER_SCALE = 20;

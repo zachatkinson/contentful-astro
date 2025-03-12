@@ -3,6 +3,7 @@ import styles from './KineticSlider.module.css';
 import { type KineticSliderProps } from './types';
 import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
 import ResourceManager from './managers/ResourceManager';
+import {AtlasManager} from './managers/AtlasManager';
 
 // Import hooks directly
 import { useDisplacementEffects } from './hooks';
@@ -62,7 +63,11 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
                                                           // Filter configurations
                                                           imageFilters,
-                                                          textFilters
+                                                          textFilters,
+
+                                                          // Atlas configuration
+                                                          slidesAtlas = 'slides-atlas',
+                                                          effectsAtlas = 'effects-atlas'
                                                       }) => {
     // Core references
     const sliderRef = useRef<HTMLDivElement>(null);
@@ -75,6 +80,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
     // Create ResourceManager instance with unique ID
     const resourceManagerRef = useRef<ResourceManager | null>(null);
+
+    // Create AtlasManager instance
+    const atlasManagerRef = useRef<AtlasManager | null>(null);
 
     // Set up Pixi app
     const appRef = useRef<Application | null>(null);
@@ -91,10 +99,20 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         setIsClient(true);
     }, []);
 
-    // Initialize ResourceManager on mount
+    // Initialize ResourceManager and AtlasManager on mount
     useEffect(() => {
         const componentId = `kinetic-slider-${Math.random().toString(36).substring(2, 9)}`;
+
+        // Initialize ResourceManager
         resourceManagerRef.current = new ResourceManager(componentId);
+
+        // Initialize AtlasManager with resource manager
+        atlasManagerRef.current = new AtlasManager({
+            debug: true,
+            preferAtlas: true,
+            cacheFrameTextures: true,
+            basePath: '/atlas'
+        }, resourceManagerRef.current);
 
         return () => {
             // Mark as unmounting to prevent new resource allocation
@@ -104,6 +122,12 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                 // Dispose all tracked resources
                 resourceManagerRef.current.dispose();
                 resourceManagerRef.current = null;
+            }
+
+            // Clean up atlas manager
+            if (atlasManagerRef.current) {
+                atlasManagerRef.current.dispose();
+                atlasManagerRef.current = null;
             }
         };
     }, []);
@@ -146,15 +170,18 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         swipeScaleIntensity,
         transitionScaleIntensity,
         imageFilters,
-        textFilters
+        textFilters,
+        slidesAtlas,
+        effectsAtlas
     };
 
-    // Enhanced hook params with resource manager
+    // Enhanced hook params with resource and atlas managers
     const hookParams = {
         sliderRef,
         pixi: pixiRefs,
         props: hookProps,
-        resourceManager: resourceManagerRef.current
+        resourceManager: resourceManagerRef.current,
+        atlasManager: atlasManagerRef.current
     };
 
     // Use displacement effects
@@ -169,19 +196,44 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         cursorDisplacementSpriteLocation,
         cursorImgEffect,
         cursorScaleIntensity,
-        resourceManager: resourceManagerRef.current
+        resourceManager: resourceManagerRef.current,
+        atlasManager: atlasManagerRef.current,
+        effectsAtlas
     });
 
     // Use filters - call this before any references to its returned functions
     const { updateFilterIntensities, resetAllFilters } = useFilters(hookParams);
 
-    // Preload assets including fonts
+    // Preload assets including fonts and atlases
     useEffect(() => {
         if (typeof window === 'undefined' || !isClient) return;
 
         const loadAssets = async () => {
             try {
                 console.log("Preloading assets and fonts...");
+
+                // Preload atlases first
+                if (atlasManagerRef.current) {
+                    // Load the slides atlas
+                    if (slidesAtlas) {
+                        await atlasManagerRef.current.loadAtlas(
+                            slidesAtlas,
+                            `/atlas/${slidesAtlas}.json`,
+                            `/atlas/${slidesAtlas}.png`
+                        );
+                    }
+
+                    // Load the effects atlas
+                    if (effectsAtlas) {
+                        await atlasManagerRef.current.loadAtlas(
+                            effectsAtlas,
+                            `/atlas/${effectsAtlas}.json`,
+                            `/atlas/${effectsAtlas}.png`
+                        );
+                    }
+                }
+
+                // Then preload any remaining assets (as fallback)
                 await preloadKineticSliderAssets(
                     images,
                     backgroundDisplacementSpriteLocation,
@@ -189,6 +241,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                     textTitleFontFamily,
                     textSubTitleFontFamily
                 );
+
                 setAssetsLoaded(true);
                 console.log("Assets and fonts preloaded successfully");
             } catch (error) {
@@ -205,7 +258,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         backgroundDisplacementSpriteLocation,
         cursorDisplacementSpriteLocation,
         textTitleFontFamily,
-        textSubTitleFontFamily
+        textSubTitleFontFamily,
+        slidesAtlas,
+        effectsAtlas
     ]);
 
     // Initialize Pixi.js application
@@ -295,7 +350,6 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     const { transitionToSlide } = useSlides(hookParams);
 
     // Use text containers
-    // Use text containers
     useTextContainers({
         sliderRef,
         appRef,
@@ -336,7 +390,8 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         cursorDispFilterRef,
         cursorImgEffect,
         defaultBgFilterScale: 20,
-        defaultCursorFilterScale: 10
+        defaultCursorFilterScale: 10,
+        resourceManager: resourceManagerRef.current
     });
 
     // Navigation functions with effect reapplication

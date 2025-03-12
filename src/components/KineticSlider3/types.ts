@@ -1,5 +1,7 @@
 import { Application, Sprite, Container, DisplacementFilter, Filter } from 'pixi.js';
 import {AtlasManager} from "./managers/AtlasManager";
+import type {RefObject} from "react";
+import ResourceManager from "./managers/ResourceManager.ts";
 
 export type NavElement = {
     prev: string;
@@ -63,6 +65,10 @@ export interface KineticSliderProps {
     externalNav?: boolean;
     navElement?: NavElement;
     buttonMode?: boolean;
+
+    // Atlas configuration
+    slidesAtlas?: string;
+    effectsAtlas?: string;
 }
 
 /**
@@ -119,4 +125,19 @@ export interface UsePixiAppResult {
         assetsLoaded: number;
         assetsTotal: number;
     };
+}
+
+export interface UseDisplacementEffectsProps {
+    sliderRef: RefObject<HTMLDivElement | null>; // Add this line
+    bgDispFilterRef: RefObject<DisplacementFilter | null>;
+    cursorDispFilterRef: RefObject<DisplacementFilter | null>;
+    backgroundDisplacementSpriteRef: RefObject<Sprite | null>;
+    cursorDisplacementSpriteRef: RefObject<Sprite | null>;
+    appRef: RefObject<Application | null>;
+    backgroundDisplacementSpriteLocation: string;
+    cursorDisplacementSpriteLocation: string;
+    cursorImgEffect: boolean;
+    cursorScaleIntensity: number;
+    resourceManager?: ResourceManager | null;
+    atlasManager?: AtlasManager
 }
