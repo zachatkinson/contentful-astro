@@ -1,4 +1,3 @@
-
 /**
  * Texture Atlas Generator for KineticSlider
  *
@@ -13,7 +12,7 @@
  *   --input, -i      Directory containing images to pack (default: "public/images/slides")
  *   --output, -o     Output directory for atlas files (default: "public/atlas")
  *   --name, -n       Base name for the atlas files (default: "slides-atlas")
- *   --size, -s       Maximum atlas size (default: "2048x2048")
+ *   --size, -s       Maximum atlas size (default: "4096x4096")
  *   --padding, -p    Padding between images (default: 2)
  *   --pot            Force power-of-two dimensions (default: true)
  *   --help, -h       Show help
@@ -49,7 +48,7 @@ const argv = yargs(hideBin(process.argv))
         alias: 's',
         description: 'Maximum atlas size',
         type: 'string',
-        default: '2048x2048'
+        default: '4096x4096'
     })
     .option('padding', {
         alias: 'p',
@@ -79,6 +78,7 @@ const argv = yargs(hideBin(process.argv))
 
 // Extract max width and height from size option
 const [maxWidth, maxHeight] = argv.size.split('x').map(Number);
+console.log(`Using atlas dimensions: ${maxWidth}x${maxHeight}, from input: ${argv.size}`);
 
 // Ensure output directory exists
 if (!fs.existsSync(argv.output)) {
@@ -270,6 +270,10 @@ async function packImages(imagePaths) {
 
     // Calculate initial atlas size based on total area
     let totalArea = 0;
+    const maxImgWidth = Math.max(...images.map(img => img.image.width + argv.padding * 2));
+    const maxImgHeight = Math.max(...images.map(img => img.image.height + argv.padding * 2));
+    const totalImages = images.length;
+
     for (const img of images) {
         // Add padding to dimensions
         const paddedWidth = img.image.width + argv.padding * 2;
@@ -277,15 +281,36 @@ async function packImages(imagePaths) {
         totalArea += paddedWidth * paddedHeight;
     }
 
-    // Estimate initial dimensions (assuming roughly square images)
-    let atlasWidth = Math.min(maxWidth, Math.ceil(Math.sqrt(totalArea)));
-    let atlasHeight = Math.min(maxHeight, Math.ceil(Math.sqrt(totalArea)));
+    // Calculate average aspect ratio to determine optimal atlas shape
+    const avgAspectRatio = images.reduce((sum, img) =>
+        sum + (img.image.width / img.image.height), 0) / totalImages;
 
-    // Force power-of-two dimensions if requested
+    // Calculate initial atlas size based on image characteristics
+    let atlasWidth, atlasHeight;
+
+    if (avgAspectRatio > 2) {
+        // For wide/banner images, create a vertically-oriented atlas
+        atlasWidth = Math.min(maxWidth, nextPowerOfTwo(maxImgWidth));
+        // Calculate how many images we can stack vertically
+        const estRows = Math.ceil(totalImages);
+        atlasHeight = Math.min(maxHeight, nextPowerOfTwo(estRows * (maxImgHeight + argv.padding)));
+    } else {
+        // For more square images, use area-based estimation
+        atlasWidth = Math.min(maxWidth, Math.ceil(Math.sqrt(totalArea)));
+        atlasHeight = Math.min(maxHeight, Math.ceil(Math.sqrt(totalArea)));
+    }
+
+    // Ensure dimensions are power-of-two if requested
     if (argv.pot) {
         atlasWidth = nextPowerOfTwo(atlasWidth);
         atlasHeight = nextPowerOfTwo(atlasHeight);
     }
+
+    // Enforce max dimensions set by user
+    atlasWidth = Math.min(atlasWidth, maxWidth);
+    atlasHeight = Math.min(atlasHeight, maxHeight);
+
+    console.log(`Using atlas dimensions: ${atlasWidth}x${atlasHeight} (average aspect ratio: ${avgAspectRatio.toFixed(2)})`);
 
     // Initialize the atlas canvas
     const canvas = createCanvas(atlasWidth, atlasHeight);
