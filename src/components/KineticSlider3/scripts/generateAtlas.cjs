@@ -6,16 +6,23 @@
  * a JSON file with the coordinates of each image within the atlas.
  *
  * Usage:
- *   node generateAtlas.cjs [options]
+ *   node generateAtlas.cjs [options] [files...]
  *
  * Options:
- *   --input, -i      Directory containing images to pack (default: "public/images/slides")
+ *   --input, -i      Directory containing images to pack (can be omitted if files are provided)
  *   --output, -o     Output directory for atlas files (default: "public/atlas")
- *   --name, -n       Base name for the atlas files (default: "slides-atlas")
+ *   --name, -n       Base name for the atlas files (default: "atlas")
  *   --size, -s       Maximum atlas size (default: "4096x4096")
  *   --padding, -p    Padding between images (default: 2)
  *   --pot            Force power-of-two dimensions (default: true)
  *   --help, -h       Show help
+ *
+ * Examples:
+ *   // Process a directory of images
+ *   node generateAtlas.cjs --input=public/images/slides --name=slides-atlas
+ *
+ *   // Process specific image files
+ *   node generateAtlas.cjs --output=public/atlas --name=effects-atlas public/images/effect1.png public/images/effect2.png
  */
 
 const fs = require('fs');
@@ -24,13 +31,12 @@ const { createCanvas, loadImage } = require('canvas');
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
 
-// Parse command line arguments
+// Parse command line arguments with support for both named options and file arguments
 const argv = yargs(hideBin(process.argv))
     .option('input', {
         alias: 'i',
         description: 'Directory containing images to pack',
-        type: 'string',
-        default: 'public/images/slides'
+        type: 'string'
     })
     .option('output', {
         alias: 'o',
@@ -42,7 +48,7 @@ const argv = yargs(hideBin(process.argv))
         alias: 'n',
         description: 'Base name for the atlas files',
         type: 'string',
-        default: 'slides-atlas'
+        default: 'atlas'
     })
     .option('size', {
         alias: 's',
@@ -74,11 +80,13 @@ const argv = yargs(hideBin(process.argv))
     })
     .help()
     .alias('help', 'h')
+    .example('node generateAtlas.cjs --input=public/images/slides --name=slides-atlas', 'Process a directory of images')
+    .example('node generateAtlas.cjs --output=public/atlas --name=effects-atlas public/images/effect1.png public/images/effect2.png', 'Process specific image files')
     .argv;
 
 // Extract max width and height from size option
 const [maxWidth, maxHeight] = argv.size.split('x').map(Number);
-console.log(`Using atlas dimensions: ${maxWidth}x${maxHeight}, from input: ${argv.size}`);
+console.log(`Using maximum atlas dimensions: ${maxWidth}x${maxHeight}`);
 
 // Ensure output directory exists
 if (!fs.existsSync(argv.output)) {
@@ -186,23 +194,177 @@ async function trimImage(imagePath) {
 }
 
 /**
- * Find all image files in a directory
+ * Find all image files to process based on command line arguments
+ * Can handle both directory input and individual files
  */
-function findImageFiles(dir) {
+function findImageFiles() {
     const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+    let imagePaths = [];
 
     try {
-        const files = fs.readdirSync(dir);
-        return files
-            .filter(file => {
+        // Check if individual files were provided as arguments
+        const fileArgs = argv._;
+        if (fileArgs && fileArgs.length > 0) {
+            imagePaths = fileArgs.filter(file => {
                 const ext = path.extname(file).toLowerCase();
-                return imageExtensions.includes(ext);
-            })
-            .map(file => path.join(dir, file));
+                return imageExtensions.includes(ext) && fs.existsSync(file);
+            });
+
+            if (imagePaths.length > 0) {
+                console.log(`Found ${imagePaths.length} images from command line arguments`);
+                return imagePaths;
+            }
+        }
+
+        // If no valid files were provided or found, check input directory
+        if (argv.input) {
+            if (!fs.existsSync(argv.input)) {
+                console.error(`Input directory not found: ${argv.input}`);
+                process.exit(1);
+            }
+
+            const files = fs.readdirSync(argv.input);
+            imagePaths = files
+                .filter(file => {
+                    const ext = path.extname(file).toLowerCase();
+                    return imageExtensions.includes(ext);
+                })
+                .map(file => path.join(argv.input, file));
+
+            console.log(`Found ${imagePaths.length} images in directory: ${argv.input}`);
+            return imagePaths;
+        }
+
+        // No valid inputs found
+        console.error('No input directory or image files specified. Use --input or provide file paths.');
+        process.exit(1);
     } catch (error) {
-        console.error('Error reading input directory:', error);
+        console.error('Error finding image files:', error);
         process.exit(1);
     }
+}
+
+/**
+ * Simulate packing to verify atlas size is sufficient
+ * Returns true if all images fit, false otherwise
+ */
+function verifyAtlasFit(images, atlasWidth, atlasHeight, padding) {
+    let currentX = padding;
+    let currentY = padding;
+    let rowHeight = 0;
+
+    for (const img of images) {
+        const width = img.image.width;
+        const height = img.image.height;
+
+        // Check if we need to move to the next row
+        if (currentX + width + padding > atlasWidth) {
+            currentX = padding;
+            currentY += rowHeight + padding;
+            rowHeight = 0;
+        }
+
+        // Check if we've exceeded the atlas height
+        if (currentY + height + padding > atlasHeight) {
+            return false; // Won't fit
+        }
+
+        // Update position and row height
+        currentX += width + padding;
+        rowHeight = Math.max(rowHeight, height);
+    }
+
+    return true; // All images fit
+}
+
+/**
+ * Calculate optimal atlas dimensions based on image sizes
+ */
+function calculateAtlasDimensions(images, padding) {
+    // Get total area and maximum dimensions
+    let totalArea = 0;
+    let maxImgWidth = 0;
+    let maxImgHeight = 0;
+
+    for (const img of images) {
+        const paddedWidth = img.image.width + padding * 2;
+        const paddedHeight = img.image.height + padding * 2;
+        totalArea += paddedWidth * paddedHeight;
+        maxImgWidth = Math.max(maxImgWidth, paddedWidth);
+        maxImgHeight = Math.max(maxImgHeight, paddedHeight);
+    }
+
+    // Calculate total images and average aspect ratio
+    const totalImages = images.length;
+    const avgAspectRatio = images.reduce((sum, img) =>
+        sum + (img.image.width / img.image.height), 0) / totalImages;
+
+    // Safety factor to ensure images fit
+    const safetyFactor = 1.2; // Add 20% extra space
+
+    // Estimate initial dimensions
+    let atlasWidth, atlasHeight;
+
+    // For very wide images, create vertically-oriented atlas
+    if (avgAspectRatio > 2) {
+        atlasWidth = Math.min(maxWidth, nextPowerOfTwo(maxImgWidth));
+        const estRows = Math.ceil(totalImages);
+        atlasHeight = Math.min(maxHeight, nextPowerOfTwo(estRows * (maxImgHeight + padding) * safetyFactor));
+    }
+    // For very tall images, create horizontally-oriented atlas
+    else if (avgAspectRatio < 0.5) {
+        atlasHeight = Math.min(maxHeight, nextPowerOfTwo(maxImgHeight));
+        const estColumns = Math.ceil(totalImages);
+        atlasWidth = Math.min(maxWidth, nextPowerOfTwo(estColumns * (maxImgWidth + padding) * safetyFactor));
+    }
+    // For more square-like images, use square-ish atlas
+    else {
+        // Calculate total padded area (accounting for padding between all images)
+        const paddedArea = totalArea * safetyFactor;
+
+        // Calculate minimum width needed for a single row of images
+        const minWidth = Math.max(
+            maxImgWidth,
+            totalImages * (maxImgWidth + padding) - padding // last image doesn't need right padding
+        );
+
+        // Start with a square-ish atlas
+        atlasWidth = Math.min(maxWidth, Math.max(minWidth, Math.ceil(Math.sqrt(paddedArea))));
+        atlasHeight = Math.min(maxHeight, Math.ceil(paddedArea / atlasWidth));
+    }
+
+    // Ensure minimum size can fit at least one image with padding
+    atlasWidth = Math.max(atlasWidth, maxImgWidth);
+    atlasHeight = Math.max(atlasHeight, maxImgHeight);
+
+    // Ensure dimensions are power-of-two if requested
+    if (argv.pot) {
+        atlasWidth = nextPowerOfTwo(atlasWidth);
+        atlasHeight = nextPowerOfTwo(atlasHeight);
+    }
+
+    // Enforce max dimensions
+    atlasWidth = Math.min(atlasWidth, maxWidth);
+    atlasHeight = Math.min(atlasHeight, maxHeight);
+
+    // Verify the calculated size is sufficient
+    if (!verifyAtlasFit(images, atlasWidth, atlasHeight, padding)) {
+        // If not big enough, try to double the size
+        if (atlasWidth < maxWidth) {
+            atlasWidth = Math.min(maxWidth, atlasWidth * 2);
+        } else if (atlasHeight < maxHeight) {
+            atlasHeight = Math.min(maxHeight, atlasHeight * 2);
+        }
+
+        // Check again after resizing
+        if (!verifyAtlasFit(images, atlasWidth, atlasHeight, padding)) {
+            console.warn(`Warning: calculated atlas size ${atlasWidth}x${atlasHeight} may not fit all images.`);
+        }
+    }
+
+    console.log(`Calculated atlas dimensions: ${atlasWidth}x${atlasHeight} (avg aspect ratio: ${avgAspectRatio.toFixed(2)})`);
+
+    return { atlasWidth, atlasHeight };
 }
 
 /**
@@ -268,49 +430,8 @@ async function packImages(imagePaths) {
         }
     };
 
-    // Calculate initial atlas size based on total area
-    let totalArea = 0;
-    const maxImgWidth = Math.max(...images.map(img => img.image.width + argv.padding * 2));
-    const maxImgHeight = Math.max(...images.map(img => img.image.height + argv.padding * 2));
-    const totalImages = images.length;
-
-    for (const img of images) {
-        // Add padding to dimensions
-        const paddedWidth = img.image.width + argv.padding * 2;
-        const paddedHeight = img.image.height + argv.padding * 2;
-        totalArea += paddedWidth * paddedHeight;
-    }
-
-    // Calculate average aspect ratio to determine optimal atlas shape
-    const avgAspectRatio = images.reduce((sum, img) =>
-        sum + (img.image.width / img.image.height), 0) / totalImages;
-
-    // Calculate initial atlas size based on image characteristics
-    let atlasWidth, atlasHeight;
-
-    if (avgAspectRatio > 2) {
-        // For wide/banner images, create a vertically-oriented atlas
-        atlasWidth = Math.min(maxWidth, nextPowerOfTwo(maxImgWidth));
-        // Calculate how many images we can stack vertically
-        const estRows = Math.ceil(totalImages);
-        atlasHeight = Math.min(maxHeight, nextPowerOfTwo(estRows * (maxImgHeight + argv.padding)));
-    } else {
-        // For more square images, use area-based estimation
-        atlasWidth = Math.min(maxWidth, Math.ceil(Math.sqrt(totalArea)));
-        atlasHeight = Math.min(maxHeight, Math.ceil(Math.sqrt(totalArea)));
-    }
-
-    // Ensure dimensions are power-of-two if requested
-    if (argv.pot) {
-        atlasWidth = nextPowerOfTwo(atlasWidth);
-        atlasHeight = nextPowerOfTwo(atlasHeight);
-    }
-
-    // Enforce max dimensions set by user
-    atlasWidth = Math.min(atlasWidth, maxWidth);
-    atlasHeight = Math.min(atlasHeight, maxHeight);
-
-    console.log(`Using atlas dimensions: ${atlasWidth}x${atlasHeight} (average aspect ratio: ${avgAspectRatio.toFixed(2)})`);
+    // Calculate optimal atlas dimensions
+    const { atlasWidth, atlasHeight } = calculateAtlasDimensions(images, argv.padding);
 
     // Initialize the atlas canvas
     const canvas = createCanvas(atlasWidth, atlasHeight);
@@ -326,6 +447,7 @@ async function packImages(imagePaths) {
     let currentX = argv.padding;
     let currentY = argv.padding;
     let rowHeight = 0;
+    let imagesProcessed = 0;
 
     // Pack each image
     for (const img of images) {
@@ -341,7 +463,7 @@ async function packImages(imagePaths) {
 
         // Check if we've exceeded the atlas height
         if (currentY + height + argv.padding > atlasHeight) {
-            console.error('Atlas dimensions too small for all images!');
+            console.error(`Atlas dimensions too small for all images! Only packed ${imagesProcessed} of ${images.length}`);
             break;
         }
 
@@ -373,6 +495,7 @@ async function packImages(imagePaths) {
 
         // Draw the image on the atlas
         ctx.drawImage(img.image, currentX, currentY);
+        imagesProcessed++;
 
         if (argv.verbose) {
             console.log(`Packed ${img.filename} at [${currentX}, ${currentY}]`);
@@ -394,7 +517,9 @@ async function packImages(imagePaths) {
 
     return {
         atlas,
-        canvas
+        canvas,
+        imagesProcessed,
+        totalImages: images.length
     };
 }
 
@@ -422,22 +547,26 @@ async function generateAtlas() {
     try {
         console.log('Starting atlas generation...');
 
-        // Find image files
-        const imagePaths = findImageFiles(argv.input);
-        console.log(`Found ${imagePaths.length} images`);
+        // Find image files using the enhanced function
+        const imagePaths = findImageFiles();
+        console.log(`Found ${imagePaths.length} images to process`);
 
         if (imagePaths.length === 0) {
-            console.error('No images found in input directory!');
+            console.error('No images found to process!');
             process.exit(1);
         }
 
         // Pack images
-        const { atlas, canvas } = await packImages(imagePaths);
+        const { atlas, canvas, imagesProcessed, totalImages } = await packImages(imagePaths);
 
         // Save the atlas
         await saveAtlas(atlas, canvas);
 
-        console.log('Atlas generation complete!');
+        if (imagesProcessed < totalImages) {
+            console.warn(`Warning: Only packed ${imagesProcessed} of ${totalImages} images. Consider using a larger atlas size.`);
+        }
+
+        console.log(`Atlas generation complete! Successfully packed ${imagesProcessed} images.`);
     } catch (error) {
         console.error('Error generating atlas:', error);
         process.exit(1);

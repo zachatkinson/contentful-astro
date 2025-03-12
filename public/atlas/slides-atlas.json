@@ -1,0 +1,85 @@
+{
+  "frames": {
+    "1.jpg": {
+      "frame": {
+        "x": 2,
+        "y": 2,
+        "w": 1600,
+        "h": 500
+      },
+      "rotated": false,
+      "trimmed": false,
+      "sourceSize": {
+        "w": 1600,
+        "h": 500
+      }
+    },
+    "2.jpg": {
+      "frame": {
+        "x": 2,
+        "y": 504,
+        "w": 1600,
+        "h": 500
+      },
+      "rotated": false,
+      "trimmed": false,
+      "sourceSize": {
+        "w": 1600,
+        "h": 500
+      }
+    },
+    "3.jpg": {
+      "frame": {
+        "x": 2,
+        "y": 1006,
+        "w": 1600,
+        "h": 500
+      },
+      "rotated": false,
+      "trimmed": false,
+      "sourceSize": {
+        "w": 1600,
+        "h": 500
+      }
+    },
+    "4.jpg": {
+      "frame": {
+        "x": 2,
+        "y": 1508,
+        "w": 1600,
+        "h": 500
+      },
+      "rotated": false,
+      "trimmed": false,
+      "sourceSize": {
+        "w": 1600,
+        "h": 500
+      }
+    },
+    "5.jpg": {
+      "frame": {
+        "x": 2,
+        "y": 2010,
+        "w": 1600,
+        "h": 500
+      },
+      "rotated": false,
+      "trimmed": false,
+      "sourceSize": {
+        "w": 1600,
+        "h": 500
+      }
+    }
+  },
+  "meta": {
+    "app": "KineticSlider Atlas Generator",
+    "version": "1.0.0",
+    "format": "RGBA8888",
+    "size": {
+      "w": 2048,
+      "h": 4096
+    },
+    "scale": 1,
+    "image": "slides-atlas.png"
+  }
+}
