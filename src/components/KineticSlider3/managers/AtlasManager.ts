@@ -326,11 +326,24 @@ export class AtlasManager {
                 frameData.frame.h
             );
 
-            // Create the texture
-            const frameTexture = new Texture(
-                atlasTexture
+            // Create the texture using the PixiJS v8 approach
+            // Get the source from the atlas texture
+            const source = atlasTexture.source;
 
-            );
+            // Create the frame texture with the new approach
+            const frameTexture = new Texture({
+                source, // Use the same source as the atlas texture
+                frame: rect, // The frame rectangle within the atlas
+                orig: frameData.trimmed && frameData.spriteSourceSize ?
+                    new Rectangle(
+                        frameData.spriteSourceSize.x,
+                        frameData.spriteSourceSize.y,
+                        frameData.spriteSourceSize.w,
+                        frameData.spriteSourceSize.h
+                    ) : undefined,
+                trim: frameData.trimmed ? rect : undefined,
+                rotate: frameData.rotated ? 2 : 0 // 2 = DEGREES_90, 0 = DEGREES_0
+            });
 
             // Cache the frame texture if enabled
             if (this.options.cacheFrameTextures) {
@@ -369,18 +382,19 @@ export class AtlasManager {
      * Get a texture for an image, either from an atlas or as an individual texture
      *
      * @param imagePath - Path to the image
+     * @param atlasId - Optional ID of a specific atlas to check first
      * @returns Promise resolving to the texture, or null if not found
      */
-    async getTexture(imagePath: string): Promise<Texture | null> {
-        // First check if we have the texture as a frame in any atlas
+    async getTexture(imagePath: string, atlasId?: string): Promise<Texture | null> {
+        // First check if we have the texture as a frame in the specified atlas or any atlas
         if (this.options.preferAtlas) {
             // Extract the filename from the path to use as the frame name
             const frameName = imagePath.split('/').pop() || imagePath;
 
-            // Try to find the frame in any atlas
-            const frameTexture = this.getFrameTexture(frameName);
+            // Try to find the frame in the specified atlas or any atlas
+            const frameTexture = this.getFrameTexture(frameName, atlasId);
             if (frameTexture) {
-                this.log(`Using atlas frame for ${imagePath}`);
+                this.log(`Using atlas frame for ${imagePath} ${atlasId ? `from atlas '${atlasId}'` : ''}`);
                 return frameTexture;
             }
         }
@@ -446,7 +460,7 @@ export class AtlasManager {
      * Preload a set of images, preferably from atlas(es)
      *
      * @param imagePaths - Array of image paths to preload
-     * @param atlasIds - Optional array of atlas IDs to search
+     * @param atlasIds - Optional array of atlas IDs to search for frames
      * @param progressCallback - Optional callback for loading progress
      * @returns Promise resolving when all images are loaded
      */
@@ -473,8 +487,24 @@ export class AtlasManager {
         // Process each image
         const loadPromises = imagePaths.map(async (imagePath) => {
             try {
-                // Try to get the texture
-                await this.getTexture(imagePath);
+                // Try to get the texture, optionally limiting to specified atlas IDs
+                if (atlasIds && atlasIds.length > 0) {
+                    // Try each specified atlas in order
+                    for (const atlasId of atlasIds) {
+                        const texture = await this.getTexture(imagePath, atlasId);
+                        if (texture) {
+                            updateProgress();
+                            return; // Found in one of the specified atlases
+                        }
+                    }
+
+                    // If not found in specified atlases, try individual texture
+                    await this.getTexture(imagePath);
+                } else {
+                    // No atlas IDs specified, try any atlas or individual texture
+                    await this.getTexture(imagePath);
+                }
+
                 updateProgress();
             } catch (error) {
                 this.log(`Error preloading image ${imagePath}: ${error}`, 'warn');
@@ -505,7 +535,7 @@ export class AtlasManager {
             // Remove all frame textures for this atlas
             if (this.options.cacheFrameTextures) {
                 const prefix = `${atlasId}:`;
-                for (const [key, texture] of this.frameTextures.entries()) {
+                for (const [key] of this.frameTextures.entries()) {
                     if (key.startsWith(prefix)) {
                         // Do not destroy the texture as it shares the base texture with the atlas
                         this.frameTextures.delete(key);
