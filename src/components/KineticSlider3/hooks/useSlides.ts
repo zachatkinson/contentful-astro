@@ -121,8 +121,8 @@ export const useSlides = (
             });
             pixi.slides.current = [];
 
-            // Choose the loading method based on atlas availability
-            const useAtlas = atlasManager && props.slidesAtlas && areAssetsInAtlas();
+            // Choose the loading method based on atlas availability and user preference
+            const useAtlas = atlasManager && props.slidesAtlas && areAssetsInAtlas() && props.useSlidesAtlas;
 
             if (isDevelopment) {
                 if (useAtlas) {
@@ -132,7 +132,9 @@ export const useSlides = (
                         ? "AtlasManager not available"
                         : !props.slidesAtlas
                             ? "No slidesAtlas property specified"
-                            : "Not all images found in atlas";
+                            : !props.useSlidesAtlas
+                                ? "Atlas usage disabled by useSlidesAtlas=false"
+                                : "Not all images found in atlas";
                     console.log(`%c[KineticSlider] Using individual images (${reason})`, 'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
                 }
             }

@@ -67,7 +67,13 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
                                                           // Atlas configuration
                                                           slidesAtlas = 'slides-atlas',
-                                                          effectsAtlas = 'effects-atlas'
+                                                          effectsAtlas = 'effects-atlas',
+
+                                                          useEffectsAtlas = false,
+                                                          useSlidesAtlas = false
+
+
+
                                                       }) => {
     // Core references
     const sliderRef = useRef<HTMLDivElement>(null);
