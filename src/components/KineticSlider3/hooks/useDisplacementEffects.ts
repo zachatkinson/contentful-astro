@@ -12,56 +12,9 @@ const DEFAULT_BG_FILTER_SCALE = 20;
 const DEFAULT_CURSOR_FILTER_SCALE = 10;
 
 /**
- * Calculate dimensions based on the chosen sizing mode
+ * Hook to manage displacement effects with consistent behavior
+ * regardless of texture source
  */
-const calculateDisplacementDimensions = (
-    texture: Texture | null,
-    sizingMode: CursorDisplacementSizingMode,
-    customWidth?: number,
-    customHeight?: number
-): { width: number; height: number } => {
-    // Default dimensions (fallback)
-    const defaultDimensions = { width: 512, height: 512 };
-
-    // If texture is null, return default dimensions
-    if (!texture) {
-        if (isDevelopment) {
-            console.warn('Displacement texture not available for dimension calculation, using defaults');
-        }
-        return defaultDimensions;
-    }
-
-    switch (sizingMode) {
-        case 'natural':
-            // Use the natural dimensions of the texture
-            return {
-                width: texture.width,
-                height: texture.height
-            };
-
-        case 'fullscreen':
-            // Use the window dimensions
-            return {
-                width: window.innerWidth,
-                height: window.innerHeight
-            };
-
-        case 'custom':
-            // Use the provided custom dimensions, or fallback to natural dimensions
-            return {
-                width: customWidth ?? texture.width,
-                height: customHeight ?? texture.height
-            };
-
-        default:
-            // Fallback to natural dimensions for any unhandled cases
-            return {
-                width: texture.width,
-                height: texture.height
-            };
-    }
-};
-
 export const useDisplacementEffects = ({
                                            sliderRef,
                                            bgDispFilterRef,
@@ -72,7 +25,7 @@ export const useDisplacementEffects = ({
                                            backgroundDisplacementSpriteLocation,
                                            cursorDisplacementSpriteLocation,
                                            cursorImgEffect,
-                                           cursorScaleIntensity,
+                                           cursorScaleIntensity = 0.65,
                                            cursorDisplacementSizing = 'natural',
                                            cursorDisplacementWidth,
                                            cursorDisplacementHeight,
@@ -81,279 +34,212 @@ export const useDisplacementEffects = ({
                                            effectsAtlas,
                                            useEffectsAtlas
                                        }: UseDisplacementEffectsProps) => {
-    // Track initialization state with more granular control
     const initializationStateRef = useRef({
         isInitializing: false,
         isInitialized: false
     });
 
-    // Store the original textures for dimension calculations
-    const textureRef = useRef<{
-        background: Texture | null;
-        cursor: Texture | null;
-    }>({
-        background: null,
-        cursor: null
-    });
-
-    // Efficiently extract filename from path for atlas frame lookup
-    const getFrameName = (imagePath: string): string => {
-        return imagePath.split('/').pop() || imagePath;
-    };
-
-    // Check if a texture is available in the atlas
-    const isTextureInAtlas = useCallback((imagePath: string): boolean => {
-        if (!atlasManager || !effectsAtlas || !imagePath || !useEffectsAtlas) {
-            return false;
-        }
-
-        const frameName = getFrameName(imagePath);
-        return !!atlasManager.hasFrame(frameName);
-    }, [atlasManager, effectsAtlas, useEffectsAtlas]);
-
-    // Load a texture from atlas or as individual image
-    const loadTextureFromAtlasOrIndividual = useCallback(async (
-        imagePath: string
-    ): Promise<{ texture: Texture, source: string, fromAtlas: boolean } | null> => {
-        if (!imagePath) {
-            return null;
-        }
-
+    /**
+     * Load a texture regardless of source, with default error handling
+     */
+    const loadTexture = useCallback(async (imagePath: string): Promise<Texture> => {
         try {
-            // First try to get from atlas if atlas usage is enabled
-            if (atlasManager && effectsAtlas && useEffectsAtlas) {
-                const frameName = getFrameName(imagePath);
-
-                // Check if in atlas
-                if (atlasManager.hasFrame(frameName)) {
-                    const texture = atlasManager.getFrameTexture(frameName, effectsAtlas);
-
-                    if (texture) {
-                        return {
-                            texture,
-                            source: frameName,
-                            fromAtlas: true
-                        };
-                    }
-                }
-            }
-
-            // Fallback to individual loading
+            // First try loading from asset cache or directly
             let texture: Texture;
-
-            // Check if already in cache
             if (Assets.cache.has(imagePath)) {
                 texture = Assets.cache.get(imagePath);
             } else {
-                // Load the texture
+                // Try from atlas if enabled
+                if (atlasManager && effectsAtlas && useEffectsAtlas) {
+                    const frameName = imagePath.split('/').pop() || '';
+                    if (atlasManager.hasFrame(frameName)) {
+                        const atlasTexture = atlasManager.getFrameTexture(frameName, effectsAtlas);
+                        if (atlasTexture) {
+                            if (isDevelopment) {
+                                console.log(`Loaded texture from atlas: ${frameName}`);
+                            }
+                            return atlasTexture;
+                        }
+                    }
+                }
+
+                // Fallback to regular loading
                 texture = await Assets.load(imagePath);
             }
 
-            return {
-                texture,
-                source: imagePath,
-                fromAtlas: false
-            };
+            return texture;
         } catch (error) {
-            if (isDevelopment) {
-                console.error(`Failed to load texture: ${imagePath}`, error);
-            }
-            return null;
+            console.error(`Failed to load texture: ${imagePath}`, error);
+            throw error;
         }
     }, [atlasManager, effectsAtlas, useEffectsAtlas]);
 
-    // Centralized displacement setup method
+    /**
+     * Set up displacement effects with forced consistent sizing
+     */
     const setupDisplacementEffects = useCallback(async () => {
-        // Prevent multiple simultaneous initializations
+        // Prevent multiple initializations
         if (initializationStateRef.current.isInitializing ||
             initializationStateRef.current.isInitialized) {
-            return null;
+            return;
         }
 
-        // Validate app and stage
+        // Validate app
         if (!appRef.current || !appRef.current.stage) {
-            return null;
+            return;
         }
 
-        // Mark as initializing
         initializationStateRef.current.isInitializing = true;
 
         try {
             const app = appRef.current;
-
-            // Check and log atlas usage for displacement textures
-            const bgInAtlas = isTextureInAtlas(backgroundDisplacementSpriteLocation);
-            const cursorInAtlas = cursorImgEffect && isTextureInAtlas(cursorDisplacementSpriteLocation);
-            const useAtlas = atlasManager && effectsAtlas && useEffectsAtlas && (bgInAtlas || cursorInAtlas);
+            const stage = app.stage;
+            const canvasWidth = app.screen.width;
+            const canvasHeight = app.screen.height;
 
             if (isDevelopment) {
-                if (useAtlas) {
-                    if (bgInAtlas && (!cursorImgEffect || cursorInAtlas)) {
-                        console.log(`%c[KineticSlider] Using texture atlas: ${effectsAtlas} for displacement effects`,
-                            'background: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;');
-                    } else {
-                        console.log(`%c[KineticSlider] Using mixed sources for displacement effects (partially from atlas)`,
-                            'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
-                    }
-                } else {
-                    const reason = !atlasManager
-                        ? "AtlasManager not available"
-                        : !effectsAtlas
-                            ? "No effectsAtlas property specified"
-                            : !useEffectsAtlas
-                                ? "Atlas usage disabled by useEffectsAtlas=false"
-                                : "Displacement textures not found in atlas";
-                    console.log(`%c[KineticSlider] Using individual images for displacement effects (${reason})`,
-                        'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
-                }
+                console.log(`Setting up displacement effects for canvas: ${canvasWidth}x${canvasHeight}`);
+                console.log(`Atlas enabled: ${useEffectsAtlas ? 'Yes' : 'No'}`);
             }
 
-            // Load background displacement texture
-            const bgResult = await loadTextureFromAtlasOrIndividual(backgroundDisplacementSpriteLocation);
-
-            if (!bgResult) {
-                throw new Error("Failed to load background displacement texture");
+            // 1. Load background displacement texture
+            let bgTexture: Texture;
+            try {
+                bgTexture = await loadTexture(backgroundDisplacementSpriteLocation);
+            } catch (error) {
+                console.error('Failed to load background displacement texture', error);
+                initializationStateRef.current.isInitializing = false;
+                return;
             }
 
-            if (isDevelopment) {
-                console.log(`%c[KineticSlider] Loaded background displacement from ${bgResult.fromAtlas ? 'atlas' : 'file'}: ${bgResult.source}`,
-                    `color: ${bgResult.fromAtlas ? '#2196F3' : '#FF9800'}`);
-            }
+            // 2. Create background displacement sprite - FORCE SPECIFIC SIZE
+            const bgSprite = new Sprite(bgTexture);
 
-            // Store the background texture for future reference
-            textureRef.current.background = bgResult.texture;
+            // IMPORTANT: Set specific size to ensure consistent behavior
+            bgSprite.anchor.set(0.5);
+            bgSprite.position.set(canvasWidth / 2, canvasHeight / 2);
 
-            // Create background displacement sprite
-            const centerX = app.screen.width / 2;
-            const centerY = app.screen.height / 2;
+            // CRITICAL: Force sprite to cover the full canvas
+            const bgScaleX = canvasWidth / bgTexture.width;
+            const bgScaleY = canvasHeight / bgTexture.height;
+            bgSprite.scale.set(bgScaleX, bgScaleY);
 
-            const backgroundDisplacementSprite = new Sprite(bgResult.texture);
-            Object.assign(backgroundDisplacementSprite, {
-                anchor: { x: 0.5, y: 0.5 },
-                position: { x: centerX, y: centerY },
-                scale: { x: 2, y: 2 },
-                alpha: 0
-            });
+            // Sprite should not be rendered directly
+            bgSprite.renderable = false;
+            bgSprite.visible = true;
+            bgSprite.alpha = 0; // Start invisible
 
-            // Create background displacement filter
-            const backgroundDisplacementFilter = new DisplacementFilter(backgroundDisplacementSprite);
-            backgroundDisplacementFilter.scale.set(0);
+            // 3. Create background displacement filter
+            const bgFilter = new DisplacementFilter(bgSprite);
+            bgFilter.scale.set(0); // Start with zero effect
+            bgFilter.padding = 0;
 
-            // Track with ResourceManager
+            // 4. Store references to sprite and filter
+            backgroundDisplacementSpriteRef.current = bgSprite;
+            bgDispFilterRef.current = bgFilter;
+
+            // 5. Add to stage
+            stage.addChild(bgSprite);
+
+            // 6. Track resources
             if (resourceManager) {
-                resourceManager.trackDisplayObject(backgroundDisplacementSprite);
-                resourceManager.trackFilter(backgroundDisplacementFilter);
+                resourceManager.trackDisplayObject(bgSprite);
+                resourceManager.trackFilter(bgFilter);
             }
 
-            // Store references
-            backgroundDisplacementSpriteRef.current = backgroundDisplacementSprite;
-            bgDispFilterRef.current = backgroundDisplacementFilter;
-
-            // Add background sprite to stage
-            app.stage.addChild(backgroundDisplacementSprite);
-
-            // Create cursor displacement sprite if enabled
-            let cursorDisplacementSprite = null;
-            let cursorDisplacementFilter = null;
-
+            // Set up cursor displacement if enabled
             if (cursorImgEffect) {
-                // Load cursor displacement texture
-                const cursorResult = await loadTextureFromAtlasOrIndividual(cursorDisplacementSpriteLocation);
+                // 7. Load cursor displacement texture
+                let cursorTexture: Texture;
+                try {
+                    cursorTexture = await loadTexture(cursorDisplacementSpriteLocation);
+                } catch (error) {
+                    console.error('Failed to load cursor displacement texture', error);
+                    // Continue without cursor effect
+                    initializationStateRef.current = {
+                        isInitializing: false,
+                        isInitialized: true
+                    };
+                    return;
+                }
 
-                if (cursorResult) {
-                    if (isDevelopment) {
-                        console.log(`%c[KineticSlider] Loaded cursor displacement from ${cursorResult.fromAtlas ? 'atlas' : 'file'}: ${cursorResult.source}`,
-                            `color: ${cursorResult.fromAtlas ? '#2196F3' : '#FF9800'}`);
+                // 8. Create cursor displacement sprite
+                const cursorSprite = new Sprite(cursorTexture);
+                cursorSprite.anchor.set(0.5);
+                cursorSprite.position.set(canvasWidth / 2, canvasHeight / 2);
 
-                        // Log the natural dimensions of the texture
-                        console.log(`Cursor displacement texture dimensions: ${cursorResult.texture.width}x${cursorResult.texture.height}`);
-                    }
+                // 9. Set scale based on sizing mode
+                let cursorScaleX: number;
+                let cursorScaleY: number;
 
-                    // Store the cursor texture for future reference
-                    textureRef.current.cursor = cursorResult.texture;
+                if (cursorDisplacementSizing === 'fullscreen') {
+                    // Fill screen
+                    cursorScaleX = canvasWidth / cursorTexture.width;
+                    cursorScaleY = canvasHeight / cursorTexture.height;
+                } else if (cursorDisplacementSizing === 'custom' &&
+                    cursorDisplacementWidth &&
+                    cursorDisplacementHeight) {
+                    // Custom dimensions
+                    cursorScaleX = cursorDisplacementWidth / cursorTexture.width;
+                    cursorScaleY = cursorDisplacementHeight / cursorTexture.height;
+                } else {
+                    // Natural dimensions (just apply intensity)
+                    cursorScaleX = 1;
+                    cursorScaleY = 1;
+                }
 
-                    // Calculate dimensions based on the sizing mode
-                    const dimensions = calculateDisplacementDimensions(
-                        cursorResult.texture,
-                        cursorDisplacementSizing,
-                        cursorDisplacementWidth,
-                        cursorDisplacementHeight
-                    );
+                // Apply scale intensity
+                cursorSprite.scale.set(
+                    cursorScaleX * cursorScaleIntensity,
+                    cursorScaleY * cursorScaleIntensity
+                );
 
-                    if (isDevelopment) {
-                        console.log(`Applying cursor displacement dimensions: ${dimensions.width}x${dimensions.height} (mode: ${cursorDisplacementSizing})`);
-                    }
+                // 10. Set sprite properties
+                cursorSprite.renderable = false;
+                cursorSprite.visible = true;
+                cursorSprite.alpha = 0; // Start invisible
 
-                    // Create cursor displacement sprite
-                    cursorDisplacementSprite = new Sprite(cursorResult.texture);
+                // 11. Create cursor displacement filter
+                const cursorFilter = new DisplacementFilter(cursorSprite);
+                cursorFilter.scale.set(0); // Start with zero effect
+                cursorFilter.padding = 0;
 
-                    // Apply dimensions based on the sizing mode
-                    const scaleX = dimensions.width / cursorResult.texture.width;
-                    const scaleY = dimensions.height / cursorResult.texture.height;
+                // 12. Store references
+                cursorDisplacementSpriteRef.current = cursorSprite;
+                cursorDispFilterRef.current = cursorFilter;
 
-                    Object.assign(cursorDisplacementSprite, {
-                        anchor: { x: 0.5, y: 0.5 },
-                        position: { x: centerX, y: centerY },
-                        scale: {
-                            x: scaleX * (cursorScaleIntensity || 0.65),
-                            y: scaleY * (cursorScaleIntensity || 0.65)
-                        },
-                        alpha: 0
-                    });
+                // 13. Add to stage - IMPORTANT: Add at a higher index than background
+                stage.addChild(cursorSprite);
 
-                    // Create cursor displacement filter
-                    cursorDisplacementFilter = new DisplacementFilter(cursorDisplacementSprite);
-                    cursorDisplacementFilter.scale.set(0);
+                // 14. Track resources
+                if (resourceManager) {
+                    resourceManager.trackDisplayObject(cursorSprite);
+                    resourceManager.trackFilter(cursorFilter);
+                }
 
-                    // Track with ResourceManager
-                    if (resourceManager) {
-                        resourceManager.trackDisplayObject(cursorDisplacementSprite);
-                        resourceManager.trackFilter(cursorDisplacementFilter);
-                    }
-
-                    // Store references
-                    cursorDisplacementSpriteRef.current = cursorDisplacementSprite;
-                    cursorDispFilterRef.current = cursorDisplacementFilter;
-
-                    // Add cursor sprite to stage
-                    app.stage.addChild(cursorDisplacementSprite);
-                } else if (isDevelopment) {
-                    console.warn('[KineticSlider] Failed to load cursor displacement texture, cursor effect disabled');
+                if (isDevelopment) {
+                    console.log('Cursor displacement effect set up successfully');
                 }
             }
 
-            // Mark as fully initialized
+            // Mark as initialized
             initializationStateRef.current = {
                 isInitializing: false,
                 isInitialized: true
             };
 
-            return {
-                backgroundDisplacementSprite,
-                cursorDisplacementSprite,
-                backgroundDisplacementFilter,
-                cursorDisplacementFilter
-            };
+            if (isDevelopment) {
+                console.log('Displacement effects initialization complete');
+            }
         } catch (error) {
-            // Reset initialization state on failure
+            console.error('Error setting up displacement effects:', error);
             initializationStateRef.current = {
                 isInitializing: false,
                 isInitialized: false
             };
-
-            // Log error in development with more context
-            if (isDevelopment) {
-                console.error('Failed to setup displacement effects:', {
-                    error,
-                    backgroundDisplacementSpriteLocation,
-                    cursorDisplacementSpriteLocation,
-                    cursorImgEffect
-                });
-            }
-
-            return null;
         }
     }, [
+        appRef,
         backgroundDisplacementSpriteLocation,
         cursorDisplacementSpriteLocation,
         cursorImgEffect,
@@ -361,47 +247,198 @@ export const useDisplacementEffects = ({
         cursorDisplacementSizing,
         cursorDisplacementWidth,
         cursorDisplacementHeight,
-        resourceManager,
-        atlasManager,
-        effectsAtlas,
-        useEffectsAtlas,
-        bgDispFilterRef,
         backgroundDisplacementSpriteRef,
         cursorDisplacementSpriteRef,
+        bgDispFilterRef,
         cursorDispFilterRef,
-        appRef,
-        isTextureInAtlas,
-        loadTextureFromAtlasOrIndividual
+        loadTexture,
+        resourceManager
     ]);
 
-    // Handle window resize for fullscreen mode
-    useEffect(() => {
-        // Only add resize listener if we're using fullscreen mode
-        if (cursorDisplacementSizing !== 'fullscreen' || !cursorImgEffect) {
-            return;
+    /**
+     * Show displacement effects
+     */
+    const showDisplacementEffects = useCallback(() => {
+        if (!initializationStateRef.current.isInitialized) return [];
+
+        const animations = [];
+
+        // Background effect
+        const bgSprite = backgroundDisplacementSpriteRef.current;
+        const bgFilter = bgDispFilterRef.current;
+
+        if (bgSprite && bgFilter) {
+            // Ensure sprite is properly set up
+            bgSprite.visible = true;
+            bgSprite.renderable = false; // Important: keep this false
+
+            // Animate sprite alpha
+            const bgAlphaAnim = gsap.to(bgSprite, {
+                alpha: 1,
+                duration: 0.5
+            });
+
+            // Animate filter scale
+            const bgFilterAnim = gsap.to(bgFilter.scale, {
+                x: DEFAULT_BG_FILTER_SCALE,
+                y: DEFAULT_BG_FILTER_SCALE,
+                duration: 0.5
+            });
+
+            animations.push(bgAlphaAnim, bgFilterAnim);
         }
 
-        const handleResize = () => {
+        // Cursor effect if enabled
+        if (cursorImgEffect) {
             const cursorSprite = cursorDisplacementSpriteRef.current;
-            if (!cursorSprite || !textureRef.current.cursor) return;
+            const cursorFilter = cursorDispFilterRef.current;
 
-            // Recalculate dimensions
-            const dimensions = calculateDisplacementDimensions(
-                textureRef.current.cursor,
-                'fullscreen'
-            );
+            if (cursorSprite && cursorFilter) {
+                // Ensure sprite is properly set up
+                cursorSprite.visible = true;
+                cursorSprite.renderable = false; // Important: keep this false
 
-            // Apply new dimensions
-            const scaleX = dimensions.width / textureRef.current.cursor.width;
-            const scaleY = dimensions.height / textureRef.current.cursor.height;
+                // Animate sprite alpha
+                const cursorAlphaAnim = gsap.to(cursorSprite, {
+                    alpha: 1,
+                    duration: 0.5
+                });
 
-            cursorSprite.scale.set(
-                scaleX * (cursorScaleIntensity || 0.65),
-                scaleY * (cursorScaleIntensity || 0.65)
-            );
+                // Animate filter scale
+                const cursorFilterAnim = gsap.to(cursorFilter.scale, {
+                    x: DEFAULT_CURSOR_FILTER_SCALE,
+                    y: DEFAULT_CURSOR_FILTER_SCALE,
+                    duration: 0.5
+                });
 
-            if (isDevelopment) {
-                console.log(`Resized cursor displacement to: ${dimensions.width}x${dimensions.height}`);
+                animations.push(cursorAlphaAnim, cursorFilterAnim);
+            }
+        }
+
+        // Track animations
+        if (resourceManager && animations.length) {
+            resourceManager.trackAnimationBatch(animations);
+        }
+
+        return animations;
+    }, [
+        backgroundDisplacementSpriteRef,
+        bgDispFilterRef,
+        cursorDisplacementSpriteRef,
+        cursorDispFilterRef,
+        cursorImgEffect,
+        resourceManager
+    ]);
+
+    /**
+     * Hide displacement effects
+     */
+    const hideDisplacementEffects = useCallback(() => {
+        if (!initializationStateRef.current.isInitialized) return [];
+
+        const animations = [];
+
+        // Background effect
+        const bgSprite = backgroundDisplacementSpriteRef.current;
+        const bgFilter = bgDispFilterRef.current;
+
+        if (bgSprite && bgFilter) {
+            const bgAlphaAnim = gsap.to(bgSprite, {
+                alpha: 0,
+                duration: 0.5
+            });
+
+            const bgFilterAnim = gsap.to(bgFilter.scale, {
+                x: 0,
+                y: 0,
+                duration: 0.5
+            });
+
+            animations.push(bgAlphaAnim, bgFilterAnim);
+        }
+
+        // Cursor effect if enabled
+        if (cursorImgEffect) {
+            const cursorSprite = cursorDisplacementSpriteRef.current;
+            const cursorFilter = cursorDispFilterRef.current;
+
+            if (cursorSprite && cursorFilter) {
+                const cursorAlphaAnim = gsap.to(cursorSprite, {
+                    alpha: 0,
+                    duration: 0.5
+                });
+
+                const cursorFilterAnim = gsap.to(cursorFilter.scale, {
+                    x: 0,
+                    y: 0,
+                    duration: 0.5
+                });
+
+                animations.push(cursorAlphaAnim, cursorFilterAnim);
+            }
+        }
+
+        // Track animations
+        if (resourceManager && animations.length) {
+            resourceManager.trackAnimationBatch(animations);
+        }
+
+        return animations;
+    }, [
+        backgroundDisplacementSpriteRef,
+        bgDispFilterRef,
+        cursorDisplacementSpriteRef,
+        cursorDispFilterRef,
+        cursorImgEffect,
+        resourceManager
+    ]);
+
+    /**
+     * Initialize when ready
+     */
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        if (appRef.current?.stage) {
+            setupDisplacementEffects();
+        }
+
+        return () => {
+            initializationStateRef.current = {
+                isInitializing: false,
+                isInitialized: false
+            };
+        };
+    }, [appRef.current?.stage, setupDisplacementEffects]);
+
+    /**
+     * Handle window resize for fullscreen mode
+     */
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (cursorDisplacementSizing !== 'fullscreen' || !cursorImgEffect) return;
+
+        const handleResize = () => {
+            const app = appRef.current;
+            const cursorSprite = cursorDisplacementSpriteRef.current;
+
+            if (!app || !cursorSprite) return;
+
+            const canvasWidth = app.screen.width;
+            const canvasHeight = app.screen.height;
+
+            // Update cursor sprite position to new center
+            cursorSprite.position.set(canvasWidth / 2, canvasHeight / 2);
+
+            // Update scale to maintain fullscreen coverage
+            if (cursorSprite.texture) {
+                const scaleX = canvasWidth / cursorSprite.texture.width;
+                const scaleY = canvasHeight / cursorSprite.texture.height;
+
+                cursorSprite.scale.set(
+                    scaleX * cursorScaleIntensity,
+                    scaleY * cursorScaleIntensity
+                );
             }
         };
 
@@ -410,114 +447,13 @@ export const useDisplacementEffects = ({
         return () => {
             window.removeEventListener('resize', handleResize);
         };
-    }, [cursorDisplacementSizing, cursorImgEffect, cursorScaleIntensity]);
-
-    // Displacement effect methods
-    const showDisplacementEffects = useCallback(() => {
-        if (!initializationStateRef.current.isInitialized) return [];
-
-        const backgroundSprite = backgroundDisplacementSpriteRef.current;
-        const cursorSprite = cursorDisplacementSpriteRef.current;
-        const bgFilter = bgDispFilterRef.current;
-        const cursorFilter = cursorDispFilterRef.current;
-
-        // Define all animation targets and properties in a consistent structure
-        const animationTargets = [];
-
-        if (backgroundSprite && bgFilter) {
-            animationTargets.push(
-                { target: backgroundSprite, props: { alpha: 1, duration: 0.5 } },
-                { target: bgFilter.scale, props: { x: DEFAULT_BG_FILTER_SCALE, y: DEFAULT_BG_FILTER_SCALE, duration: 0.5 } }
-            );
-        }
-
-        if (cursorImgEffect && cursorSprite && cursorFilter) {
-            animationTargets.push(
-                { target: cursorSprite, props: { alpha: 1, duration: 0.5 } },
-                { target: cursorFilter.scale, props: { x: DEFAULT_CURSOR_FILTER_SCALE, y: DEFAULT_CURSOR_FILTER_SCALE, duration: 0.5 } }
-            );
-        }
-
-        // Create all animations at once
-        const animations = animationTargets.map(item => gsap.to(item.target, item.props));
-
-        // Track all animations in a batch if available
-        if (resourceManager && animations.length > 0) {
-            resourceManager.trackAnimationBatch(animations);
-        }
-
-        return animations;
     }, [
-        cursorImgEffect,
-        resourceManager,
-        backgroundDisplacementSpriteRef,
+        appRef,
         cursorDisplacementSpriteRef,
-        bgDispFilterRef,
-        cursorDispFilterRef
-    ]);
-
-    const hideDisplacementEffects = useCallback(() => {
-        if (!initializationStateRef.current.isInitialized) return [];
-
-        const backgroundSprite = backgroundDisplacementSpriteRef.current;
-        const cursorSprite = cursorDisplacementSpriteRef.current;
-        const bgFilter = bgDispFilterRef.current;
-        const cursorFilter = cursorDispFilterRef.current;
-
-        // Define all animation targets and properties in a consistent structure
-        const animationTargets = [];
-
-        if (backgroundSprite && bgFilter) {
-            animationTargets.push(
-                { target: backgroundSprite, props: { alpha: 0, duration: 0.5 } },
-                { target: bgFilter.scale, props: { x: 0, y: 0, duration: 0.5 } }
-            );
-        }
-
-        if (cursorImgEffect && cursorSprite && cursorFilter) {
-            animationTargets.push(
-                { target: cursorSprite, props: { alpha: 0, duration: 0.5 } },
-                { target: cursorFilter.scale, props: { x: 0, y: 0, duration: 0.5 } }
-            );
-        }
-
-        // Create all animations at once
-        const animations = animationTargets.map(item => gsap.to(item.target, item.props));
-
-        // Track all animations in a batch if available
-        if (resourceManager && animations.length > 0) {
-            resourceManager.trackAnimationBatch(animations);
-        }
-
-        return animations;
-    }, [
+        cursorDisplacementSizing,
         cursorImgEffect,
-        resourceManager,
-        backgroundDisplacementSpriteRef,
-        cursorDisplacementSpriteRef,
-        bgDispFilterRef,
-        cursorDispFilterRef
+        cursorScaleIntensity
     ]);
-
-    // Effect to trigger initialization when app is ready
-    useEffect(() => {
-        // Ensure we're in a browser environment
-        if (typeof window === 'undefined') return;
-
-        // Only attempt setup if the app and stage are ready
-        if (appRef.current?.stage) {
-            setupDisplacementEffects();
-        }
-
-        // No cleanup needed as ResourceManager will handle resource disposal
-        return () => {
-            // Reset initialization state
-            initializationStateRef.current = {
-                isInitializing: false,
-                isInitialized: false
-            };
-        };
-    }, [appRef.current?.stage, setupDisplacementEffects]);
 
     return {
         showDisplacementEffects,

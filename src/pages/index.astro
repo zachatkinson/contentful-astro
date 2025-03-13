@@ -1,11 +1,11 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { contentfulClient } from "../lib/contentful";
+import {contentfulClient} from "../lib/contentful";
 import type {BlogPost} from "../lib/blogPost";
 import Hero from '../components/Hero/Hero.astro';
 import AnimatedCallToAction from "../components/AnimatedCallToAction/AnimatedCallToAction.astro";
 import KineticSlider3 from "../components/KineticSlider3/KineticSlider";
-import { type TextPair }from "../components/KineticSlider3/filters";
+import {type TextPair} from "../components/KineticSlider3/filters";
 const images = [
     "/images/slides/1.jpg",
     "/images/slides/2.jpg",
@@ -14,7 +14,7 @@ const images = [
     "/images/slides/5.jpg",
 ];
 
-const texts:TextPair[] = [
+const texts: TextPair[] = [
     ["Earth", "Surface gravity‎: ‎9.807 m/s²"],
     ["Mars", "Surface gravity‎: ‎3.711 m/s²"],
     ["Venus", "Surface gravity‎: ‎8.87 m/s²"],
@@ -58,7 +58,7 @@ const posts = entries.items.map((entry) => {
 
 <Layout>
     <Hero slug="landing-page-hero" sfx="glitch" id="home-hero"/>
-    <AnimatedCallToAction />
+    <AnimatedCallToAction/>
 
 
     <KineticSlider3
@@ -71,32 +71,37 @@ const posts = entries.items.map((entry) => {
             cursorTextEffect={true}
             cursorScaleIntensity={0.65}
             cursorMomentum={0.14}
-            imageFilters={[
-                zoomBlurEffect
-            ]}
-            textFilters={[
-                outlineEffect
-            ]}
-            textTitleColor="white"
-            textTitleSize={64}
-            mobileTextTitleSize={40}
-            textTitleLetterspacing={2}
-            textTitleFontFamily="'Vamos', Georgia, serif"
-            textSubTitleColor="white"
-            textSubTitleSize={24}
-            mobileTextSubTitleSize={18}
-            textSubTitleLetterspacing={1}
-            textSubTitleOffsetTop={10}
-            mobileTextSubTitleOffsetTop={5}
-            textSubTitleFontFamily="'Helvetica Neue', Arial, sans-serif"
-            maxContainerShiftFraction={0.05}
-            swipeScaleIntensity={2}
-            transitionScaleIntensity={30}
-            externalNav={false}
-            buttonMode={false}
-            useEffectsAtlas={true}
-            useSlidesAtlas={true}
 
+
+    cursorDisplacementSizing="custom"
+    cursorDisplacementWidth={800}
+    cursorDisplacementHeight={600}
+
+    imageFilters={[
+    zoomBlurEffect
+]}
+    textFilters={[
+    outlineEffect
+]}
+    textTitleColor="white"
+    textTitleSize={64}
+    mobileTextTitleSize={40}
+    textTitleLetterspacing={2}
+    textTitleFontFamily="'Vamos', Georgia, serif"
+    textSubTitleColor="white"
+    textSubTitleSize={24}
+    mobileTextSubTitleSize={18}
+    textSubTitleLetterspacing={1}
+    textSubTitleOffsetTop={10}
+    mobileTextSubTitleOffsetTop={5}
+    textSubTitleFontFamily="'Helvetica Neue', Arial, sans-serif"
+    maxContainerShiftFraction={0.05}
+    swipeScaleIntensity={2}
+    transitionScaleIntensity={30}
+    externalNav={false}
+    buttonMode={false}
+    useEffectsAtlas={true}
+    useSlidesAtlas={true}
     />
     <div class="p-4 container mx-auto">
         <h2>Latest Posts</h2>
