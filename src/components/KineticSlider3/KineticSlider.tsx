@@ -204,7 +204,8 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         cursorScaleIntensity,
         resourceManager: resourceManagerRef.current,
         atlasManager: atlasManagerRef.current || undefined,
-        effectsAtlas
+        effectsAtlas,
+        useEffectsAtlas
     });
 
     // Use filters - call this before any references to its returned functions

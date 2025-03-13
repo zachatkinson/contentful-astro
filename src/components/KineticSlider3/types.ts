@@ -144,4 +144,5 @@ export interface UseDisplacementEffectsProps {
     resourceManager?: ResourceManager | null;
     atlasManager?: AtlasManager;
     effectsAtlas?: string;
+    useEffectsAtlas?: boolean;
 }

@@ -24,10 +24,12 @@ export const useDisplacementEffects = ({
                                            cursorScaleIntensity,
                                            resourceManager,
                                            atlasManager,
-                                           effectsAtlas
+                                           effectsAtlas,
+                                           useEffectsAtlas
                                        }: UseDisplacementEffectsProps & {
     atlasManager?: AtlasManager | null,
-    effectsAtlas?: string
+    effectsAtlas?: string,
+    useEffectsAtlas?: boolean
 }) => {
     // Track initialization state with more granular control
     const initializationStateRef = useRef({
@@ -42,13 +44,13 @@ export const useDisplacementEffects = ({
 
     // Check if a texture is available in the atlas
     const isTextureInAtlas = useCallback((imagePath: string): boolean => {
-        if (!atlasManager || !effectsAtlas || !imagePath) {
+        if (!atlasManager || !effectsAtlas || !imagePath || !useEffectsAtlas) {
             return false;
         }
 
         const frameName = getFrameName(imagePath);
         return !!atlasManager.hasFrame(frameName);
-    }, [atlasManager, effectsAtlas]);
+    }, [atlasManager, effectsAtlas, useEffectsAtlas]);
 
     // Load a texture from atlas or as individual image
     const loadTextureFromAtlasOrIndividual = useCallback(async (
@@ -59,8 +61,8 @@ export const useDisplacementEffects = ({
         }
 
         try {
-            // First try to get from atlas
-            if (atlasManager && effectsAtlas) {
+            // First try to get from atlas if atlas usage is enabled
+            if (atlasManager && effectsAtlas && useEffectsAtlas) {
                 const frameName = getFrameName(imagePath);
 
                 // Check if in atlas
@@ -99,7 +101,7 @@ export const useDisplacementEffects = ({
             }
             return null;
         }
-    }, [atlasManager, effectsAtlas]);
+    }, [atlasManager, effectsAtlas, useEffectsAtlas]);
 
     // Centralized displacement setup method
     const setupDisplacementEffects = useCallback(async () => {
@@ -123,20 +125,25 @@ export const useDisplacementEffects = ({
             // Check and log atlas usage for displacement textures
             const bgInAtlas = isTextureInAtlas(backgroundDisplacementSpriteLocation);
             const cursorInAtlas = cursorImgEffect && isTextureInAtlas(cursorDisplacementSpriteLocation);
+            const useAtlas = atlasManager && effectsAtlas && useEffectsAtlas && (bgInAtlas || cursorInAtlas);
 
             if (isDevelopment) {
-                if (bgInAtlas && (!cursorImgEffect || cursorInAtlas)) {
-                    console.log(`%c[KineticSlider] Using texture atlas: ${effectsAtlas} for displacement effects`,
-                        'background: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;');
-                } else if (bgInAtlas || cursorInAtlas) {
-                    console.log(`%c[KineticSlider] Using mixed sources for displacement effects (partially from atlas)`,
-                        'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
+                if (useAtlas) {
+                    if (bgInAtlas && (!cursorImgEffect || cursorInAtlas)) {
+                        console.log(`%c[KineticSlider] Using texture atlas: ${effectsAtlas} for displacement effects`,
+                            'background: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;');
+                    } else {
+                        console.log(`%c[KineticSlider] Using mixed sources for displacement effects (partially from atlas)`,
+                            'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
+                    }
                 } else {
                     const reason = !atlasManager
                         ? "AtlasManager not available"
                         : !effectsAtlas
                             ? "No effectsAtlas property specified"
-                            : "Displacement textures not found in atlas";
+                            : !useEffectsAtlas
+                                ? "Atlas usage disabled by useEffectsAtlas=false"
+                                : "Displacement textures not found in atlas";
                     console.log(`%c[KineticSlider] Using individual images for displacement effects (${reason})`,
                         'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
                 }
@@ -266,6 +273,7 @@ export const useDisplacementEffects = ({
         resourceManager,
         atlasManager,
         effectsAtlas,
+        useEffectsAtlas,
         bgDispFilterRef,
         backgroundDisplacementSpriteRef,
         cursorDisplacementSpriteRef,
