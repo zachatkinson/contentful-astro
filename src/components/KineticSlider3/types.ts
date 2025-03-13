@@ -15,7 +15,8 @@ export type NavElement = {
 
 /**
  * Text content pair for slides containing title and subtitle
- * @type {[string, string]} - Tuple of [title, subtitle]
+ * @typedef {[string, string]} TextPair
+ * @description A tuple representing [title, subtitle] text content for a slide
  */
 export type TextPair = [string, string];
 
@@ -35,6 +36,8 @@ export interface FilterConfig {
 
 /**
  * Options for cursor displacement sizing behavior
+ * @typedef {('natural'|'fullscreen'|'custom')} CursorDisplacementSizingMode
+ * @description
  * - 'natural': Uses the displacement image's natural dimensions
  * - 'fullscreen': Sizes the displacement effect to cover the entire viewport
  * - 'custom': Uses the provided width and height values
@@ -232,6 +235,7 @@ export interface LoadingIndicatorProps {
 
 /**
  * Result of the usePixiApp hook, containing initialization state and resources
+ * @interface UsePixiAppResult
  */
 export interface UsePixiAppResult {
     /** References to PIXI objects */
@@ -295,6 +299,20 @@ export interface UseDisplacementEffectsProps {
 
     /** Scale intensity of the cursor displacement effect */
     cursorScaleIntensity: number;
+
+    /**
+     * Controls how the cursor displacement texture is sized
+     * - 'natural': Uses the image's natural dimensions
+     * - 'fullscreen': Sizes to the viewport dimensions
+     * - 'custom': Uses custom width/height values
+     */
+    cursorDisplacementSizing?: CursorDisplacementSizingMode;
+
+    /** Custom width in pixels for the cursor displacement effect (used when sizing is 'custom') */
+    cursorDisplacementWidth?: number;
+
+    /** Custom height in pixels for the cursor displacement effect (used when sizing is 'custom') */
+    cursorDisplacementHeight?: number;
 
     /** Resource manager instance for tracking and disposing resources */
     resourceManager?: ResourceManager | null;
