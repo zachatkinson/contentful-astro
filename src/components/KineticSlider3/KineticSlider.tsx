@@ -22,7 +22,7 @@ import { loadKineticSliderDependencies } from './ImportHelpers';
 import { preloadKineticSliderAssets } from './utils/assetPreload';
 
 /**
- * KineticSlider component - Creates an interactive image slider with various effects
+ * Creates an interactive image slider with various displacement and transition effects
  */
 const KineticSlider3: React.FC<KineticSliderProps> = ({
                                                           // Content sources
@@ -36,6 +36,11 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                                                           cursorTextEffect = true,
                                                           cursorScaleIntensity = 0.65,
                                                           cursorMomentum = 0.14,
+
+                                                          // Cursor displacement sizing options
+                                                          cursorDisplacementSizing = 'natural',
+                                                          cursorDisplacementWidth,
+                                                          cursorDisplacementHeight,
 
                                                           // Text styling
                                                           textTitleColor = 'white',
@@ -160,6 +165,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         cursorTextEffect,
         cursorScaleIntensity,
         cursorMomentum,
+        cursorDisplacementSizing,
+        cursorDisplacementWidth,
+        cursorDisplacementHeight,
         textTitleColor,
         textTitleSize,
         mobileTextTitleSize,
@@ -202,6 +210,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         cursorDisplacementSpriteLocation,
         cursorImgEffect,
         cursorScaleIntensity,
+        cursorDisplacementSizing,
+        cursorDisplacementWidth,
+        cursorDisplacementHeight,
         resourceManager: resourceManagerRef.current,
         atlasManager: atlasManagerRef.current || undefined,
         effectsAtlas,
@@ -401,7 +412,10 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         resourceManager: resourceManagerRef.current
     });
 
-    // Navigation functions with effect reapplication
+    /**
+     * Handles transition to the next slide
+     * Updates state and reapplies effects after transition
+     */
     const handleNext = useCallback(() => {
         if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
         const nextIndex = (currentSlideIndex + 1) % slidesRef.current.length;
@@ -423,6 +437,10 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         }
     }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
 
+    /**
+     * Handles transition to the previous slide
+     * Updates state and reapplies effects after transition
+     */
     const handlePrev = useCallback(() => {
         if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
         const prevIndex = (currentSlideIndex - 1 + slidesRef.current.length) % slidesRef.current.length;
@@ -511,7 +529,10 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         cursorDisplacementSpriteRef
     });
 
-    // Memoize handlers to prevent unnecessary re-renders
+    /**
+     * Handles mouse enter events on the slider element
+     * Activates displacement effects and filter intensities
+     */
     const handleMouseEnter = useCallback(() => {
         if (!isAppReady) return;
         console.log("Mouse entered the slider - activating all effects");
@@ -533,7 +554,10 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     }, [isAppReady, showDisplacementEffects, updateFilterIntensities]);
 
 
-    // Mouse leave handler - FIXED to ensure all effects are removed
+    /**
+     * Handles mouse leave events on the slider element
+     * Deactivates all displacement effects and resets all filters
+     */
     const handleMouseLeave = useCallback(() => {
         if (!isAppReady) return;
         console.log("Mouse left the slider - deactivating ALL effects");

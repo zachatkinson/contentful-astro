@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Sprite, DisplacementFilter, Assets, Texture } from 'pixi.js';
 import { gsap } from 'gsap';
 import { AtlasManager } from '../managers/AtlasManager';
-import { type UseDisplacementEffectsProps } from '../types';
+import { type UseDisplacementEffectsProps, type CursorDisplacementSizingMode } from '../types';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
@@ -10,6 +10,57 @@ const isDevelopment = import.meta.env?.MODE === 'development';
 // Default filter scales
 const DEFAULT_BG_FILTER_SCALE = 20;
 const DEFAULT_CURSOR_FILTER_SCALE = 10;
+
+/**
+ * Calculate dimensions based on the chosen sizing mode
+ */
+const calculateDisplacementDimensions = (
+    texture: Texture | null,
+    sizingMode: CursorDisplacementSizingMode,
+    customWidth?: number,
+    customHeight?: number
+): { width: number; height: number } => {
+    // Default dimensions (fallback)
+    const defaultDimensions = { width: 512, height: 512 };
+
+    // If texture is null, return default dimensions
+    if (!texture) {
+        if (isDevelopment) {
+            console.warn('Displacement texture not available for dimension calculation, using defaults');
+        }
+        return defaultDimensions;
+    }
+
+    switch (sizingMode) {
+        case 'natural':
+            // Use the natural dimensions of the texture
+            return {
+                width: texture.width,
+                height: texture.height
+            };
+
+        case 'fullscreen':
+            // Use the window dimensions
+            return {
+                width: window.innerWidth,
+                height: window.innerHeight
+            };
+
+        case 'custom':
+            // Use the provided custom dimensions, or fallback to natural dimensions
+            return {
+                width: customWidth ?? texture.width,
+                height: customHeight ?? texture.height
+            };
+
+        default:
+            // Fallback to natural dimensions for any unhandled cases
+            return {
+                width: texture.width,
+                height: texture.height
+            };
+    }
+};
 
 export const useDisplacementEffects = ({
                                            sliderRef,
@@ -22,19 +73,27 @@ export const useDisplacementEffects = ({
                                            cursorDisplacementSpriteLocation,
                                            cursorImgEffect,
                                            cursorScaleIntensity,
+                                           cursorDisplacementSizing = 'natural',
+                                           cursorDisplacementWidth,
+                                           cursorDisplacementHeight,
                                            resourceManager,
                                            atlasManager,
                                            effectsAtlas,
                                            useEffectsAtlas
-                                       }: UseDisplacementEffectsProps & {
-    atlasManager?: AtlasManager | null,
-    effectsAtlas?: string,
-    useEffectsAtlas?: boolean
-}) => {
+                                       }: UseDisplacementEffectsProps) => {
     // Track initialization state with more granular control
     const initializationStateRef = useRef({
         isInitializing: false,
         isInitialized: false
+    });
+
+    // Store the original textures for dimension calculations
+    const textureRef = useRef<{
+        background: Texture | null;
+        cursor: Texture | null;
+    }>({
+        background: null,
+        cursor: null
     });
 
     // Efficiently extract filename from path for atlas frame lookup
@@ -161,6 +220,9 @@ export const useDisplacementEffects = ({
                     `color: ${bgResult.fromAtlas ? '#2196F3' : '#FF9800'}`);
             }
 
+            // Store the background texture for future reference
+            textureRef.current.background = bgResult.texture;
+
             // Create background displacement sprite
             const centerX = app.screen.width / 2;
             const centerY = app.screen.height / 2;
@@ -202,14 +264,40 @@ export const useDisplacementEffects = ({
                     if (isDevelopment) {
                         console.log(`%c[KineticSlider] Loaded cursor displacement from ${cursorResult.fromAtlas ? 'atlas' : 'file'}: ${cursorResult.source}`,
                             `color: ${cursorResult.fromAtlas ? '#2196F3' : '#FF9800'}`);
+
+                        // Log the natural dimensions of the texture
+                        console.log(`Cursor displacement texture dimensions: ${cursorResult.texture.width}x${cursorResult.texture.height}`);
+                    }
+
+                    // Store the cursor texture for future reference
+                    textureRef.current.cursor = cursorResult.texture;
+
+                    // Calculate dimensions based on the sizing mode
+                    const dimensions = calculateDisplacementDimensions(
+                        cursorResult.texture,
+                        cursorDisplacementSizing,
+                        cursorDisplacementWidth,
+                        cursorDisplacementHeight
+                    );
+
+                    if (isDevelopment) {
+                        console.log(`Applying cursor displacement dimensions: ${dimensions.width}x${dimensions.height} (mode: ${cursorDisplacementSizing})`);
                     }
 
                     // Create cursor displacement sprite
                     cursorDisplacementSprite = new Sprite(cursorResult.texture);
+
+                    // Apply dimensions based on the sizing mode
+                    const scaleX = dimensions.width / cursorResult.texture.width;
+                    const scaleY = dimensions.height / cursorResult.texture.height;
+
                     Object.assign(cursorDisplacementSprite, {
                         anchor: { x: 0.5, y: 0.5 },
                         position: { x: centerX, y: centerY },
-                        scale: { x: cursorScaleIntensity || 0.65, y: cursorScaleIntensity || 0.65 },
+                        scale: {
+                            x: scaleX * (cursorScaleIntensity || 0.65),
+                            y: scaleY * (cursorScaleIntensity || 0.65)
+                        },
                         alpha: 0
                     });
 
@@ -270,6 +358,9 @@ export const useDisplacementEffects = ({
         cursorDisplacementSpriteLocation,
         cursorImgEffect,
         cursorScaleIntensity,
+        cursorDisplacementSizing,
+        cursorDisplacementWidth,
+        cursorDisplacementHeight,
         resourceManager,
         atlasManager,
         effectsAtlas,
@@ -282,6 +373,44 @@ export const useDisplacementEffects = ({
         isTextureInAtlas,
         loadTextureFromAtlasOrIndividual
     ]);
+
+    // Handle window resize for fullscreen mode
+    useEffect(() => {
+        // Only add resize listener if we're using fullscreen mode
+        if (cursorDisplacementSizing !== 'fullscreen' || !cursorImgEffect) {
+            return;
+        }
+
+        const handleResize = () => {
+            const cursorSprite = cursorDisplacementSpriteRef.current;
+            if (!cursorSprite || !textureRef.current.cursor) return;
+
+            // Recalculate dimensions
+            const dimensions = calculateDisplacementDimensions(
+                textureRef.current.cursor,
+                'fullscreen'
+            );
+
+            // Apply new dimensions
+            const scaleX = dimensions.width / textureRef.current.cursor.width;
+            const scaleY = dimensions.height / textureRef.current.cursor.height;
+
+            cursorSprite.scale.set(
+                scaleX * (cursorScaleIntensity || 0.65),
+                scaleY * (cursorScaleIntensity || 0.65)
+            );
+
+            if (isDevelopment) {
+                console.log(`Resized cursor displacement to: ${dimensions.width}x${dimensions.height}`);
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [cursorDisplacementSizing, cursorImgEffect, cursorScaleIntensity]);
 
     // Displacement effect methods
     const showDisplacementEffects = useCallback(() => {
