@@ -7,46 +7,73 @@
  */
 
 /**
- * Frame throttling strategies that determine how updates are scheduled
+ * Frame throttling strategies that determine how updates are scheduled.
  * @enum {string}
  */
 export enum ThrottleStrategy {
-    /** Fixed frames per second - aims for consistent frame timing */
+    /**
+     * Fixed frames per second - aims for consistent frame timing
+     * by enforcing a fixed interval between frames.
+     */
     FIXED_FPS = 'fixed_fps',
 
-    /** Adaptive - adjusts timing based on device performance */
+    /**
+     * Adaptive - adjusts timing based on device performance
+     * by monitoring actual frame rates and adjusting accordingly.
+     */
     ADAPTIVE = 'adaptive',
 
-    /** Priority-based - only throttles lower priority updates */
+    /**
+     * Priority-based - only throttles lower priority updates
+     * while allowing high-priority updates to bypass throttling.
+     */
     PRIORITY = 'priority',
 
-    /** None - no throttling applied (use with caution) */
+    /**
+     * None - no throttling applied (use with caution)
+     * as it may lead to performance issues on low-end devices.
+     */
     NONE = 'none'
 }
 
 /**
- * Configuration options for the FrameThrottler
- * @interface
+ * Configuration options for the FrameThrottler.
+ * @interface ThrottlerConfig
  */
 export interface ThrottlerConfig {
-    /** Target frames per second (for FIXED_FPS strategy) */
+    /**
+     * Target frames per second (for FIXED_FPS strategy).
+     * Higher values provide smoother animation but require more processing power.
+     */
     targetFps?: number;
 
-    /** Minimum acceptable frames per second (for ADAPTIVE strategy) */
+    /**
+     * Minimum acceptable frames per second (for ADAPTIVE strategy).
+     * The throttler will attempt to maintain at least this frame rate.
+     */
     minFps?: number;
 
-    /** Maximum acceptable frames per second (for ADAPTIVE strategy) */
+    /**
+     * Maximum acceptable frames per second (for ADAPTIVE strategy).
+     * The throttler will cap the frame rate at this value to save resources.
+     */
     maxFps?: number;
 
-    /** Selected throttling strategy */
+    /**
+     * Selected throttling strategy to use.
+     * @see {ThrottleStrategy}
+     */
     strategy?: ThrottleStrategy;
 
-    /** Enable performance monitoring and auto-adjustment */
+    /**
+     * Enable performance monitoring and auto-adjustment.
+     * When enabled, the throttler will collect metrics and adjust settings dynamically.
+     */
     enableMonitoring?: boolean;
 }
 
 /**
- * Default configuration values
+ * Default configuration values for the throttler.
  * @type {ThrottlerConfig}
  */
 const DEFAULT_CONFIG: ThrottlerConfig = {
@@ -58,28 +85,41 @@ const DEFAULT_CONFIG: ThrottlerConfig = {
 };
 
 /**
- * Performance data for monitoring and auto-adjustment
- * @interface
+ * Performance data for monitoring and auto-adjustment.
+ * @interface PerformanceData
+ * @private
  */
 interface PerformanceData {
-    /** Array of recent frame durations */
+    /**
+     * Array of recent frame durations in milliseconds.
+     * Used to calculate average performance over time.
+     */
     frameTimes: number[];
 
-    /** Current average FPS */
+    /**
+     * Current average FPS calculated from recent frame times.
+     */
     currentFps: number;
 
-    /** Number of frames processed */
+    /**
+     * Number of frames processed since initialization.
+     */
     frameCount: number;
 
-    /** Timestamp of last performance adjustment */
+    /**
+     * Timestamp of last performance adjustment in milliseconds.
+     */
     lastAdjustment: number;
 
-    /** Current throttle interval in milliseconds */
+    /**
+     * Current throttle interval in milliseconds.
+     */
     currentInterval: number;
 }
 
 /**
- * Manages frame timing and throttling for optimal performance
+ * Manages frame timing and throttling for optimal performance.
+ * This class helps reduce GPU load by controlling when frames are processed.
  */
 export class FrameThrottler {
     /** Active configuration */
@@ -92,9 +132,22 @@ export class FrameThrottler {
     private lastFrameTime: number = 0;
 
     /**
-     * Create a new FrameThrottler with the specified configuration
+     * Create a new FrameThrottler with the specified configuration.
      *
-     * @param {ThrottlerConfig} [config] - Configuration options
+     * @param {ThrottlerConfig} [config] - Configuration options for the throttler
+     *
+     * @example
+     * // Create a throttler with default settings (60fps, FIXED_FPS strategy)
+     * const throttler = new FrameThrottler();
+     *
+     * @example
+     * // Create a throttler with custom settings
+     * const throttler = new FrameThrottler({
+     *   targetFps: 30,
+     *   strategy: ThrottleStrategy.ADAPTIVE,
+     *   minFps: 15,
+     *   maxFps: 60
+     * });
      */
     constructor(config?: Partial<ThrottlerConfig>) {
         this.config = { ...DEFAULT_CONFIG, ...config };
@@ -112,10 +165,10 @@ export class FrameThrottler {
     }
 
     /**
-     * Calculate the frame interval in milliseconds from FPS
+     * Calculate the frame interval in milliseconds from FPS.
      *
      * @param {number} fps - Frames per second
-     * @returns {number} Interval in milliseconds
+     * @returns {number} Interval in milliseconds between frames
      * @private
      */
     private calculateInterval(fps: number): number {
@@ -123,10 +176,26 @@ export class FrameThrottler {
     }
 
     /**
-     * Check if enough time has passed to process the next frame
+     * Check if enough time has passed to process the next frame.
      *
-     * @param {number} [priority] - Optional priority level to consider
-     * @returns {boolean} True if should process, false if should skip
+     * @param {number} [priority] - Optional priority level to consider (higher values bypass more throttling)
+     * @returns {boolean} True if the frame should be processed, false if it should be skipped
+     *
+     * @example
+     * // Basic usage in animation loop
+     * if (throttler.shouldProcessFrame()) {
+     *   // Process frame
+     *   render();
+     *   throttler.frameProcessed();
+     * }
+     *
+     * @example
+     * // Usage with priority (3 is highest priority)
+     * if (throttler.shouldProcessFrame(2)) {
+     *   // Process high-priority frame
+     *   renderImportantElements();
+     *   throttler.frameProcessed();
+     * }
      */
     public shouldProcessFrame(priority?: number): boolean {
         const now = performance.now();
@@ -158,7 +227,15 @@ export class FrameThrottler {
     }
 
     /**
-     * Mark the current frame as processed and update timing
+     * Mark the current frame as processed and update timing metrics.
+     * Should be called after processing a frame that passed the shouldProcessFrame check.
+     *
+     * @example
+     * if (throttler.shouldProcessFrame()) {
+     *   // Process frame
+     *   render();
+     *   throttler.frameProcessed();
+     * }
      */
     public frameProcessed(): void {
         const now = performance.now();
@@ -172,9 +249,9 @@ export class FrameThrottler {
     }
 
     /**
-     * Update performance metrics with the latest frame duration
+     * Update performance metrics with the latest frame duration.
      *
-     * @param {number} frameDuration - Duration of the last frame in ms
+     * @param {number} frameDuration - Duration of the last frame in milliseconds
      * @private
      */
     private updatePerformanceMetrics(frameDuration: number): void {
@@ -194,9 +271,10 @@ export class FrameThrottler {
     }
 
     /**
-     * Update adaptive performance settings based on recent metrics
+     * Update adaptive performance settings based on recent metrics.
+     * This method adjusts the frame rate based on the device's capabilities.
      *
-     * @param {number} now - Current timestamp
+     * @param {number} now - Current timestamp in milliseconds
      * @private
      */
     private updateAdaptivePerformance(now: number): void {
@@ -229,18 +307,32 @@ export class FrameThrottler {
     }
 
     /**
-     * Set a specific throttling strategy
+     * Set a specific throttling strategy.
      *
      * @param {ThrottleStrategy} strategy - The throttling strategy to use
+     *
+     * @example
+     * // Switch to adaptive strategy based on device capability
+     * if (isLowEndDevice) {
+     *   throttler.setStrategy(ThrottleStrategy.ADAPTIVE);
+     * }
      */
     public setStrategy(strategy: ThrottleStrategy): void {
         this.config.strategy = strategy;
     }
 
     /**
-     * Set a specific target FPS
+     * Set a specific target FPS.
      *
-     * @param {number} fps - Target frames per second
+     * @param {number} fps - Target frames per second (must be > 0)
+     *
+     * @example
+     * // Reduce target FPS to save battery
+     * if (isBatteryLow) {
+     *   throttler.setTargetFps(30);
+     * } else {
+     *   throttler.setTargetFps(60);
+     * }
      */
     public setTargetFps(fps: number): void {
         this.config.targetFps = Math.max(1, fps);
@@ -252,9 +344,14 @@ export class FrameThrottler {
     }
 
     /**
-     * Get current performance metrics
+     * Get current performance metrics for monitoring and debugging.
      *
-     * @returns {Object} Performance information
+     * @returns {Object} Performance information including current FPS, interval, frame count, and strategy
+     *
+     * @example
+     * // Log performance metrics
+     * console.log(throttler.getPerformanceMetrics());
+     * // Example output: { currentFps: 58.2, targetInterval: 16.67, frameCount: 1242, strategy: 'fixed_fps' }
      */
     public getPerformanceMetrics(): {
         currentFps: number;

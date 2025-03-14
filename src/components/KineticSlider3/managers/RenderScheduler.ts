@@ -42,6 +42,22 @@ export interface UpdateTask {
  * Coordinates and batches render updates for KineticSlider.
  * This helps reduce unnecessary render cycles by grouping related updates
  * and executing them at the optimal time.
+ *
+ * @example
+ * ```typescript
+ * // Get the scheduler instance
+ * const scheduler = RenderScheduler.getInstance();
+ *
+ * // Schedule a normal priority update
+ * scheduler.scheduleUpdate('my-component-update', () => {
+ *   // Update logic here
+ * });
+ *
+ * // Schedule a high priority update with a specific update type
+ * scheduler.scheduleTypedUpdate('my-component', UpdateType.MOUSE_RESPONSE, () => {
+ *   // Mouse response update logic
+ * });
+ * ```
  */
 export class RenderScheduler {
     /** Singleton instance of the scheduler */
@@ -99,6 +115,13 @@ export class RenderScheduler {
      * @param {() => void} callback - Function to execute
      * @param {UpdatePriority} [priority=UpdatePriority.NORMAL] - Priority level
      * @returns {RenderScheduler} The scheduler instance for chaining
+     *
+     * @example
+     * ```typescript
+     * scheduler.scheduleUpdate('update-text', () => {
+     *   element.textContent = 'Updated text';
+     * }, UpdatePriority.NORMAL);
+     * ```
      */
     public scheduleUpdate(
         id: string,
@@ -127,6 +150,15 @@ export class RenderScheduler {
      * @param {() => void} callback - Function to execute
      * @param {string} [suffix] - Optional suffix for the update ID
      * @returns {RenderScheduler} The scheduler instance for chaining
+     *
+     * @example
+     * ```typescript
+     * scheduler.scheduleTypedUpdate(
+     *   'slider',
+     *   UpdateType.SLIDE_TRANSFORM,
+     *   () => updateSlidePosition()
+     * );
+     * ```
      */
     public scheduleTypedUpdate(
         componentId: string,
@@ -145,6 +177,12 @@ export class RenderScheduler {
      *
      * @param {string} id - ID of the task to cancel
      * @returns {boolean} True if a task was found and removed
+     *
+     * @example
+     * ```typescript
+     * const wasRemoved = scheduler.cancelUpdate('update-text');
+     * console.log(`Update was ${wasRemoved ? 'successfully' : 'not'} canceled`);
+     * ```
      */
     public cancelUpdate(id: string): boolean {
         return this.updateQueue.delete(id);
@@ -157,6 +195,11 @@ export class RenderScheduler {
      * @param {UpdateType} updateType - Type of update to cancel
      * @param {string} [suffix] - Optional suffix from the update ID
      * @returns {boolean} True if a task was found and removed
+     *
+     * @example
+     * ```typescript
+     * scheduler.cancelTypedUpdate('slider', UpdateType.SLIDE_TRANSFORM);
+     * ```
      */
     public cancelTypedUpdate(
         componentId: string,
@@ -172,6 +215,14 @@ export class RenderScheduler {
      * Bypasses the queue but still respects frame throttling.
      *
      * @param {() => void} callback - Function to execute immediately
+     *
+     * @example
+     * ```typescript
+     * scheduler.executeImmediate(() => {
+     *   // Handle urgent user input
+     *   processCriticalUserAction();
+     * });
+     * ```
      */
     public executeImmediate(callback: () => void): void {
         // For truly immediate execution, add to queue with CRITICAL priority
@@ -265,6 +316,12 @@ export class RenderScheduler {
      * Set the frame throttle rate.
      *
      * @param {number} milliseconds - Minimum time between frames
+     *
+     * @example
+     * ```typescript
+     * // Set to 30fps (33.33ms between frames)
+     * scheduler.setFrameThrottle(33.33);
+     * ```
      */
     public setFrameThrottle(milliseconds: number): void {
         this.frameThrottle = Math.max(0, milliseconds);
@@ -274,6 +331,12 @@ export class RenderScheduler {
      * Get current queue size for debugging.
      *
      * @returns {number} Number of tasks currently in the queue
+     *
+     * @example
+     * ```typescript
+     * const queueSize = scheduler.getQueueSize();
+     * console.log(`Current queue size: ${queueSize}`);
+     * ```
      */
     public getQueueSize(): number {
         return this.updateQueue.size;
@@ -281,6 +344,12 @@ export class RenderScheduler {
 
     /**
      * Clear all pending updates.
+     *
+     * @example
+     * ```typescript
+     * // Cancel all pending updates (e.g., when component unmounts)
+     * scheduler.clearQueue();
+     * ```
      */
     public clearQueue(): void {
         this.updateQueue.clear();
@@ -290,6 +359,14 @@ export class RenderScheduler {
      * Configure frame throttling behavior.
      *
      * @param {ThrottlerConfig} config - Throttling configuration options
+     *
+     * @example
+     * ```typescript
+     * scheduler.configureThrottling({
+     *   targetFps: 30,
+     *   strategy: ThrottleStrategy.ADAPTIVE
+     * });
+     * ```
      */
     public configureThrottling(config: Partial<ThrottlerConfig>): void {
         if (config.strategy !== undefined) {
@@ -304,7 +381,13 @@ export class RenderScheduler {
     /**
      * Get current performance metrics.
      *
-     * @returns {Object} Performance metrics
+     * @returns {Object} Performance metrics including queue size and frame rate
+     *
+     * @example
+     * ```typescript
+     * const metrics = scheduler.getPerformanceMetrics();
+     * console.log(`Current FPS: ${metrics.currentFps}`);
+     * ```
      */
     public getPerformanceMetrics(): object {
         return {
