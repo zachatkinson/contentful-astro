@@ -40,37 +40,123 @@ export const useDisplacementEffects = ({
     });
 
     /**
-     * Load a texture regardless of source, with default error handling
+     * Validate dimensions and provide fallbacks
+     */
+    const validateDimensions = useCallback((
+        width: number | undefined,
+        height: number | undefined,
+        textureWidth: number,
+        textureHeight: number
+    ): { width: number, height: number, isValid: boolean } => {
+        let result = {
+            width: width || textureWidth,
+            height: height || textureHeight,
+            isValid: true
+        };
+
+        // Check for negative or zero values
+        if ((width !== undefined && width <= 0) || (height !== undefined && height <= 0)) {
+            if (isDevelopment) {
+                console.warn(`Invalid dimensions detected: width=${width}, height=${height}. Using texture dimensions instead.`);
+            }
+            result = { width: textureWidth, height: textureHeight, isValid: false };
+        }
+
+        // Check for unusually large values (more than 10x the canvas)
+        const app = appRef.current;
+        if (app && (
+            (width && width > app.screen.width * 10) ||
+            (height && height > app.screen.height * 10)
+        )) {
+            if (isDevelopment) {
+                console.warn(`Unusually large dimensions detected: width=${width}, height=${height}. This may cause performance issues.`);
+            }
+            // Still valid but warned
+        }
+
+        return result;
+    }, [appRef]);
+
+    /**
+     * Load a texture regardless of source, with enhanced error handling and fallbacks
      */
     const loadTexture = useCallback(async (imagePath: string): Promise<Texture> => {
+        if (!imagePath || typeof imagePath !== 'string' || imagePath.trim() === '') {
+            if (isDevelopment) {
+                console.error('Invalid image path provided', { imagePath });
+            }
+            throw new Error('Invalid image path');
+        }
+
         try {
             // First try loading from asset cache or directly
-            let texture: Texture;
+            let texture: Texture | null = null;
+            let loadingMethod = '';
+
+            // Try from cache first
             if (Assets.cache.has(imagePath)) {
                 texture = Assets.cache.get(imagePath);
-            } else {
-                // Try from atlas if enabled
-                if (atlasManager && effectsAtlas && useEffectsAtlas) {
-                    const frameName = imagePath.split('/').pop() || '';
-                    if (atlasManager.hasFrame(frameName)) {
-                        const atlasTexture = atlasManager.getFrameTexture(frameName, effectsAtlas);
-                        if (atlasTexture) {
-                            if (isDevelopment) {
-                                console.log(`Loaded texture from atlas: ${frameName}`);
-                            }
-                            return atlasTexture;
-                        }
+                loadingMethod = 'cache';
+            }
+            // Then try from atlas if enabled
+            else if (atlasManager && effectsAtlas && useEffectsAtlas) {
+                const frameName = imagePath.split('/').pop() || '';
+                if (atlasManager.hasFrame(frameName)) {
+                    const atlasTexture = atlasManager.getFrameTexture(frameName, effectsAtlas);
+                    if (atlasTexture) {
+                        texture = atlasTexture;
+                        loadingMethod = 'atlas';
                     }
                 }
+            }
 
-                // Fallback to regular loading
-                texture = await Assets.load(imagePath);
+            // Fallback to direct loading if not found
+            if (!texture) {
+                try {
+                    texture = await Assets.load(imagePath);
+                    loadingMethod = 'direct-load';
+                } catch (loadError) {
+                    if (isDevelopment) {
+                        console.error(`Failed to load texture directly: ${imagePath}`, loadError);
+                    }
+
+                    // Try one last fallback with a stripped path
+                    const fallbackPath = imagePath.split('/').pop();
+                    if (fallbackPath && fallbackPath !== imagePath) {
+                        try {
+                            texture = await Assets.load(fallbackPath);
+                            loadingMethod = 'fallback-path';
+                        } catch (fallbackError) {
+                            // Give up and rethrow
+                            throw loadError;
+                        }
+                    } else {
+                        throw loadError;
+                    }
+                }
+            }
+
+            if (!texture) {
+                throw new Error(`Failed to load texture: ${imagePath}`);
+            }
+
+            if (isDevelopment) {
+                console.log(`Loaded texture from ${loadingMethod}: ${imagePath} (${texture.width}x${texture.height})`);
             }
 
             return texture;
         } catch (error) {
-            console.error(`Failed to load texture: ${imagePath}`, error);
-            throw error;
+            // Enhanced error with more context
+            const enhancedError = new Error(`Failed to load texture: ${imagePath}. ${error}`);
+            if (isDevelopment) {
+                console.error('Texture loading failed with detailed error:', enhancedError);
+                console.error('Atlas status:', {
+                    atlasManagerAvailable: !!atlasManager,
+                    effectsAtlasName: effectsAtlas,
+                    useEffectsAtlasEnabled: useEffectsAtlas
+                });
+            }
+            throw enhancedError;
         }
     }, [atlasManager, effectsAtlas, useEffectsAtlas]);
 
@@ -176,16 +262,65 @@ export const useDisplacementEffects = ({
                     // Fill screen
                     cursorScaleX = canvasWidth / cursorTexture.width;
                     cursorScaleY = canvasHeight / cursorTexture.height;
-                } else if (cursorDisplacementSizing === 'custom' &&
-                    cursorDisplacementWidth &&
-                    cursorDisplacementHeight) {
-                    // Custom dimensions
-                    cursorScaleX = cursorDisplacementWidth / cursorTexture.width;
-                    cursorScaleY = cursorDisplacementHeight / cursorTexture.height;
+
+                    if (isDevelopment) {
+                        console.log(`Using fullscreen mode (${canvasWidth}x${canvasHeight})`);
+                    }
+                } else if (cursorDisplacementSizing === 'custom') {
+                    // Validate custom dimensions
+                    const validatedDimensions = validateDimensions(
+                        cursorDisplacementWidth,
+                        cursorDisplacementHeight,
+                        cursorTexture.width,
+                        cursorTexture.height
+                    );
+
+                    if (!validatedDimensions.isValid && isDevelopment) {
+                        console.warn('Falling back to natural dimensions due to invalid custom dimensions');
+                    }
+
+                    // Handle custom dimensions with aspect ratio preservation
+                    if (validatedDimensions.width && !validatedDimensions.height) {
+                        // Height is calculated to maintain aspect ratio
+                        cursorScaleX = validatedDimensions.width / cursorTexture.width;
+                        cursorScaleY = cursorScaleX; // Preserve aspect ratio
+
+                        if (isDevelopment) {
+                            console.log(`Using custom width (${validatedDimensions.width}px) with preserved aspect ratio`);
+                        }
+                    } else if (!validatedDimensions.width && validatedDimensions.height) {
+                        // Width is calculated to maintain aspect ratio
+                        cursorScaleY = validatedDimensions.height / cursorTexture.height;
+                        cursorScaleX = cursorScaleY; // Preserve aspect ratio
+
+                        if (isDevelopment) {
+                            console.log(`Using custom height (${validatedDimensions.height}px) with preserved aspect ratio`);
+                        }
+                    } else if (validatedDimensions.width && validatedDimensions.height) {
+                        // Both dimensions specified
+                        cursorScaleX = validatedDimensions.width / cursorTexture.width;
+                        cursorScaleY = validatedDimensions.height / cursorTexture.height;
+
+                        if (isDevelopment) {
+                            console.log(`Using custom dimensions (${validatedDimensions.width}x${validatedDimensions.height})`);
+                        }
+                    } else {
+                        // Fallback to natural size (should not reach here with validation)
+                        cursorScaleX = 1;
+                        cursorScaleY = 1;
+
+                        if (isDevelopment) {
+                            console.log('Falling back to natural dimensions');
+                        }
+                    }
                 } else {
                     // Natural dimensions (just apply intensity)
                     cursorScaleX = 1;
                     cursorScaleY = 1;
+
+                    if (isDevelopment) {
+                        console.log(`Using natural dimensions (${cursorTexture.width}x${cursorTexture.height})`);
+                    }
                 }
 
                 // Apply scale intensity
@@ -219,6 +354,7 @@ export const useDisplacementEffects = ({
 
                 if (isDevelopment) {
                     console.log('Cursor displacement effect set up successfully');
+                    console.log(`Cursor displacement sprite scaled to: ${cursorSprite.scale.x}x${cursorSprite.scale.y}`);
                 }
             }
 
@@ -252,7 +388,72 @@ export const useDisplacementEffects = ({
         bgDispFilterRef,
         cursorDispFilterRef,
         loadTexture,
-        resourceManager
+        resourceManager,
+        validateDimensions
+    ]);
+
+    /**
+     * Handle window resize for fullscreen mode and maintain proper positioning
+     */
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        // Handle both background and cursor sprites on resize
+        const handleResize = () => {
+            const app = appRef.current;
+            if (!app) return;
+
+            const canvasWidth = app.screen.width;
+            const canvasHeight = app.screen.height;
+
+            // Update background sprite position and scale
+            const bgSprite = backgroundDisplacementSpriteRef.current;
+            if (bgSprite && bgSprite.texture) {
+                // Update position to new center
+                bgSprite.position.set(canvasWidth / 2, canvasHeight / 2);
+
+                // Always scale background to fill canvas
+                const bgScaleX = canvasWidth / bgSprite.texture.width;
+                const bgScaleY = canvasHeight / bgSprite.texture.height;
+                bgSprite.scale.set(bgScaleX, bgScaleY);
+            }
+
+            // Update cursor sprite if using fullscreen mode
+            if (cursorImgEffect && cursorDisplacementSizing === 'fullscreen') {
+                const cursorSprite = cursorDisplacementSpriteRef.current;
+                if (cursorSprite && cursorSprite.texture) {
+                    // Update position to new center
+                    cursorSprite.position.set(canvasWidth / 2, canvasHeight / 2);
+
+                    // Update scale to maintain fullscreen coverage
+                    const scaleX = canvasWidth / cursorSprite.texture.width;
+                    const scaleY = canvasHeight / cursorSprite.texture.height;
+
+                    cursorSprite.scale.set(
+                        scaleX * cursorScaleIntensity,
+                        scaleY * cursorScaleIntensity
+                    );
+
+                    if (isDevelopment) {
+                        console.log(`Resized cursor displacement to match canvas: ${canvasWidth}x${canvasHeight}`);
+                    }
+                }
+            }
+        };
+
+        // Always listen for resize to update background sprite
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [
+        appRef,
+        backgroundDisplacementSpriteRef,
+        cursorDisplacementSpriteRef,
+        cursorDisplacementSizing,
+        cursorImgEffect,
+        cursorScaleIntensity
     ]);
 
     /**
@@ -399,8 +600,25 @@ export const useDisplacementEffects = ({
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
+        // Check if app is ready
         if (appRef.current?.stage) {
-            setupDisplacementEffects();
+            try {
+                setupDisplacementEffects().catch(error => {
+                    // Handle initialization errors
+                    if (isDevelopment) {
+                        console.error('Failed to set up displacement effects:', error);
+                    }
+                    // Reset initialization state to allow retry
+                    initializationStateRef.current = {
+                        isInitializing: false,
+                        isInitialized: false
+                    };
+                });
+            } catch (error) {
+                if (isDevelopment) {
+                    console.error('Exception during displacement effects setup:', error);
+                }
+            }
         }
 
         return () => {
@@ -410,50 +628,6 @@ export const useDisplacementEffects = ({
             };
         };
     }, [appRef.current?.stage, setupDisplacementEffects]);
-
-    /**
-     * Handle window resize for fullscreen mode
-     */
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        if (cursorDisplacementSizing !== 'fullscreen' || !cursorImgEffect) return;
-
-        const handleResize = () => {
-            const app = appRef.current;
-            const cursorSprite = cursorDisplacementSpriteRef.current;
-
-            if (!app || !cursorSprite) return;
-
-            const canvasWidth = app.screen.width;
-            const canvasHeight = app.screen.height;
-
-            // Update cursor sprite position to new center
-            cursorSprite.position.set(canvasWidth / 2, canvasHeight / 2);
-
-            // Update scale to maintain fullscreen coverage
-            if (cursorSprite.texture) {
-                const scaleX = canvasWidth / cursorSprite.texture.width;
-                const scaleY = canvasHeight / cursorSprite.texture.height;
-
-                cursorSprite.scale.set(
-                    scaleX * cursorScaleIntensity,
-                    scaleY * cursorScaleIntensity
-                );
-            }
-        };
-
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, [
-        appRef,
-        cursorDisplacementSpriteRef,
-        cursorDisplacementSizing,
-        cursorImgEffect,
-        cursorScaleIntensity
-    ]);
 
     return {
         showDisplacementEffects,
