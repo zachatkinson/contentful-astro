@@ -2,6 +2,9 @@ import { useEffect, useRef, useCallback, type RefObject } from 'react';
 import { Sprite, DisplacementFilter } from 'pixi.js';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
+import {FrameThrottler, ThrottleStrategy} from "../managers/FrameThrottler.ts";
+import RenderScheduler, {UpdatePriority} from "../managers/RenderScheduler.ts";
+import {UpdateType} from "../managers/UpdateTypes.ts";
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
@@ -41,11 +44,28 @@ const useMouseTracking = ({
     // Track component mount state
     const isMountedRef = useRef(true);
 
-    // Track throttling state
-    const throttleStateRef = useRef({
-        lastThrottleTime: 0,
-        throttleDelay: 16 // ~60fps
+    // Reference to the frame throttler
+    const frameThrottlerRef = useRef<FrameThrottler | null>(null);
+
+    // Track movement state for optimization
+    const movementStateRef = useRef({
+        lastMouseX: 0,
+        lastMouseY: 0,
+        lastProcessedTime: 0
     });
+
+    // Initialize frame throttler
+    useEffect(() => {
+        frameThrottlerRef.current = new FrameThrottler({
+            targetFps: 60,
+            strategy: ThrottleStrategy.ADAPTIVE,
+            enableMonitoring: true
+        });
+
+        return () => {
+            frameThrottlerRef.current = null;
+        };
+    }, []);
 
     // Process batch animations through ResourceManager
     const processBatchAnimations = useCallback(() => {
@@ -106,10 +126,10 @@ const useMouseTracking = ({
             // Calculate center point and distance
             const centerX = rect.width / 2;
             const centerY = rect.height / 2;
-            const distanceFromCenter = Math.sqrt(
-                Math.pow(mouseX - centerX, 2) +
-                Math.pow(mouseY - centerY, 2)
-            );
+
+            // Calculate offsets from center
+            const offsetX = centerX - mouseX;
+            const offsetY = centerY - mouseY;
 
             // Calculate maximum possible distance
             const maxDistance = Math.sqrt(
@@ -118,7 +138,7 @@ const useMouseTracking = ({
             );
 
             // Normalize intensity (0-1 range)
-            return Math.min(1, distanceFromCenter / (maxDistance * 0.7));
+            return Math.min(1, Math.sqrt(offsetX * offsetX + offsetY * offsetY) / (maxDistance * 0.7));
         } catch (error) {
             if (isDevelopment) {
                 console.error('Error calculating displacement intensity:', error);
@@ -128,7 +148,7 @@ const useMouseTracking = ({
         }
     }, []);
 
-    // Create and track sprites and filter animations
+    // Apply displacement animation with integrated throttling and scheduling
     const animateDisplacement = useCallback((
         mouseX: number,
         mouseY: number,
@@ -137,7 +157,21 @@ const useMouseTracking = ({
         try {
             if (!isMountedRef.current) return;
 
-            // Get current refs
+            // Skip if the movement is too small (optimization)
+            const { lastMouseX, lastMouseY } = movementStateRef.current;
+            const movementDistance = Math.sqrt(
+                Math.pow(mouseX - lastMouseX, 2) +
+                Math.pow(mouseY - lastMouseY, 2)
+            );
+
+            // Skip tiny movements (less than 1px)
+            if (movementDistance < 1) return;
+
+            // Update last position
+            movementStateRef.current.lastMouseX = mouseX;
+            movementStateRef.current.lastMouseY = mouseY;
+
+            // Get references
             const backgroundSprite = backgroundDisplacementSpriteRef.current;
             const cursorSprite = cursorDisplacementSpriteRef.current;
             const bgFilter = backgroundDisplacementFilterRef?.current;
@@ -149,54 +183,70 @@ const useMouseTracking = ({
             // Collect new animations
             const newAnimations: gsap.core.Tween[] = [];
 
-            // Animate background displacement sprite
+            // Create scheduler
+            const componentId = 'mouse-tracker';
+            const scheduler = RenderScheduler.getInstance();
+
+            // Schedule background sprite animation
             if (backgroundSprite) {
-                const bgSpriteTween = gsap.to(backgroundSprite, {
-                    x: mouseX,
-                    y: mouseY,
-                    duration: cursorMomentum,
-                    ease: 'power2.out'
-                });
+                scheduler.scheduleTypedUpdate(
+                    componentId,
+                    UpdateType.MOUSE_RESPONSE,
+                    () => {
+                        const bgSpriteTween = gsap.to(backgroundSprite, {
+                            x: mouseX,
+                            y: mouseY,
+                            duration: cursorMomentum,
+                            ease: 'power2.out'
+                        });
 
-                newAnimations.push(bgSpriteTween);
+                        newAnimations.push(bgSpriteTween);
 
-                // Animate background filter scale if available
-                if (bgFilter) {
-                    const intensity = displacementIntensity * 30;
-                    const bgFilterTween = gsap.to(bgFilter.scale, {
-                        x: intensity,
-                        y: intensity,
-                        duration: cursorMomentum,
-                        ease: 'power2.out'
-                    });
+                        // Animate background filter scale if available
+                        if (bgFilter) {
+                            const intensity = displacementIntensity * 30;
+                            const bgFilterTween = gsap.to(bgFilter.scale, {
+                                x: intensity,
+                                y: intensity,
+                                duration: cursorMomentum,
+                                ease: 'power2.out'
+                            });
 
-                    newAnimations.push(bgFilterTween);
-                }
+                            newAnimations.push(bgFilterTween);
+                        }
+                    }
+                );
             }
 
-            // Animate cursor displacement sprite if effect is enabled
+            // Schedule cursor sprite animation if effect is enabled
             if (cursorImgEffect && cursorSprite) {
-                const cursorSpriteTween = gsap.to(cursorSprite, {
-                    x: mouseX,
-                    y: mouseY,
-                    duration: cursorMomentum,
-                    ease: 'power2.out'
-                });
+                scheduler.scheduleTypedUpdate(
+                    componentId,
+                    UpdateType.DISPLACEMENT_EFFECT,
+                    () => {
+                        const cursorSpriteTween = gsap.to(cursorSprite, {
+                            x: mouseX,
+                            y: mouseY,
+                            duration: cursorMomentum,
+                            ease: 'power2.out'
+                        });
 
-                newAnimations.push(cursorSpriteTween);
+                        newAnimations.push(cursorSpriteTween);
 
-                // Animate cursor filter scale if available
-                if (cursorFilter) {
-                    const intensity = displacementIntensity * 15;
-                    const cursorFilterTween = gsap.to(cursorFilter.scale, {
-                        x: intensity,
-                        y: intensity,
-                        duration: cursorMomentum,
-                        ease: 'power2.out'
-                    });
+                        // Animate cursor filter scale if available
+                        if (cursorFilter) {
+                            const intensity = displacementIntensity * 15;
+                            const cursorFilterTween = gsap.to(cursorFilter.scale, {
+                                x: intensity,
+                                y: intensity,
+                                duration: cursorMomentum,
+                                ease: 'power2.out'
+                            });
 
-                    newAnimations.push(cursorFilterTween);
-                }
+                            newAnimations.push(cursorFilterTween);
+                        }
+                    }
+                );
             }
 
             // Add new animations to active animations ref
@@ -220,19 +270,23 @@ const useMouseTracking = ({
         processBatchAnimations
     ]);
 
-    // The optimized mouse move handler with throttling
+    // The optimized mouse move handler with frame throttling
     const handleMouseMove = useCallback((event: Event) => {
         try {
             if (!isMountedRef.current) return;
 
             const e = event as MouseEvent;
 
-            // Apply throttling for optimal performance
-            const { lastThrottleTime, throttleDelay } = throttleStateRef.current;
-            const now = Date.now();
+            // Skip processing if frame throttler says we should
+            if (frameThrottlerRef.current &&
+                !frameThrottlerRef.current.shouldProcessFrame(UpdatePriority.HIGH)) {
+                return;
+            }
 
-            if (now - lastThrottleTime < throttleDelay) return;
-            throttleStateRef.current.lastThrottleTime = now;
+            // Mark frame as processed
+            if (frameThrottlerRef.current) {
+                frameThrottlerRef.current.frameProcessed();
+            }
 
             // Only proceed if we have a slider reference
             if (!sliderRef.current) return;

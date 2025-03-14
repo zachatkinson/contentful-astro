@@ -20,6 +20,8 @@ import { useTextTilt } from './hooks/';
 import { useResizeHandler } from './hooks/';
 import { loadKineticSliderDependencies } from './ImportHelpers';
 import { preloadKineticSliderAssets } from './utils/assetPreload';
+import {UpdateType} from "./managers/UpdateTypes.ts";
+import RenderScheduler from "./managers/RenderScheduler.ts";
 
 /**
  * Creates an interactive image slider with various displacement and transition effects
@@ -412,55 +414,91 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         resourceManager: resourceManagerRef.current
     });
 
+
+
     /**
      * Handles transition to the next slide
-     * Updates state and reapplies effects after transition
+     * Updates state and reapplies effects after transition in a batched manner
      */
     const handleNext = useCallback(() => {
         if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
-        const nextIndex = (currentSlideIndex + 1) % slidesRef.current.length;
 
-        // First transition the slide
-        transitionToSlide(nextIndex);
+        const nextIndex = (currentSlideIndex + 1) % slidesRef.current.length;
+        const componentId = 'slider-' + (sliderRef.current?.id || Math.random().toString(36).substring(2, 9));
+        const scheduler = RenderScheduler.getInstance();
+
+        // Schedule slide transition with critical priority
+        scheduler.scheduleTypedUpdate(
+            componentId,
+            UpdateType.SLIDE_TRANSITION,
+            () => {
+                // First transition the slide
+                transitionToSlide(nextIndex);
+
+                // If we're interacting, schedule effect reapplication
+                if (isInteracting) {
+                    // Use the scheduler instead of setTimeout
+                    scheduler.scheduleTypedUpdate(
+                        componentId,
+                        UpdateType.DISPLACEMENT_EFFECT,
+                        () => {
+                            // Ensure displacement effects are shown
+                            showDisplacementEffects();
+                            // Reapply filter effects to the new slide with force update
+                            updateFilterIntensities(true, true);
+                        },
+                        'post-transition'
+                    );
+                }
+            }
+        );
+
+        // Update state (this is batched by React)
         setCurrentSlideIndex(nextIndex);
 
-        // If the cursor is currently over the slider (we're interacting),
-        // reapply effects after a short delay to allow for transition
-        if (isInteracting) {
-            setTimeout(() => {
-                console.log("Reapplying effects after slide change (next)");
-                // Ensure displacement effects are shown
-                showDisplacementEffects();
-                // Reapply filter effects to the new slide with force update
-                updateFilterIntensities(true, true);
-            }, 100); // Short delay to allow transition to start
-        }
-    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
+    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities, sliderRef]);
 
     /**
      * Handles transition to the previous slide
-     * Updates state and reapplies effects after transition
+     * Updates state and reapplies effects after transition in a batched manner
      */
     const handlePrev = useCallback(() => {
         if (!appRef.current || !isAppReady || slidesRef.current.length === 0) return;
-        const prevIndex = (currentSlideIndex - 1 + slidesRef.current.length) % slidesRef.current.length;
 
-        // First transition the slide
-        transitionToSlide(prevIndex);
+        const prevIndex = (currentSlideIndex - 1 + slidesRef.current.length) % slidesRef.current.length;
+        const componentId = 'slider-' + (sliderRef.current?.id || Math.random().toString(36).substring(2, 9));
+        const scheduler = RenderScheduler.getInstance();
+
+        // Schedule slide transition with critical priority
+        scheduler.scheduleTypedUpdate(
+            componentId,
+            UpdateType.SLIDE_TRANSITION,
+            () => {
+                // First transition the slide
+                transitionToSlide(prevIndex);
+
+                // If we're interacting, schedule effect reapplication
+                if (isInteracting) {
+                    // Use the scheduler instead of setTimeout
+                    scheduler.scheduleTypedUpdate(
+                        componentId,
+                        UpdateType.DISPLACEMENT_EFFECT,
+                        () => {
+                            // Ensure displacement effects are shown
+                            showDisplacementEffects();
+                            // Reapply filter effects to the new slide with force update
+                            updateFilterIntensities(true, true);
+                        },
+                        'post-transition'
+                    );
+                }
+            }
+        );
+
+        // Update state (this is batched by React)
         setCurrentSlideIndex(prevIndex);
 
-        // If the cursor is currently over the slider (we're interacting),
-        // reapply effects after a short delay to allow for transition
-        if (isInteracting) {
-            setTimeout(() => {
-                console.log("Reapplying effects after slide change (prev)");
-                // Ensure displacement effects are shown
-                showDisplacementEffects();
-                // Reapply filter effects to the new slide with force update
-                updateFilterIntensities(true, true);
-            }, 100); // Short delay to allow transition to start
-        }
-    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities]);
+    }, [appRef, isAppReady, slidesRef, currentSlideIndex, transitionToSlide, isInteracting, showDisplacementEffects, updateFilterIntensities, sliderRef]);
 
     // Apply hooks only when appRef is available and ready - NOW updateFilterIntensities is defined before being referenced
     useEffect(() => {
@@ -531,57 +569,87 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
     /**
      * Handles mouse enter events on the slider element
-     * Activates displacement effects and filter intensities
+     * Activates displacement effects and filter intensities in a batched manner
      */
     const handleMouseEnter = useCallback(() => {
         if (!isAppReady) return;
-        console.log("Mouse entered the slider - activating all effects");
+
+        // Create a unique component ID for this slider instance
+        const componentId = 'slider-' + (sliderRef.current?.id || Math.random().toString(36).substring(2, 9));
+
+        // Get the render scheduler instance
+        const scheduler = RenderScheduler.getInstance();
 
         // Update cursor active state
         cursorActiveRef.current = true;
 
-        // Show displacement effects first
-        showDisplacementEffects();
+        // Schedule displacement effects (higher priority)
+        scheduler.scheduleTypedUpdate(
+            componentId,
+            UpdateType.DISPLACEMENT_EFFECT,
+            () => {
+                showDisplacementEffects();
+            }
+        );
 
-        // Force update all filter intensities for the active slide with a slight delay
-        // to ensure proper initialization and avoid filter stacking issues
-        setTimeout(() => {
-            console.log("Applying filters after slight delay to ensure proper initialization");
-            updateFilterIntensities(true, true); // Force update to ensure proper application
-        }, 50); // Short timeout to ensure displacement is applied first
+        // Schedule filter intensity updates (normal priority)
+        scheduler.scheduleTypedUpdate(
+            componentId,
+            UpdateType.FILTER_UPDATE,
+            () => {
+                updateFilterIntensities(true, true);
+            }
+        );
 
+        // Batch React state updates
         setIsInteracting(true);
-    }, [isAppReady, showDisplacementEffects, updateFilterIntensities]);
 
+    }, [isAppReady, showDisplacementEffects, updateFilterIntensities]);
 
     /**
      * Handles mouse leave events on the slider element
-     * Deactivates all displacement effects and resets all filters
+     * Deactivates all displacement effects and resets all filters in a batched manner
      */
     const handleMouseLeave = useCallback(() => {
         if (!isAppReady) return;
-        console.log("Mouse left the slider - deactivating ALL effects");
+
+        // Create a unique component ID for this slider instance
+        const componentId = 'slider-' + (sliderRef.current?.id || Math.random().toString(36).substring(2, 9));
+
+        // Get the render scheduler instance
+        const scheduler = RenderScheduler.getInstance();
+
+        // Update cursor active state immediately
         cursorActiveRef.current = false;
 
-        // Ensure displacement effects are hidden
-        hideDisplacementEffects();
+        // Schedule critical reset operations first
+        scheduler.scheduleTypedUpdate(
+            componentId,
+            UpdateType.INTERACTION_FEEDBACK, // Critical priority
+            () => {
+                // Ensure displacement effects are hidden
+                hideDisplacementEffects();
 
-        // Force immediate reset of all filters
-        if (resetAllFilters) {
-            resetAllFilters();
-        }
-
-        // Also ensure any transition or navigation effects are reset
-        setTimeout(() => {
-            // Double-check reset after a short delay to catch any lingering effects
-            if (resetAllFilters) {
-                resetAllFilters();
+                // Force immediate reset of all filters
+                if (resetAllFilters) {
+                    resetAllFilters();
+                }
             }
-            // Reset the filter intensities state
-            updateFilterIntensities(false);
-        }, 10);
+        );
 
+        // Schedule secondary filter updates with normal priority
+        scheduler.scheduleTypedUpdate(
+            componentId,
+            UpdateType.FILTER_UPDATE,
+            () => {
+                // Update filter intensities to inactive state
+                updateFilterIntensities(false);
+            }
+        );
+
+        // Batch React state updates
         setIsInteracting(false);
+
     }, [isAppReady, hideDisplacementEffects, resetAllFilters, updateFilterIntensities]);
 
     // Render component
