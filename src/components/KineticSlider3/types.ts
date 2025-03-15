@@ -1,0 +1,328 @@
+import { Application, Sprite, Container, DisplacementFilter, Filter } from 'pixi.js';
+import { AtlasManager } from "./managers/AtlasManager.ts";
+import type { RefObject } from "react";
+import ResourceManager from "./managers/ResourceManager.ts";
+
+/**
+ * Navigation element selectors for external controls
+ * @property {string} prev - CSS selector for the previous button
+ * @property {string} next - CSS selector for the next button
+ */
+export type NavElement = {
+    prev: string;
+    next: string;
+};
+
+/**
+ * Text content pair for slides containing title and subtitle
+ * @typedef {[string, string]} TextPair
+ * @description A tuple representing [title, subtitle] text content for a slide
+ */
+export type TextPair = [string, string];
+
+/**
+ * Configuration for filter settings
+ * @property {boolean} enabled - Whether the filter is active
+ * @property {number} intensity - Strength of the filter effect
+ * @property {string} type - Type of filter to apply
+ * @property {Record<string, any>} [options] - Additional filter-specific options
+ */
+export interface FilterConfig {
+    enabled: boolean;
+    intensity: number;
+    type: string;
+    options?: Record<string, any>;
+}
+
+/**
+ * Options for cursor displacement sizing behavior
+ * @typedef {('natural'|'fullscreen'|'custom')} CursorDisplacementSizingMode
+ * @description
+ * - 'natural': Uses the displacement image's natural dimensions
+ * - 'fullscreen': Sizes the displacement effect to cover the entire viewport
+ * - 'custom': Uses the provided width and height values
+ */
+export type CursorDisplacementSizingMode = 'natural' | 'fullscreen' | 'custom';
+
+/**
+ * Props for the KineticSlider component
+ */
+export interface KineticSliderProps {
+    /** Array of image paths to display as slides */
+    images: string[];
+
+    /** Array of text pairs [title, subtitle] to display on slides */
+    texts: TextPair[];
+
+    /** Path to the background displacement sprite image */
+    backgroundDisplacementSpriteLocation?: string;
+
+    /** Path to the cursor displacement sprite image */
+    cursorDisplacementSpriteLocation?: string;
+
+    /** Whether to enable the cursor image displacement effect */
+    cursorImgEffect?: boolean;
+
+    /** Whether to enable the cursor text displacement effect */
+    cursorTextEffect?: boolean;
+
+    /** Scale intensity of the cursor displacement effect (default: 0.65) */
+    cursorScaleIntensity?: number;
+
+    /** Momentum factor for cursor movement (default: 0.14) */
+    cursorMomentum?: number;
+
+    /**
+     * Controls how the cursor displacement texture is sized
+     * - 'natural': Uses the image's natural dimensions
+     * - 'fullscreen': Sizes to the viewport dimensions
+     * - 'custom': Uses custom width/height values
+     */
+    cursorDisplacementSizing?: CursorDisplacementSizingMode;
+
+    /** Custom width in pixels for the cursor displacement effect (used when sizing is 'custom') */
+    cursorDisplacementWidth?: number;
+
+    /** Custom height in pixels for the cursor displacement effect (used when sizing is 'custom') */
+    cursorDisplacementHeight?: number;
+
+    /** Filter configuration(s) to apply to slide images */
+    imageFilters?: FilterConfig | FilterConfig[];
+
+    /** Filter configuration(s) to apply to slide text */
+    textFilters?: FilterConfig | FilterConfig[];
+
+    /** Color of the title text */
+    textTitleColor?: string;
+
+    /** Font size of the title text in pixels */
+    textTitleSize?: number;
+
+    /** Font size of the title text on mobile devices */
+    mobileTextTitleSize?: number;
+
+    /** Letter spacing of the title text */
+    textTitleLetterspacing?: number;
+
+    /** Font family for the title text */
+    textTitleFontFamily?: string;
+
+    /** Color of the subtitle text */
+    textSubTitleColor?: string;
+
+    /** Font size of the subtitle text in pixels */
+    textSubTitleSize?: number;
+
+    /** Font size of the subtitle text on mobile devices */
+    mobileTextSubTitleSize?: number;
+
+    /** Letter spacing of the subtitle text */
+    textSubTitleLetterspacing?: number;
+
+    /** Vertical offset for the subtitle text in pixels */
+    textSubTitleOffsetTop?: number;
+
+    /** Vertical offset for the subtitle text on mobile devices */
+    mobileTextSubTitleOffsetTop?: number;
+
+    /** Font family for the subtitle text */
+    textSubTitleFontFamily?: string;
+
+    /** Maximum fraction of container size to shift when applying effects */
+    maxContainerShiftFraction?: number;
+
+    /** Intensity of the swipe effect when transitioning between slides */
+    swipeScaleIntensity?: number;
+
+    /** Intensity of the transition effect between slides */
+    transitionScaleIntensity?: number;
+
+    /** Whether to use external navigation controls */
+    externalNav?: boolean;
+
+    /** CSS selectors for external navigation elements */
+    navElement?: NavElement;
+
+    /** Whether to enable button mode for text containers */
+    buttonMode?: boolean;
+
+    /** Name of the atlas for slide images */
+    slidesAtlas?: string;
+
+    /** Name of the atlas for effect textures */
+    effectsAtlas?: string;
+
+    /** Whether to use atlas for slides instead of individual images */
+    useSlidesAtlas?: boolean;
+
+    /** Whether to use atlas for effects instead of individual images */
+    useEffectsAtlas?: boolean;
+}
+
+/**
+ * Enhanced Sprite with additional properties for animation and scaling
+ * @extends Sprite
+ */
+export interface EnhancedSprite extends Sprite {
+    /** Base scale value for the sprite, used for animations */
+    baseScale?: number;
+}
+
+/**
+ * References to core PIXI objects used across hooks
+ */
+export interface PixiRefs {
+    /** Reference to the main PIXI Application instance */
+    app: React.MutableRefObject<Application | null>;
+
+    /** Reference to the array of slide sprites */
+    slides: React.MutableRefObject<EnhancedSprite[]>;
+
+    /** Reference to the array of text containers */
+    textContainers: React.MutableRefObject<Container[]>;
+
+    /** Reference to the background displacement sprite */
+    backgroundDisplacementSprite: React.MutableRefObject<Sprite | null>;
+
+    /** Reference to the cursor displacement sprite */
+    cursorDisplacementSprite: React.MutableRefObject<Sprite | null>;
+
+    /** Reference to the background displacement filter */
+    bgDispFilter: React.MutableRefObject<DisplacementFilter | null>;
+
+    /** Reference to the cursor displacement filter */
+    cursorDispFilter: React.MutableRefObject<DisplacementFilter | null>;
+
+    /** Reference to the index of the current slide */
+    currentIndex: React.MutableRefObject<number>;
+}
+
+/**
+ * Result of applying a filter, containing the filter instance and control methods
+ */
+export interface FilterApplicationResult {
+    /** The PIXI filter instance */
+    filter: Filter;
+
+    /** Function to update the intensity of the filter */
+    updateIntensity: (intensity: number) => void;
+
+    /** Function to reset the filter to its default state */
+    reset: () => void;
+}
+
+/**
+ * Shared hook parameters containing refs and props for reuse across hooks
+ */
+export interface HookParams {
+    /** Reference to the slider DOM element */
+    sliderRef: React.RefObject<HTMLDivElement | null>;
+
+    /** Object containing references to PIXI objects */
+    pixi: PixiRefs;
+
+    /** Component props */
+    props: KineticSliderProps;
+}
+
+/**
+ * Props for the loading indicator component
+ */
+export interface LoadingIndicatorProps {
+    /** Optional message to display during loading */
+    message?: string;
+}
+
+/**
+ * Result of the usePixiApp hook, containing initialization state and resources
+ * @interface UsePixiAppResult
+ */
+export interface UsePixiAppResult {
+    /** References to PIXI objects */
+    pixiRefs: PixiRefs;
+
+    /** Atlas manager instance for texture management */
+    atlasManager: AtlasManager | null;
+
+    /** Whether the PIXI app is fully initialized */
+    isInitialized: boolean;
+
+    /** Whether the PIXI app is currently initializing */
+    isInitializing: boolean;
+
+    /** Loading progress information */
+    loadingProgress: {
+        /** Whether assets are currently loading */
+        isLoading: boolean;
+
+        /** Progress percentage (0-100) */
+        progress: number;
+
+        /** Number of assets that have been loaded */
+        assetsLoaded: number;
+
+        /** Total number of assets to load */
+        assetsTotal: number;
+    };
+}
+
+/**
+ * Props for the useDisplacementEffects hook
+ */
+export interface UseDisplacementEffectsProps {
+    /** Reference to the slider DOM element */
+    sliderRef: RefObject<HTMLDivElement | null>;
+
+    /** Reference to the background displacement filter */
+    bgDispFilterRef: RefObject<DisplacementFilter | null>;
+
+    /** Reference to the cursor displacement filter */
+    cursorDispFilterRef: RefObject<DisplacementFilter | null>;
+
+    /** Reference to the background displacement sprite */
+    backgroundDisplacementSpriteRef: RefObject<Sprite | null>;
+
+    /** Reference to the cursor displacement sprite */
+    cursorDisplacementSpriteRef: RefObject<Sprite | null>;
+
+    /** Reference to the PIXI application */
+    appRef: RefObject<Application | null>;
+
+    /** Path to the background displacement sprite image */
+    backgroundDisplacementSpriteLocation: string;
+
+    /** Path to the cursor displacement sprite image */
+    cursorDisplacementSpriteLocation: string;
+
+    /** Whether to enable the cursor image displacement effect */
+    cursorImgEffect: boolean;
+
+    /** Scale intensity of the cursor displacement effect */
+    cursorScaleIntensity: number;
+
+    /**
+     * Controls how the cursor displacement texture is sized
+     * - 'natural': Uses the image's natural dimensions
+     * - 'fullscreen': Sizes to the viewport dimensions
+     * - 'custom': Uses custom width/height values
+     */
+    cursorDisplacementSizing?: CursorDisplacementSizingMode;
+
+    /** Custom width in pixels for the cursor displacement effect (used when sizing is 'custom') */
+    cursorDisplacementWidth?: number;
+
+    /** Custom height in pixels for the cursor displacement effect (used when sizing is 'custom') */
+    cursorDisplacementHeight?: number;
+
+    /** Resource manager instance for tracking and disposing resources */
+    resourceManager?: ResourceManager | null;
+
+    /** Atlas manager instance for texture management */
+    atlasManager?: AtlasManager | null;
+
+    /** Name of the effects atlas */
+    effectsAtlas?: string;
+
+    /** Whether to use atlas for effects instead of individual images */
+    useEffectsAtlas?: boolean;
+}
