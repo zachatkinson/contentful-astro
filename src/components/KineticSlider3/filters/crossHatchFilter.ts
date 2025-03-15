@@ -1,5 +1,5 @@
 import { CrossHatchFilter } from 'pixi-filters';
-import { type CrossHatchFilterConfig, type FilterResult } from './types.ts';
+import { type CrossHatchFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a CrossHatch filter that applies a cross-hatch effect

@@ -1,5 +1,5 @@
 import { HslAdjustmentFilter } from 'pixi-filters';
-import { type HslAdjustmentFilterConfig, type FilterResult } from './types.ts';
+import { type HslAdjustmentFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates an HSL Adjustment filter for modifying hue, saturation, and lightness

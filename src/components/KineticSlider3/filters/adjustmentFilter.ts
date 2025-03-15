@@ -1,5 +1,5 @@
 import { AdjustmentFilter } from 'pixi-filters';
-import { type AdjustmentFilterConfig, type FilterResult } from './types.ts';
+import { type AdjustmentFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates an Adjustment filter that allows controlling gamma, contrast, saturation, brightness,

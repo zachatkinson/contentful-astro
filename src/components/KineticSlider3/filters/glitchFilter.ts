@@ -1,5 +1,5 @@
 import { GlitchFilter } from 'pixi-filters';
-import { type GlitchFilterConfig, type FilterResult } from './types.ts';
+import { type GlitchFilterConfig, type FilterResult } from './types';
 import { gsap } from 'gsap';
 
 /**

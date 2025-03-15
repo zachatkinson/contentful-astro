@@ -1,25 +1,25 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import styles from './KineticSlider.module.css';
-import { type KineticSliderProps } from './types.ts';
+import { type KineticSliderProps } from './types';
 import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
-import ResourceManager from './managers/ResourceManager.ts';
-import {AtlasManager} from './managers/AtlasManager.ts';
+import ResourceManager from './managers/ResourceManager';
+import {AtlasManager} from './managers/AtlasManager';
 
 // Import hooks directly
 import { useDisplacementEffects } from './hooks';
 import { useFilters } from './hooks';
 import { useSlides } from './hooks';
-import { useTextContainers } from './hooks';
-import { useMouseTracking } from './hooks';
-import { useIdleTimer } from './hooks';
-import { useNavigation } from './hooks';
-import { useExternalNav } from './hooks';
-import { useTouchSwipe } from './hooks';
-import { useMouseDrag } from './hooks';
-import { useTextTilt } from './hooks';
-import { useResizeHandler } from './hooks';
-import { loadKineticSliderDependencies } from './ImportHelpers.ts';
-import { preloadKineticSliderAssets } from './utils/assetPreload.ts';
+import { useTextContainers } from './hooks/';
+import { useMouseTracking } from './hooks/';
+import { useIdleTimer } from './hooks/';
+import { useNavigation } from './hooks/';
+import { useExternalNav } from './hooks/';
+import { useTouchSwipe } from './hooks/';
+import { useMouseDrag } from './hooks/';
+import { useTextTilt } from './hooks/';
+import { useResizeHandler } from './hooks/';
+import { loadKineticSliderDependencies } from './ImportHelpers';
+import { preloadKineticSliderAssets } from './utils/assetPreload';
 
 /**
  * Creates an interactive image slider with various displacement and transition effects

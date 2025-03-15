@@ -1,5 +1,5 @@
 import { NoiseFilter } from 'pixi.js';
-import { type NoiseFilterConfig, type FilterResult } from './types.ts';
+import { type NoiseFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a Noise filter that applies random noise to an image

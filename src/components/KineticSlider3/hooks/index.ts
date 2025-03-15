@@ -1,16 +1,16 @@
 // Core functionality hooks
-export { usePixiApp } from './usePixiApp.ts';
-export { useDisplacementEffects } from './useDisplacementEffects.ts';
-export { useFilters } from './useFilters.ts';
-export { useSlides } from './useSlides.ts';
+export { usePixiApp } from './usePixiApp';
+export { useDisplacementEffects } from './useDisplacementEffects';
+export { useFilters } from './useFilters';
+export { useSlides } from './useSlides';
 
 // Additional hooks
-export { default as useTextContainers } from './useTextContainers.ts';
-export { default as useMouseTracking } from './useMouseTracking.ts';
-export { default as useIdleTimer } from './useIdleTimer.ts';
-export { default as useNavigation } from './useNavigation.ts';
-export { default as useExternalNav } from './useExternalNav.ts';
-export { default as useTouchSwipe } from './useTouchSwipe.ts';
-export { default as useMouseDrag } from './useMouseDrag.ts';
-export { default as useTextTilt } from './useTextTilt.ts';
-export { default as useResizeHandler } from './useResizeHandler.ts';
+export { default as useTextContainers } from './useTextContainers';
+export { default as useMouseTracking } from './useMouseTracking';
+export { default as useIdleTimer } from './useIdleTimer';
+export { default as useNavigation } from './useNavigation';
+export { default as useExternalNav } from './useExternalNav';
+export { default as useTouchSwipe } from './useTouchSwipe';
+export { default as useMouseDrag } from './useMouseDrag';
+export { default as useTextTilt } from './useTextTilt';
+export { default as useResizeHandler } from './useResizeHandler';

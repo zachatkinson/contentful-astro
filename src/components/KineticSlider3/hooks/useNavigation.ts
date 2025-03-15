@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import ResourceManager from '../managers/ResourceManager.ts';
+import ResourceManager from '../managers/ResourceManager';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';

@@ -1,7 +1,7 @@
 // src/components/KineticSlider3/filters/embossFilter.ts
 
 import { EmbossFilter } from 'pixi-filters';
-import { type EmbossFilterConfig, type FilterResult } from './types.ts';
+import { type EmbossFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates an Emboss filter that applies an emboss/relief effect to an object

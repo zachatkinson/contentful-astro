@@ -1,5 +1,5 @@
 import { DotFilter } from 'pixi-filters';
-import { type DotFilterConfig, type FilterResult } from './types.ts';
+import { type DotFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a Dot filter that applies a dotscreen effect to an object

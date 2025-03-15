@@ -1,5 +1,5 @@
 import { AdvancedBloomFilter } from 'pixi-filters';
-import { type AdvancedBloomFilterConfig, type FilterResult } from './types.ts';
+import { type AdvancedBloomFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates an AdvancedBloomFilter that applies a bloom effect with advanced controls

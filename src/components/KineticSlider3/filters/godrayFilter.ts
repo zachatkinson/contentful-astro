@@ -1,5 +1,5 @@
 import { GodrayFilter } from 'pixi-filters';
-import { type GodrayFilterConfig, type FilterResult } from './types.ts';
+import { type GodrayFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a Godray filter that applies light ray effects

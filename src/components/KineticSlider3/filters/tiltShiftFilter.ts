@@ -1,5 +1,5 @@
 import { TiltShiftFilter } from 'pixi-filters';
-import { type TiltShiftFilterConfig, type FilterResult } from './types.ts';
+import { type TiltShiftFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a TiltShift filter that applies a tilt-shift camera effect

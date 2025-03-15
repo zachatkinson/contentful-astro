@@ -1,6 +1,6 @@
 // src/components/KineticSlider3/filters/outlineFilter.ts
 import { OutlineFilter } from 'pixi-filters';
-import { type OutlineFilterConfig, type FilterResult } from './types.ts';
+import { type OutlineFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates an Outline filter that adds a colored outline around objects

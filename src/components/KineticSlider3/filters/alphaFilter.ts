@@ -1,5 +1,5 @@
 import { AlphaFilter } from 'pixi.js';
-import { type AlphaFilterConfig, type FilterResult } from './types.ts';
+import { type AlphaFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates an Alpha filter that applies transparency to the entire display object

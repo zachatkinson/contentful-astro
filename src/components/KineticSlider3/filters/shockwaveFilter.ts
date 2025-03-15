@@ -1,5 +1,5 @@
 import { ShockwaveFilter } from 'pixi-filters';
-import { type ShockwaveFilterConfig, type FilterResult } from './types.ts';
+import { type ShockwaveFilterConfig, type FilterResult } from './types';
 import { gsap } from 'gsap';
 
 /**

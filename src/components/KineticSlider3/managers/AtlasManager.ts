@@ -1,5 +1,5 @@
 import { Assets, Texture, Rectangle } from 'pixi.js';
-import ResourceManager from './ResourceManager.ts';
+import ResourceManager from './ResourceManager';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';

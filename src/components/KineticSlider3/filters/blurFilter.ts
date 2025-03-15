@@ -1,5 +1,5 @@
 import { BlurFilter } from 'pixi.js';
-import { type BlurFilterConfig, type FilterResult } from './types.ts';
+import { type BlurFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a Blur filter that applies a Gaussian blur to an object

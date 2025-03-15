@@ -4,8 +4,8 @@
  * Coordinates the timing of visual effects to minimize rendering overhead and improve performance.
  */
 
-import { UpdateType, getPriorityForUpdateType, createUpdateId } from './UpdateTypes.ts';
-import { FrameThrottler, ThrottleStrategy, type ThrottlerConfig } from './FrameThrottler.ts';
+import { UpdateType, getPriorityForUpdateType, createUpdateId } from './UpdateTypes';
+import { FrameThrottler, ThrottleStrategy, type ThrottlerConfig } from './FrameThrottler';
 
 /**
  * Priority levels for rendering updates.

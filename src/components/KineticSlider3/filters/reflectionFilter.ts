@@ -1,5 +1,5 @@
 import { ReflectionFilter } from 'pixi-filters';
-import { type ReflectionFilterConfig, type FilterResult } from './types.ts';
+import { type ReflectionFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a Reflection filter that applies a water-like reflection effect

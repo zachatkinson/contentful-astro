@@ -1,6 +1,6 @@
 import React from 'react';
 import styles from '../KineticSlider.module.css';
-import type { LoadingIndicatorProps } from "../types.ts";
+import type { LoadingIndicatorProps } from "../types";
 
 /**
  * Simple loading indicator for the KineticSlider

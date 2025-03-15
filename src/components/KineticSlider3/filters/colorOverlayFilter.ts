@@ -1,5 +1,5 @@
 import { ColorOverlayFilter } from 'pixi-filters';
-import { type ColorOverlayFilterConfig, type FilterResult } from './types.ts';
+import { type ColorOverlayFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a ColorOverlay filter that applies a color overlay to an object

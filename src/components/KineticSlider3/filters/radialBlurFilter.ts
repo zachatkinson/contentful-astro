@@ -1,5 +1,5 @@
 import { RadialBlurFilter } from 'pixi-filters';
-import { type RadialBlurFilterConfig, type FilterResult } from './types.ts';
+import { type RadialBlurFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a RadialBlur filter that applies a radial motion blur to an object

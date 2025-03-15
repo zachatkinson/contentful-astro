@@ -1,9 +1,9 @@
 import { useEffect, type RefObject } from 'react';
 import { Application, Container, Text, TextStyle, Sprite } from 'pixi.js';
 import { gsap } from 'gsap';
-import { type TextPair } from '../types.ts';
-import { setupCustomFonts } from '../utils/fontUtils.ts';
-import ResourceManager from '../managers/ResourceManager.ts';
+import { type TextPair } from '../types';
+import { setupCustomFonts } from '../utils/fontUtils';
+import ResourceManager from '../managers/ResourceManager';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';

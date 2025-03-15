@@ -1,5 +1,5 @@
 import { BevelFilter } from 'pixi-filters';
-import { type BevelFilterConfig, type FilterResult } from './types.ts';
+import { type BevelFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a Bevel filter that applies a bevel effect to an object

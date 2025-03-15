@@ -1,5 +1,5 @@
 import { DropShadowFilter } from 'pixi-filters';
-import { type DropShadowFilterConfig, type FilterResult } from './types.ts';
+import { type DropShadowFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a DropShadow filter that applies a shadow effect to objects

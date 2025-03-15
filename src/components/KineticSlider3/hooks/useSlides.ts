@@ -1,10 +1,10 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { Sprite, Container, Assets, Texture } from 'pixi.js';
-import { type EnhancedSprite, type HookParams } from '../types.ts';
-import { calculateSpriteScale } from '../utils/calculateSpriteScale.ts';
+import { type EnhancedSprite, type HookParams } from '../types';
+import { calculateSpriteScale } from '../utils/calculateSpriteScale';
 import { gsap } from 'gsap';
-import ResourceManager from '../managers/ResourceManager.ts';
-import { AtlasManager } from '../managers/AtlasManager.ts';
+import ResourceManager from '../managers/ResourceManager';
+import { AtlasManager } from '../managers/AtlasManager';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';

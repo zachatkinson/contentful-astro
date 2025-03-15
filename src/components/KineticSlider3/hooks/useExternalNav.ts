@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { type NavElement } from '../types.ts';
-import type ResourceManager from "../managers/ResourceManager.ts";
+import { type NavElement } from '../types';
+import type ResourceManager from "../managers/ResourceManager";
 
 // Define EventCallback type to match ResourceManager's definition
 type EventCallback = EventListenerOrEventListenerObject;

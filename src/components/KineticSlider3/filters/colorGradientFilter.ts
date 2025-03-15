@@ -1,5 +1,5 @@
 import { ColorGradientFilter } from 'pixi-filters';
-import { type ColorGradientFilterConfig, type FilterResult } from './types.ts';
+import { type ColorGradientFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a ColorGradient filter that applies a color gradient to an object

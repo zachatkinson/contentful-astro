@@ -3,7 +3,7 @@
  */
 
 import { Assets } from 'pixi.js';
-import { setupCustomFonts } from './fontUtils.ts';
+import { setupCustomFonts } from './fontUtils';
 
 /**
  * Helper function to preload all KineticSlider assets

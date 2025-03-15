@@ -1,5 +1,5 @@
 import { ColorMapFilter } from 'pixi-filters';
-import { type ColorMapFilterConfig, type FilterResult } from './types.ts';
+import { type ColorMapFilterConfig, type FilterResult } from './types';
 import { Assets, Texture } from 'pixi.js';
 
 /**

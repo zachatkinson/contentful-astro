@@ -1,5 +1,5 @@
 import { MotionBlurFilter } from 'pixi-filters';
-import { type MotionBlurFilterConfig, type FilterResult } from './types.ts';
+import { type MotionBlurFilterConfig, type FilterResult } from './types';
 import type { PointData } from 'pixi.js';
 
 /**

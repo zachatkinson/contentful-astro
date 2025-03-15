@@ -1,6 +1,6 @@
 // src/components/KineticSlider3/managers/UpdateTypes.ts
 
-import { UpdatePriority } from './RenderScheduler.ts';
+import { UpdatePriority } from './RenderScheduler';
 
 /**
  * @file UpdateTypes.ts

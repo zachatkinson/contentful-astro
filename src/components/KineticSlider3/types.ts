@@ -1,5 +1,5 @@
 import { Application, Sprite, Container, DisplacementFilter, Filter } from 'pixi.js';
-import { AtlasManager } from "./managers/AtlasManager.ts";
+import { AtlasManager } from "./managers/AtlasManager";
 import type { RefObject } from "react";
 import ResourceManager from "./managers/ResourceManager.ts";
 

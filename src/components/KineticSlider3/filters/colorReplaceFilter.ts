@@ -1,5 +1,5 @@
 import { ColorReplaceFilter } from 'pixi-filters';
-import { type ColorReplaceFilterConfig, type FilterResult } from './types.ts';
+import { type ColorReplaceFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a ColorReplace filter that replaces a specific color with another color

@@ -1,5 +1,5 @@
 import { BulgePinchFilter } from 'pixi-filters';
-import { type BulgePinchFilterConfig, type FilterResult } from './types.ts';
+import { type BulgePinchFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a BulgePinch filter that applies a bulge or pinch effect in a circle

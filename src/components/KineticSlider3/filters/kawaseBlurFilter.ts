@@ -1,5 +1,5 @@
 import { KawaseBlurFilter } from 'pixi-filters';
-import { type KawaseBlurFilterConfig, type FilterResult } from './types.ts';
+import { type KawaseBlurFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a KawaseBlur filter that applies a faster blur algorithm

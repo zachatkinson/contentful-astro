@@ -1,5 +1,5 @@
 import { OldFilmFilter } from 'pixi-filters';
-import { type OldFilmFilterConfig, type FilterResult } from './types.ts';
+import { type OldFilmFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates an OldFilm filter that applies a vintage film effect

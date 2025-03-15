@@ -1,5 +1,5 @@
 import { BackdropBlurFilter } from 'pixi-filters';
-import { type BackdropBlurFilterConfig, type FilterResult } from './types.ts';
+import { type BackdropBlurFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a BackdropBlur filter that applies a Gaussian blur to everything behind an object,

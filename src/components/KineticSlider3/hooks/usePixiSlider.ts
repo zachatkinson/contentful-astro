@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, type RefObject } from 'react';
-import type { KineticSliderProps } from '../types.ts';
-import ResourceManager from '../managers/ResourceManager.ts';
+import type { KineticSliderProps } from '../types';
+import ResourceManager from '../managers/ResourceManager';
 
 // Development environment logging utility
 const createLogger = () => ({

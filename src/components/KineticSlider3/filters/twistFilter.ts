@@ -1,5 +1,5 @@
 import { TwistFilter } from 'pixi-filters';
-import { type TwistFilterConfig, type FilterResult } from './types.ts';
+import { type TwistFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a Twist filter that applies a swirl/twist effect to an object

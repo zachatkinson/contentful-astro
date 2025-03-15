@@ -1,5 +1,5 @@
 import { GrayscaleFilter } from 'pixi-filters';
-import { type GrayscaleFilterConfig, type FilterResult } from './types.ts';
+import { type GrayscaleFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a Grayscale filter that converts the image to grayscale

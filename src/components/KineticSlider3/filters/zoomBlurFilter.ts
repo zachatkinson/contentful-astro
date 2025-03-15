@@ -1,5 +1,5 @@
 import { ZoomBlurFilter } from 'pixi-filters';
-import { type ZoomBlurFilterConfig, type FilterResult } from './types.ts';
+import { type ZoomBlurFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a ZoomBlur filter that applies a radial blur effect

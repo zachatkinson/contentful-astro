@@ -1,5 +1,5 @@
 import { GlowFilter } from 'pixi-filters';
-import { type GlowFilterConfig, type FilterResult } from './types.ts';
+import { type GlowFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a Glow filter that applies a glow effect to an object

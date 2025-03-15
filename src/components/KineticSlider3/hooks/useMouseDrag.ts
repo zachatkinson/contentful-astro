@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, type RefObject } from "react";
 import { Sprite } from "pixi.js";
 import { gsap } from "gsap";
-import ResourceManager from '../managers/ResourceManager.ts';
+import ResourceManager from '../managers/ResourceManager';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';

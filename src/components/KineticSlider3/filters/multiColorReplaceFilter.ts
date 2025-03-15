@@ -1,5 +1,5 @@
 import { MultiColorReplaceFilter } from 'pixi-filters';
-import { type MultiColorReplaceFilterConfig, type FilterResult } from './types.ts';
+import { type MultiColorReplaceFilterConfig, type FilterResult } from './types';
 import type { ColorSource } from 'pixi.js';
 
 /**

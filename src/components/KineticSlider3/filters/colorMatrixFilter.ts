@@ -1,5 +1,5 @@
 import { ColorMatrixFilter } from 'pixi.js';
-import { type ColorMatrixFilterConfig, type FilterResult } from './types.ts';
+import { type ColorMatrixFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a ColorMatrix filter that applies a 5x4 matrix transformation on RGBA values

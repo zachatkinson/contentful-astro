@@ -1,5 +1,5 @@
 import { PixelateFilter } from 'pixi-filters';
-import { type PixelateFilterConfig, type FilterResult } from './types.ts';
+import { type PixelateFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a Pixelate filter that applies a pixelate effect making display objects appear 'blocky'

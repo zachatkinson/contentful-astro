@@ -1,7 +1,7 @@
 // src/components/KineticSlider3/filters/asciiFilter.ts
 
 import { AsciiFilter } from 'pixi-filters';
-import { type AsciiFilterConfig, type FilterResult } from './types.ts';
+import { type AsciiFilterConfig, type FilterResult } from './types';
 import type { ColorSource } from "pixi.js";
 
 /**

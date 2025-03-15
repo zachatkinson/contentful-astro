@@ -1,5 +1,5 @@
 import { BloomFilter } from 'pixi-filters';
-import { type BloomFilterConfig, type FilterResult } from './types.ts';
+import { type BloomFilterConfig, type FilterResult } from './types';
 
 /**
  * This file should be placed at:

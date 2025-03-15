@@ -1,5 +1,5 @@
 import {ConvolutionFilter, type ConvolutionMatrix} from 'pixi-filters';
-import { type ConvolutionFilterConfig, type FilterResult } from './types.ts';
+import { type ConvolutionFilterConfig, type FilterResult } from './types';
 
 /**
  * Helper function to create ConvolutionMatrix from number array

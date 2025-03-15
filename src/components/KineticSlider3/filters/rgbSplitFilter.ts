@@ -1,5 +1,5 @@
 import { RGBSplitFilter } from 'pixi-filters';
-import { type RGBSplitFilterConfig, type FilterResult } from './types.ts';
+import { type RGBSplitFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates an RGBSplit filter that separates the RGB channels of an object

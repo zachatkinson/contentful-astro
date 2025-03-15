@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, type RefObject } from 'react';
 import { Application, Container, Assets, Texture } from 'pixi.js';
-import ResourceManager from '../managers/ResourceManager.ts';
-import { type PixiRefs } from '../types.ts';
+import ResourceManager from '../managers/ResourceManager';
+import { type PixiRefs } from '../types';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';

@@ -1,5 +1,5 @@
 import { CRTFilter } from 'pixi-filters';
-import { type CRTFilterConfig, type FilterResult } from './types.ts';
+import { type CRTFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a CRT filter that applies a CRT (Cathode Ray Tube) effect to an object

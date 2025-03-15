@@ -1,6 +1,6 @@
 import { SimpleLightmapFilter } from 'pixi-filters';
 import { Assets, Texture } from 'pixi.js';
-import { type SimpleLightmapFilterConfig, type FilterResult } from './types.ts';
+import { type SimpleLightmapFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a SimpleLightmap filter that applies a lighting effect

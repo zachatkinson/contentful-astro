@@ -6,48 +6,48 @@
  */
 
 // Export the FilterFactory
-export { FilterFactory } from './FilterFactory.ts';
+export { FilterFactory } from './FilterFactory';
 
 // Export individual filter creators
-export { createAdjustmentFilter } from './adjustmentFilter.ts';
-export { createAdvancedBloomFilter } from './advancedBloomFilter.ts';
-export { createAlphaFilter } from './alphaFilter.ts';
-export { createAsciiFilter } from './asciiFilter.ts'
-export { createBackdropBlurFilter } from './backdropBlurFilter.ts'
-export { createBloomFilter } from './bloomFilter.ts'
-export { createBlurFilter } from './blurFilter.ts';
-export { createBulgePinchFilter } from './bulgePinchFilter.ts'
-export { createColorGradientFilter } from './colorGradientFilter.ts'
-export { createColorMapFilter } from './colorMapFilter.ts'
-export { createColorMatrixFilter } from './colorMatrixFilter.ts';
-export { createColorOverlayFilter } from './colorOverlayFilter.ts'
-export { createColorReplaceFilter } from './colorReplaceFilter.ts'
-export { createConvolutionFilter } from './convolutionFilter.ts'
-export { createCrossHatchFilter } from './crossHatchFilter.ts';
-export { createCRTFilter } from './crtFilter.ts'
-export { createDotFilter } from './dotFilter.ts'
-export { createDropShadowFilter } from './dropShadowFilter.ts'
-export { createEmbossFilter } from './embossFilter.ts'
-export { createGlitchFilter } from './glitchFilter.ts'
-export { createGlowFilter } from './glowFilter.ts'
-export { createGodrayFilter } from './godrayFilter.ts'
-export { createGrayscaleFilter } from './grayscaleFilter.ts'
-export { createHslAdjustmentFilter } from './hslAdjustmentFilter.ts'
-export { createKawaseBlurFilter } from './kawaseBlurFilter.ts';
-export { createMotionBlurFilter } from './motionBlurFilter.ts'
-export { createMultiColorReplaceFilter } from './multiColorReplaceFilter.ts'
-export { createNoiseFilter } from './noiseFilter.ts';
-export { createOldFilmFilter } from './oldFilmFilter.ts'
-export { createOutlineFilter } from './outlineFilter.ts'
-export { createPixelateFilter } from './pixelateFilter.ts'
-export { createRadialBlurFilter } from './radialBlurFilter.ts'
-export { createReflectionFilter } from './reflectionFilter.ts'
-export { createRGBSplitFilter } from './rgbSplitFilter.ts'
-export { createShockwaveFilter } from './shockwaveFilter.ts'
-export { createSimpleLightmapFilter } from './simpleLightmapFilter.ts'
-export { createSimplexNoiseFilter } from './simplexNoiseFilter.ts'
-export { createTiltShiftFilter } from './tiltShiftFilter.ts'
-export { createTwistFilter } from './twistFilter.ts'
-export { createZoomBlurFilter } from './zoomBlurFilter.ts'
+export { createAdjustmentFilter } from './adjustmentFilter';
+export { createAdvancedBloomFilter } from './advancedBloomFilter';
+export { createAlphaFilter } from './alphaFilter';
+export { createAsciiFilter } from './asciiFilter'
+export { createBackdropBlurFilter } from './backdropBlurFilter'
+export { createBloomFilter } from './bloomFilter'
+export { createBlurFilter } from './blurFilter';
+export { createBulgePinchFilter } from './bulgePinchFilter'
+export { createColorGradientFilter } from './colorGradientFilter'
+export { createColorMapFilter } from './colorMapFilter'
+export { createColorMatrixFilter } from './colorMatrixFilter';
+export { createColorOverlayFilter } from './colorOverlayFilter'
+export { createColorReplaceFilter } from './colorReplaceFilter'
+export { createConvolutionFilter } from './convolutionFilter'
+export { createCrossHatchFilter } from './crossHatchFilter';
+export { createCRTFilter } from './crtFilter'
+export { createDotFilter } from './dotFilter'
+export { createDropShadowFilter } from './dropShadowFilter'
+export { createEmbossFilter } from './embossFilter'
+export { createGlitchFilter } from './glitchFilter'
+export { createGlowFilter } from './glowFilter'
+export { createGodrayFilter } from './godrayFilter'
+export { createGrayscaleFilter } from './grayscaleFilter'
+export { createHslAdjustmentFilter } from './hslAdjustmentFilter'
+export { createKawaseBlurFilter } from './kawaseBlurFilter';
+export { createMotionBlurFilter } from './motionBlurFilter'
+export { createMultiColorReplaceFilter } from './multiColorReplaceFilter'
+export { createNoiseFilter } from './noiseFilter';
+export { createOldFilmFilter } from './oldFilmFilter'
+export { createOutlineFilter } from './outlineFilter'
+export { createPixelateFilter } from './pixelateFilter'
+export { createRadialBlurFilter } from './radialBlurFilter'
+export { createReflectionFilter } from './reflectionFilter'
+export { createRGBSplitFilter } from './rgbSplitFilter'
+export { createShockwaveFilter } from './shockwaveFilter'
+export { createSimpleLightmapFilter } from './simpleLightmapFilter'
+export { createSimplexNoiseFilter } from './simplexNoiseFilter'
+export { createTiltShiftFilter } from './tiltShiftFilter'
+export { createTwistFilter } from './twistFilter'
+export { createZoomBlurFilter } from './zoomBlurFilter'
 // Export filter types
-export * from './types.ts';
+export * from './types';

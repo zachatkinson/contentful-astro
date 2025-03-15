@@ -1,8 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Sprite, DisplacementFilter, Assets, Texture } from 'pixi.js';
 import { gsap } from 'gsap';
-import { AtlasManager } from '../managers/AtlasManager.ts';
-import { type UseDisplacementEffectsProps, type CursorDisplacementSizingMode } from '../types.ts';
+import { AtlasManager } from '../managers/AtlasManager';
+import { type UseDisplacementEffectsProps, type CursorDisplacementSizingMode } from '../types';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';

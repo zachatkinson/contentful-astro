@@ -1,5 +1,5 @@
 import { SimplexNoiseFilter } from 'pixi-filters';
-import { type SimplexNoiseFilterConfig, type FilterResult } from './types.ts';
+import { type SimplexNoiseFilterConfig, type FilterResult } from './types';
 
 /**
  * Creates a SimplexNoise filter that applies a noise pattern to the object
