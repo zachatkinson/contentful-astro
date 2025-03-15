@@ -52,8 +52,6 @@ export const useSlides = (
             if (!atlasId && isDevelopment) {
                 missingFrames.push(frameName);
             }
-            console.log(`Checking if frame '${frameName}' exists in atlas '${props.slidesAtlas}': ${!!atlasId}`);
-            console.log(`useSlidesAtlas setting: ${props.useSlidesAtlas}`);
 
             return !!atlasId;
         });
