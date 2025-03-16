@@ -2,6 +2,8 @@ import { useEffect, useRef, useCallback, type RefObject } from 'react';
 import { DisplacementFilter } from 'pixi.js';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
+import RenderScheduler from '../managers/RenderScheduler';
+import { UpdateType } from '../managers/UpdateTypes';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
@@ -293,18 +295,31 @@ const useIdleTimer = ({
     /**
      * Reset filters to idle state (no effect)
      */
+    /**
+     * Reset filters to idle state (no effect)
+     * Now uses scheduler for better coordination
+     */
     const resetFiltersToIdle = useCallback(() => {
         try {
             // Only run if cursor is still active to avoid conflicts
             if (cursorActive.current) {
                 if (isDevelopment) {
-                    console.log('Resetting filters to idle state');
+                    console.log('Scheduling filters reset to idle state');
                 }
 
-                animateFilters(0, 0.5, () => {
-                    // Mark as not animating after reset completes
-                    animationStateRef.current.isAnimating = false;
-                });
+                const scheduler = RenderScheduler.getInstance();
+
+                // Schedule the filter reset with appropriate priority
+                scheduler.scheduleTypedUpdate(
+                    'idleTimer',
+                    UpdateType.IDLE_EFFECT,
+                    () => {
+                        animateFilters(0, 0.5, () => {
+                            // Mark as not animating after reset completes
+                            animationStateRef.current.isAnimating = false;
+                        });
+                    }
+                );
             }
         } catch (error) {
             if (isDevelopment) {
@@ -318,6 +333,7 @@ const useIdleTimer = ({
 
     /**
      * Reset filters to active state
+     * Now uses scheduler for better coordination
      */
     const resetFiltersToActive = useCallback(() => {
         try {
@@ -325,14 +341,23 @@ const useIdleTimer = ({
             if (!cursorActive.current) return;
 
             if (isDevelopment) {
-                console.log('Activating filter effects');
+                console.log('Scheduling filter effects activation');
             }
 
-            // Mark as animating
-            animationStateRef.current.isAnimating = true;
+            const scheduler = RenderScheduler.getInstance();
 
-            // Animate filters to active state
-            animateFilters(defaultBgFilterScale);
+            // Schedule the filter animation with appropriate priority
+            scheduler.scheduleTypedUpdate(
+                'idleTimer',
+                UpdateType.IDLE_EFFECT,
+                () => {
+                    // Mark as animating
+                    animationStateRef.current.isAnimating = true;
+
+                    // Animate filters to active state
+                    animateFilters(defaultBgFilterScale);
+                }
+            );
 
             // Set new timer for idle effects
             clearIdleTimer();
@@ -383,9 +408,10 @@ const useIdleTimer = ({
 
         try {
             const node = sliderRef.current;
+            const scheduler = RenderScheduler.getInstance();
 
             /**
-             * Handle mouse movement with throttling
+             * Handle mouse movement with throttling and scheduling
              */
             let lastThrottleTime = 0;
             const throttleDelay = 16; // ~60fps
@@ -400,8 +426,16 @@ const useIdleTimer = ({
                     if (currentTime - lastThrottleTime < throttleDelay) return;
                     lastThrottleTime = currentTime;
 
-                    // Clear previous timer and reset filters to active state
-                    resetFiltersToActive();
+                    // Schedule the filter reset with debouncing
+                    // This uses the IDLE_EFFECT type which has NORMAL priority
+                    scheduler.scheduleTypedUpdate(
+                        'idleTimer',
+                        UpdateType.IDLE_EFFECT,
+                        () => {
+                            // Clear previous timer and reset filters to active state
+                            resetFiltersToActive();
+                        }
+                    );
                 } catch (error) {
                     if (isDevelopment) {
                         console.error('Error in mouse move handler:', error);
@@ -428,6 +462,9 @@ const useIdleTimer = ({
                         // Remove event listener
                         node.removeEventListener('mousemove', handleMouseMove);
                     }
+
+                    // Cancel any scheduled updates
+                    scheduler.cancelTypedUpdate('idleTimer', UpdateType.IDLE_EFFECT);
 
                     // Clear any pending timeout
                     clearIdleTimer();

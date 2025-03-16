@@ -5,6 +5,8 @@ import { FilterFactory } from '../filters/';
 import { type HookParams } from '../types';
 import ResourceManager from '../managers/ResourceManager';
 import { type FilterResult } from '../filters/';
+import RenderScheduler from '../managers/RenderScheduler';
+import { UpdateType } from '../managers/UpdateTypes';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
@@ -365,7 +367,10 @@ export const useFilters = (
         }
     }, [resourceManager]);
 
-    // Update filter intensities for hover effects
+    /**
+     * Enhanced update filter intensities function with scheduler support
+     * This can be called directly or scheduled through the RenderScheduler
+     */
     const updateFilterIntensities = useCallback((active: boolean, forceUpdate = false) => {
         // Skip if filters haven't been initialized yet
         if (!filtersInitializedRef.current) return;

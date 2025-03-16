@@ -3,6 +3,8 @@ import { Sprite, DisplacementFilter, Assets, Texture } from 'pixi.js';
 import { gsap } from 'gsap';
 import { AtlasManager } from '../managers/AtlasManager';
 import { type UseDisplacementEffectsProps, type CursorDisplacementSizingMode } from '../types';
+import RenderScheduler from '../managers/RenderScheduler';
+import { UpdateType } from '../managers/UpdateTypes';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
@@ -537,80 +539,91 @@ export const useDisplacementEffects = ({
 
     /**
      * Shows displacement effects by animating sprite alpha and filter scale.
+     * Refactored to support scheduled updates.
      *
      * @returns {gsap.core.Tween[]} Array of GSAP animations
      */
     const showDisplacementEffects = useCallback(() => {
         if (!initializationStateRef.current.isInitialized) return [];
 
-        const animations = [];
+        // Get the scheduler instance
+        const scheduler = RenderScheduler.getInstance();
 
-        // Background effect
-        const bgSprite = backgroundDisplacementSpriteRef.current;
-        const bgFilter = bgDispFilterRef.current;
+        // Create a function that performs the actual animation
+        const animate = () => {
+            const animations = [];
 
-        if (bgSprite && bgFilter) {
-            // Ensure sprite is properly set up
-            bgSprite.visible = true;
-            bgSprite.renderable = false; // Important: keep this false
+            // Background effect
+            const bgSprite = backgroundDisplacementSpriteRef.current;
+            const bgFilter = bgDispFilterRef.current;
 
-            // Animate sprite alpha
-            const bgAlphaAnim = gsap.to(bgSprite, {
-                alpha: 1,
-                duration: 0.5
-            });
-
-            // Animate filter scale
-            const bgFilterAnim = gsap.to(bgFilter.scale, {
-                x: DEFAULT_BG_FILTER_SCALE,
-                y: DEFAULT_BG_FILTER_SCALE,
-                duration: 0.5
-            });
-
-            animations.push(bgAlphaAnim, bgFilterAnim);
-
-            if (isDevelopment) {
-                console.log(`[KineticSlider] Showing background displacement effect (scale: ${DEFAULT_BG_FILTER_SCALE})`);
-            }
-        }
-
-        // Cursor effect if enabled
-        if (cursorImgEffect) {
-            const cursorSprite = cursorDisplacementSpriteRef.current;
-            const cursorFilter = cursorDispFilterRef.current;
-
-            if (cursorSprite && cursorFilter) {
+            if (bgSprite && bgFilter) {
                 // Ensure sprite is properly set up
-                cursorSprite.visible = true;
-                cursorSprite.renderable = false; // Important: keep this false
+                bgSprite.visible = true;
+                bgSprite.renderable = false; // Important: keep this false
 
                 // Animate sprite alpha
-                const cursorAlphaAnim = gsap.to(cursorSprite, {
+                const bgAlphaAnim = gsap.to(bgSprite, {
                     alpha: 1,
                     duration: 0.5
                 });
 
                 // Animate filter scale
-                const cursorFilterAnim = gsap.to(cursorFilter.scale, {
-                    x: DEFAULT_CURSOR_FILTER_SCALE,
-                    y: DEFAULT_CURSOR_FILTER_SCALE,
+                const bgFilterAnim = gsap.to(bgFilter.scale, {
+                    x: DEFAULT_BG_FILTER_SCALE,
+                    y: DEFAULT_BG_FILTER_SCALE,
                     duration: 0.5
                 });
 
-                animations.push(cursorAlphaAnim, cursorFilterAnim);
+                animations.push(bgAlphaAnim, bgFilterAnim);
 
                 if (isDevelopment) {
-                    console.log(`[KineticSlider] Showing cursor displacement effect (scale: ${DEFAULT_CURSOR_FILTER_SCALE})`);
+                    console.log(`[KineticSlider] Showing background displacement effect (scale: ${DEFAULT_BG_FILTER_SCALE})`);
                 }
             }
-        }
 
-        // Track animations
-        if (resourceManager && animations.length) {
-            resourceManager.trackAnimationBatch(animations);
-        }
+            // Cursor effect if enabled
+            if (cursorImgEffect) {
+                const cursorSprite = cursorDisplacementSpriteRef.current;
+                const cursorFilter = cursorDispFilterRef.current;
 
-        return animations;
+                if (cursorSprite && cursorFilter) {
+                    // Ensure sprite is properly set up
+                    cursorSprite.visible = true;
+                    cursorSprite.renderable = false; // Important: keep this false
+
+                    // Animate sprite alpha
+                    const cursorAlphaAnim = gsap.to(cursorSprite, {
+                        alpha: 1,
+                        duration: 0.5
+                    });
+
+                    // Animate filter scale
+                    const cursorFilterAnim = gsap.to(cursorFilter.scale, {
+                        x: DEFAULT_CURSOR_FILTER_SCALE,
+                        y: DEFAULT_CURSOR_FILTER_SCALE,
+                        duration: 0.5
+                    });
+
+                    animations.push(cursorAlphaAnim, cursorFilterAnim);
+
+                    if (isDevelopment) {
+                        console.log(`[KineticSlider] Showing cursor displacement effect (scale: ${DEFAULT_CURSOR_FILTER_SCALE})`);
+                    }
+                }
+            }
+
+            // Track animations
+            if (resourceManager && animations.length) {
+                resourceManager.trackAnimationBatch(animations);
+            }
+
+            return animations;
+        };
+
+        // We can either schedule the effect or run it immediately depending on the context
+        // If called directly from an event handler, it might already be part of a scheduled update
+        return animate();
     }, [
         backgroundDisplacementSpriteRef,
         bgDispFilterRef,
@@ -622,68 +635,79 @@ export const useDisplacementEffects = ({
 
     /**
      * Hides displacement effects by animating sprite alpha and filter scale to zero.
+     * Refactored to support scheduled updates.
      *
      * @returns {gsap.core.Tween[]} Array of GSAP animations
      */
     const hideDisplacementEffects = useCallback(() => {
         if (!initializationStateRef.current.isInitialized) return [];
 
-        const animations = [];
+        // Get the scheduler instance
+        const scheduler = RenderScheduler.getInstance();
 
-        // Background effect
-        const bgSprite = backgroundDisplacementSpriteRef.current;
-        const bgFilter = bgDispFilterRef.current;
+        // Create a function that performs the actual animation
+        const animate = () => {
+            const animations = [];
 
-        if (bgSprite && bgFilter) {
-            const bgAlphaAnim = gsap.to(bgSprite, {
-                alpha: 0,
-                duration: 0.5
-            });
+            // Background effect
+            const bgSprite = backgroundDisplacementSpriteRef.current;
+            const bgFilter = bgDispFilterRef.current;
 
-            const bgFilterAnim = gsap.to(bgFilter.scale, {
-                x: 0,
-                y: 0,
-                duration: 0.5
-            });
-
-            animations.push(bgAlphaAnim, bgFilterAnim);
-
-            if (isDevelopment) {
-                console.log('[KineticSlider] Hiding background displacement effect');
-            }
-        }
-
-        // Cursor effect if enabled
-        if (cursorImgEffect) {
-            const cursorSprite = cursorDisplacementSpriteRef.current;
-            const cursorFilter = cursorDispFilterRef.current;
-
-            if (cursorSprite && cursorFilter) {
-                const cursorAlphaAnim = gsap.to(cursorSprite, {
+            if (bgSprite && bgFilter) {
+                const bgAlphaAnim = gsap.to(bgSprite, {
                     alpha: 0,
                     duration: 0.5
                 });
 
-                const cursorFilterAnim = gsap.to(cursorFilter.scale, {
+                const bgFilterAnim = gsap.to(bgFilter.scale, {
                     x: 0,
                     y: 0,
                     duration: 0.5
                 });
 
-                animations.push(cursorAlphaAnim, cursorFilterAnim);
+                animations.push(bgAlphaAnim, bgFilterAnim);
 
                 if (isDevelopment) {
-                    console.log('[KineticSlider] Hiding cursor displacement effect');
+                    console.log('[KineticSlider] Hiding background displacement effect');
                 }
             }
-        }
 
-        // Track animations
-        if (resourceManager && animations.length) {
-            resourceManager.trackAnimationBatch(animations);
-        }
+            // Cursor effect if enabled
+            if (cursorImgEffect) {
+                const cursorSprite = cursorDisplacementSpriteRef.current;
+                const cursorFilter = cursorDispFilterRef.current;
 
-        return animations;
+                if (cursorSprite && cursorFilter) {
+                    const cursorAlphaAnim = gsap.to(cursorSprite, {
+                        alpha: 0,
+                        duration: 0.5
+                    });
+
+                    const cursorFilterAnim = gsap.to(cursorFilter.scale, {
+                        x: 0,
+                        y: 0,
+                        duration: 0.5
+                    });
+
+                    animations.push(cursorAlphaAnim, cursorFilterAnim);
+
+                    if (isDevelopment) {
+                        console.log('[KineticSlider] Hiding cursor displacement effect');
+                    }
+                }
+            }
+
+            // Track animations
+            if (resourceManager && animations.length) {
+                resourceManager.trackAnimationBatch(animations);
+            }
+
+            return animations;
+        };
+
+        // We can either schedule the effect or run it immediately depending on the context
+        // If called directly from an event handler, it might already be part of a scheduled update
+        return animate();
     }, [
         backgroundDisplacementSpriteRef,
         bgDispFilterRef,

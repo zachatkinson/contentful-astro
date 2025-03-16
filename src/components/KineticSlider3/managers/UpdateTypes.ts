@@ -1,12 +1,26 @@
 // src/components/KineticSlider3/managers/UpdateTypes.ts
 
-import { UpdatePriority } from './RenderScheduler';
-
 /**
  * @file UpdateTypes.ts
  * @description Defines standard update types and their recommended priorities for KineticSlider.
  * This helps maintain consistent priority assignments across different hooks and components.
  */
+
+/**
+ * Priority levels for rendering updates.
+ * Higher numbers indicate higher priority.
+ * @enum {number}
+ */
+export enum UpdatePriority {
+    /** Background, non-visual updates */
+    LOW = 0,
+    /** Standard visual updates */
+    NORMAL = 1,
+    /** Important visual feedback */
+    HIGH = 2,
+    /** Must-run-immediately updates */
+    CRITICAL = 3
+}
 
 /**
  * Standard update types for KineticSlider with associated default priorities.

@@ -2,6 +2,8 @@ import { useEffect, useRef, useCallback, type RefObject } from 'react';
 import { Sprite, DisplacementFilter } from 'pixi.js';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
+import RenderScheduler from '../managers/RenderScheduler';
+import { UpdateType } from '../managers/UpdateTypes';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
@@ -19,11 +21,7 @@ interface UseMouseTrackingProps {
 
 /**
  * Hook to handle mouse movement tracking for displacement sprites
- * Fully optimized with:
- * - Batch animation processing
- * - Efficient event handling with throttling
- * - Comprehensive error handling
- * - Memory leak prevention
+ * Refactored to use RenderScheduler for batched updates
  */
 const useMouseTracking = ({
                               sliderRef,
@@ -46,6 +44,16 @@ const useMouseTracking = ({
         lastThrottleTime: 0,
         throttleDelay: 16 // ~60fps
     });
+
+    // Track last mouse position for use by scheduled updates
+    const lastMousePositionRef = useRef({
+        x: 0,
+        y: 0,
+        containerRect: null as DOMRect | null
+    });
+
+    // Get the scheduler instance
+    const scheduler = RenderScheduler.getInstance();
 
     // Process batch animations through ResourceManager
     const processBatchAnimations = useCallback(() => {
@@ -128,14 +136,21 @@ const useMouseTracking = ({
         }
     }, []);
 
-    // Create and track sprites and filter animations
-    const animateDisplacement = useCallback((
-        mouseX: number,
-        mouseY: number,
-        displacementIntensity: number
-    ) => {
+    /**
+     * Animation function that gets scheduled by the RenderScheduler
+     * Creates and applies animations for mouse tracking displacement
+     */
+    const animateDisplacementScheduled = useCallback(() => {
         try {
             if (!isMountedRef.current) return;
+
+            // Get stored mouse position
+            const { x: mouseX, y: mouseY, containerRect } = lastMousePositionRef.current;
+
+            if (!containerRect) return;
+
+            // Calculate intensity
+            const displacementIntensity = calculateDisplacementIntensity(mouseX, mouseY, containerRect);
 
             // Get current refs
             const backgroundSprite = backgroundDisplacementSpriteRef.current;
@@ -217,10 +232,11 @@ const useMouseTracking = ({
         cursorImgEffect,
         cursorMomentum,
         cleanupAnimations,
-        processBatchAnimations
+        processBatchAnimations,
+        calculateDisplacementIntensity
     ]);
 
-    // The optimized mouse move handler with throttling
+    // The optimized mouse move handler with throttling & scheduling
     const handleMouseMove = useCallback((event: Event) => {
         try {
             if (!isMountedRef.current) return;
@@ -242,11 +258,19 @@ const useMouseTracking = ({
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
-            // Calculate displacement intensity
-            const displacementIntensity = calculateDisplacementIntensity(mouseX, mouseY, rect);
+            // Store the mouse position and container rect for the scheduled update
+            lastMousePositionRef.current = {
+                x: mouseX,
+                y: mouseY,
+                containerRect: rect
+            };
 
-            // Apply animations
-            animateDisplacement(mouseX, mouseY, displacementIntensity);
+            // Schedule the update with proper priority
+            scheduler.scheduleTypedUpdate(
+                'mouseTracking',
+                UpdateType.MOUSE_RESPONSE,
+                animateDisplacementScheduled
+            );
         } catch (error) {
             if (isDevelopment) {
                 console.error('Error in mouse move handler:', error);
@@ -254,8 +278,8 @@ const useMouseTracking = ({
         }
     }, [
         sliderRef,
-        animateDisplacement,
-        calculateDisplacementIntensity
+        animateDisplacementScheduled,
+        scheduler
     ]);
 
     // Set up mouse tracking
@@ -292,6 +316,9 @@ const useMouseTracking = ({
                     // Clean up animations
                     cleanupAnimations();
 
+                    // Cancel any scheduled updates
+                    scheduler.cancelTypedUpdate('mouseTracking', UpdateType.MOUSE_RESPONSE);
+
                     // ResourceManager handles its own cleanup
                     if (!resourceManager) {
                         node.removeEventListener('mousemove', handleMouseMove);
@@ -313,7 +340,8 @@ const useMouseTracking = ({
         sliderRef,
         handleMouseMove,
         cleanupAnimations,
-        resourceManager
+        resourceManager,
+        scheduler
     ]);
 };
 
