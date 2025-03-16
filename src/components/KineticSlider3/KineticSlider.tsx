@@ -28,6 +28,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                                                           // Content sources
                                                           images = [],
                                                           texts = [],
+                                                          slidesBasePath = '/images/',
 
                                                           // Displacement settings
                                                           backgroundDisplacementSpriteLocation = '/images/background-displace.jpg',
@@ -159,6 +160,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     const hookProps = {
         images,
         texts,
+        slidesBasePath,
         backgroundDisplacementSpriteLocation,
         cursorDisplacementSpriteLocation,
         cursorImgEffect,

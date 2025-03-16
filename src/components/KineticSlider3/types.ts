@@ -54,6 +54,9 @@ export interface KineticSliderProps {
     /** Array of text pairs [title, subtitle] to display on slides */
     texts: TextPair[];
 
+    /** Base path for slide images, used for atlas frame lookup */
+    slidesBasePath?: string;
+
     /** Path to the background displacement sprite image */
     backgroundDisplacementSpriteLocation?: string;
 

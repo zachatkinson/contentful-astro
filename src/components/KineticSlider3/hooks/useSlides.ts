@@ -32,9 +32,23 @@ export const useSlides = (
     // Ref to store active transitions
     const activeTransitionRef = useRef<gsap.core.Timeline | null>(null);
 
+    // Get the slidesBasePath from props, defaulting to '/images/' if not provided
+    const slidesBasePath = props.slidesBasePath || '/images/';
+
     // Efficiently extract filename from path for atlas frame lookup
     const getFrameName = (imagePath: string): string => {
-        return imagePath.split('/').pop() || imagePath;
+        // Check if the path is already a relative path (doesn't start with '/')
+        if (!imagePath.startsWith('/') && !imagePath.includes('://')) {
+            // Prepend the slidesBasePath to create a full path
+            const fullPath = `${slidesBasePath}${imagePath}`;
+            if (isDevelopment) {
+                console.log(`Converting relative path "${imagePath}" to full path "${fullPath}"`);
+            }
+            return fullPath;
+        }
+
+        // If it's already a full path, return it as is
+        return imagePath;
     };
 
     // Check if assets are available in atlas
@@ -62,7 +76,7 @@ export const useSlides = (
         }
 
         return result;
-    }, [atlasManager, props.images, props.slidesAtlas]);
+    }, [atlasManager, props.images, props.slidesAtlas, slidesBasePath]);
 
     // Effect to create slides from atlas or individual images
     useEffect(() => {
@@ -150,7 +164,7 @@ export const useSlides = (
             }
             setIsLoading(false);
         }
-    }, [pixi.app.current, props.images, resourceManager, sliderRef, atlasManager, props.slidesAtlas]);
+    }, [pixi.app.current, props.images, resourceManager, sliderRef, atlasManager, props.slidesAtlas, slidesBasePath]);
 
     /**
      * Load slides from texture atlas
@@ -177,7 +191,7 @@ export const useSlides = (
             // Create sprites for each image using the atlas
             for (const [index, imagePath] of props.images.entries()) {
                 try {
-                    // Get frame name (filename without path)
+                    // Get frame name with proper path handling
                     const frameName = getFrameName(imagePath);
 
                     // Get texture from atlas
@@ -245,7 +259,12 @@ export const useSlides = (
                         console.error(`Error creating slide for ${imagePath} from atlas:`, error);
                     }
                     // Fallback to individual image loading if atlas frame not found
-                    const texture = await Assets.load(imagePath);
+                    // Construct the full path if it's a relative path
+                    const fullImagePath = !imagePath.startsWith('/') && !imagePath.includes('://')
+                        ? `${slidesBasePath}${imagePath}`
+                        : imagePath;
+
+                    const texture = await Assets.load(fullImagePath);
                     createSlideFromTexture(texture, imagePath, index, slidesContainer, app, sliderWidth, sliderHeight);
 
                     // Update progress
@@ -292,7 +311,13 @@ export const useSlides = (
                 console.log(`Slider dimensions: ${sliderWidth}x${sliderHeight}`);
             }
 
-            const imagesToLoad = props.images.filter(image => !Assets.cache.has(image));
+            // Transform any relative paths to full paths with slidesBasePath
+            const imagesToLoad = props.images.map(imagePath => {
+                if (!imagePath.startsWith('/') && !imagePath.includes('://')) {
+                    return `${slidesBasePath}${imagePath}`;
+                }
+                return imagePath;
+            }).filter(image => !Assets.cache.has(image));
 
             if (isDevelopment && imagesToLoad.length < props.images.length) {
                 console.log(`Using ${props.images.length - imagesToLoad.length} cached images`);
@@ -315,8 +340,13 @@ export const useSlides = (
             // Create sprites for each image
             props.images.forEach((image, index) => {
                 try {
+                    // Convert relative paths to full paths
+                    const fullImagePath = !image.startsWith('/') && !image.includes('://')
+                        ? `${slidesBasePath}${image}`
+                        : image;
+
                     // Get texture from cache
-                    const texture = Assets.get(image);
+                    const texture = Assets.get(fullImagePath);
 
                     // Create slide sprite
                     createSlideFromTexture(texture, image, index, slidesContainer, app, sliderWidth, sliderHeight);

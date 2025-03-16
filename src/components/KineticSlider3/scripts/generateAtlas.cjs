@@ -15,14 +15,16 @@
  *   --size, -s       Maximum atlas size (default: "4096x4096")
  *   --padding, -p    Padding between images (default: 2)
  *   --pot            Force power-of-two dimensions (default: true)
+ *   --preserve-paths Preserve original paths in frame keys (default: false)
+ *   --path-prefix    Prefix for paths when --preserve-paths is used (default: "")
  *   --help, -h       Show help
  *
  * Examples:
  *   // Process a directory of images
  *   node generateAtlas.cjs --input=public/images/slides --name=slides-atlas
  *
- *   // Process specific image files
- *   node generateAtlas.cjs --output=public/atlas --name=effects-atlas public/images/effect1.png public/images/effect2.png
+ *   // Process specific image files with path preservation
+ *   node generateAtlas.cjs --output=public/atlas --name=effects-atlas --preserve-paths public/images/effect1.png public/images/effect2.png
  */
 
 const fs = require('fs');
@@ -72,6 +74,16 @@ const argv = yargs(hideBin(process.argv))
         type: 'boolean',
         default: false
     })
+    .option('preserve-paths', {
+        description: 'Preserve original paths in frame keys',
+        type: 'boolean',
+        default: false
+    })
+    .option('path-prefix', {
+        description: 'Prefix for paths when --preserve-paths is used',
+        type: 'string',
+        default: ''
+    })
     .option('verbose', {
         alias: 'v',
         description: 'Show detailed output',
@@ -81,7 +93,7 @@ const argv = yargs(hideBin(process.argv))
     .help()
     .alias('help', 'h')
     .example('node generateAtlas.cjs --input=public/images/slides --name=slides-atlas', 'Process a directory of images')
-    .example('node generateAtlas.cjs --output=public/atlas --name=effects-atlas public/images/effect1.png public/images/effect2.png', 'Process specific image files')
+    .example('node generateAtlas.cjs --output=public/atlas --name=effects-atlas --preserve-paths public/images/effect1.png public/images/effect2.png', 'Process specific image files with path preservation')
     .argv;
 
 // Extract max width and height from size option
@@ -190,6 +202,30 @@ async function trimImage(imagePath) {
                 height: img.height
             }
         };
+    }
+}
+
+/**
+ * Get a normalized frame key for the image path
+ * Based on the preserve-paths option, either uses the full path or just the filename
+ */
+function getFrameKey(imagePath) {
+    if (argv['preserve-paths']) {
+        // Use the original path, optionally with a prefix
+        // If we have a prefix, ensure we don't have double slashes
+        const prefix = argv['path-prefix'] ? argv['path-prefix'].replace(/\/$/, '') + '/' : '';
+
+        // Remove any "public" prefix if present, as this is typically not part of the URL path
+        let normalizedPath = imagePath.replace(/^public\//, '');
+
+        // Normalize path separators to forward slashes
+        normalizedPath = normalizedPath.replace(/\\/g, '/');
+
+        // Combine prefix and normalized path
+        return prefix + normalizedPath;
+    } else {
+        // Just use the filename without any path
+        return path.basename(imagePath);
     }
 }
 
@@ -377,7 +413,8 @@ async function packImages(imagePaths) {
     const images = [];
     for (const imagePath of imagePaths) {
         try {
-            const filename = path.basename(imagePath);
+            // Get the frame key based on current options
+            const frameKey = getFrameKey(imagePath);
 
             // Process the image based on options
             let imgData;
@@ -403,12 +440,12 @@ async function packImages(imagePaths) {
 
             images.push({
                 path: imagePath,
-                filename,
+                frameKey,
                 ...imgData
             });
 
             if (argv.verbose) {
-                console.log(`Loaded image: ${filename} (${imgData.image.width}x${imgData.image.height})`);
+                console.log(`Loaded image: ${frameKey} (${imgData.image.width}x${imgData.image.height})`);
             }
         } catch (error) {
             console.error(`Error loading image ${imagePath}:`, error);
@@ -426,7 +463,8 @@ async function packImages(imagePaths) {
             version: "1.0.0",
             format: "RGBA8888",
             size: { w: 0, h: 0 },
-            scale: 1
+            scale: 1,
+            preservePaths: argv['preserve-paths']
         }
     };
 
@@ -467,8 +505,8 @@ async function packImages(imagePaths) {
             break;
         }
 
-        // Store image info in the atlas data
-        atlas.frames[img.filename] = {
+        // Store image info in the atlas data using the appropriate frame key
+        atlas.frames[img.frameKey] = {
             frame: {
                 x: currentX,
                 y: currentY,
@@ -485,7 +523,7 @@ async function packImages(imagePaths) {
 
         // If the image was trimmed, add the spriteSourceSize info
         if (img.trimmed) {
-            atlas.frames[img.filename].spriteSourceSize = {
+            atlas.frames[img.frameKey].spriteSourceSize = {
                 x: img.trim.x,
                 y: img.trim.y,
                 w: img.trim.width,
@@ -498,7 +536,7 @@ async function packImages(imagePaths) {
         imagesProcessed++;
 
         if (argv.verbose) {
-            console.log(`Packed ${img.filename} at [${currentX}, ${currentY}]`);
+            console.log(`Packed ${img.frameKey} at [${currentX}, ${currentY}]`);
         }
 
         // Update position and row height
@@ -514,6 +552,11 @@ async function packImages(imagePaths) {
 
     // Set the output image filename
     atlas.meta.image = `${argv.name}.png`;
+
+    // Add path preservation metadata
+    if (argv['preserve-paths']) {
+        atlas.meta.pathPrefix = argv['path-prefix'] || '';
+    }
 
     return {
         atlas,
@@ -546,6 +589,13 @@ async function saveAtlas(atlas, canvas) {
 async function generateAtlas() {
     try {
         console.log('Starting atlas generation...');
+
+        if (argv['preserve-paths']) {
+            console.log('Path preservation enabled. Using full paths as frame keys.');
+            if (argv['path-prefix']) {
+                console.log(`Using path prefix: "${argv['path-prefix']}"`);
+            }
+        }
 
         // Find image files using the enhanced function
         const imagePaths = findImageFiles();

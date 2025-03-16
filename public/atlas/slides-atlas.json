@@ -1,6 +1,6 @@
 {
   "frames": {
-    "1.jpg": {
+    "node src/components/KineticSlider3/scripts/generateAtlas.cjs --input=public/images/effects --name=effects-atlas --preserve-paths\n1.jpg": {
       "frame": {
         "x": 2,
         "y": 2,
