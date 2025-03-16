@@ -16,6 +16,17 @@ import gsap from 'gsap';
 // Development environment check
 const isDevelopment = import.meta.env.DEV;
 
+// Define the custom event name for filter coordination
+const FILTER_COORDINATION_EVENT = 'kinetic-slider:filter-update';
+
+// Interface for filter update event detail
+interface FilterUpdateEventDetail {
+    filterId: string;
+    intensity: number;
+    timestamp: number;
+    source: 'mouse-tracking';
+}
+
 // Define a more specific type for the target objects we're applying filters to
 type FilterableObject = Sprite | Container;
 
@@ -99,6 +110,34 @@ export const useFilters = (
         maxBatchSize: 10
     });
     const batchTimeoutRef = useRef<number | null>(null);
+
+    // Track if the component is mounted
+    const isMountedRef = useRef(true);
+
+    // Handle filter coordination events from other components
+    const handleFilterCoordinationEvent = useCallback((event: Event) => {
+        try {
+            if (!isMountedRef.current || !filtersInitializedRef.current) return;
+
+            const customEvent = event as CustomEvent<FilterUpdateEventDetail>;
+            const { filterId, intensity, source } = customEvent.detail;
+
+            if (isDevelopment) {
+                console.log(`Received filter coordination event from ${source} for ${filterId} with intensity ${intensity}`);
+            }
+
+            // Queue the update with high priority since it's from mouse tracking
+            queueFilterUpdate(
+                filterId,
+                { intensity },
+                'high'
+            );
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error handling filter coordination event:', error);
+            }
+        }
+    }, []);
 
     const scheduleRenderUpdate = useCallback(() => {
         if (debouncedRenderRef.current !== null) {
@@ -725,14 +764,36 @@ export const useFilters = (
         }
     }, [queueFilterUpdate]);
 
-    // Clean up RAF on unmount
+    // Set up event listeners for filter coordination
     useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        // Set mounted state
+        isMountedRef.current = true;
+
+        // Add event listener for filter coordination
+        window.addEventListener(FILTER_COORDINATION_EVENT, handleFilterCoordinationEvent);
+
         return () => {
+            // Update mounted state
+            isMountedRef.current = false;
+
+            // Remove event listener
+            window.removeEventListener(FILTER_COORDINATION_EVENT, handleFilterCoordinationEvent);
+
+            // Clean up any pending timeouts
+            if (batchTimeoutRef.current !== null) {
+                window.clearTimeout(batchTimeoutRef.current);
+                batchTimeoutRef.current = null;
+            }
+
+            // Clean up any pending render updates
             if (debouncedRenderRef.current !== null) {
                 window.cancelAnimationFrame(debouncedRenderRef.current);
+                debouncedRenderRef.current = null;
             }
         };
-    }, []);
+    }, [handleFilterCoordinationEvent]);
 
     return {
         updateFilterIntensities,
