@@ -139,6 +139,26 @@ export class AtlasManager {
     }
 
     /**
+     * Extract the filename from a path for atlas frame lookup
+     *
+     * @param imagePath - The full path to the image
+     * @returns The filename part of the path
+     */
+    private getFilenameFromPath(imagePath: string): string {
+        // Check if the path is empty or null
+        if (!imagePath) return '';
+
+        // Extract filename from path (everything after the last /)
+        const filename = imagePath.split('/').pop() || imagePath;
+
+        if (this.options.debug) {
+            console.log(`Extracted filename "${filename}" from path "${imagePath}"`);
+        }
+
+        return filename;
+    }
+
+    /**
      * Load a texture atlas from a JSON file
      *
      * @param atlasId - Identifier for the atlas
@@ -254,11 +274,26 @@ export class AtlasManager {
      * @returns The ID of the atlas containing the frame, or null if not found
      */
     hasFrame(frameName: string): string | null {
+        // First check with the exact name
         for (const [atlasId, atlas] of this.atlases.entries()) {
             if (atlas.frames[frameName]) {
                 return atlasId;
             }
         }
+
+        // If not found and it looks like a path, extract the filename and try again
+        if (frameName.includes('/')) {
+            const filename = this.getFilenameFromPath(frameName);
+            for (const [atlasId, atlas] of this.atlases.entries()) {
+                if (atlas.frames[filename]) {
+                    if (this.options.debug) {
+                        console.log(`Found frame "${filename}" in atlas "${atlasId}" by extracting from path "${frameName}"`);
+                    }
+                    return atlasId;
+                }
+            }
+        }
+
         return null;
     }
 
@@ -270,8 +305,10 @@ export class AtlasManager {
      * @returns The texture for the frame, or null if not found
      */
     getFrameTexture(frameName: string, atlasId?: string): Texture | null {
-        // Check if we already have a cached texture for this frame
+        // Use full path for cache key to avoid collisions
         const cacheKey = atlasId ? `${atlasId}:${frameName}` : frameName;
+
+        // Check if we already have a cached texture for this frame
         if (this.options.cacheFrameTextures && this.frameTextures.has(cacheKey)) {
             return this.frameTextures.get(cacheKey)!;
         }
@@ -279,6 +316,12 @@ export class AtlasManager {
         // Find the atlas containing the frame
         let targetAtlasId = atlasId;
         let frameData: AtlasFrame | null = null;
+        let lookupName = frameName;
+
+        // If frameName looks like a path, try to extract just the filename
+        if (frameName.includes('/')) {
+            lookupName = this.getFilenameFromPath(frameName);
+        }
 
         if (targetAtlasId) {
             // Use the specified atlas
@@ -288,7 +331,18 @@ export class AtlasManager {
                 return null;
             }
 
+            // Try first with original name
             frameData = atlas.frames[frameName] || null;
+
+            // If not found, try with extracted filename
+            if (!frameData && frameName !== lookupName) {
+                frameData = atlas.frames[lookupName] || null;
+
+                if (frameData && this.options.debug) {
+                    console.log(`Found frame "${lookupName}" in atlas "${targetAtlasId}" by extracting from path "${frameName}"`);
+                }
+            }
+
             if (!frameData) {
                 this.log(`Frame '${frameName}' not found in atlas '${targetAtlasId}'`, 'warn');
                 return null;
@@ -296,9 +350,22 @@ export class AtlasManager {
         } else {
             // Search all atlases
             for (const [id, atlas] of this.atlases.entries()) {
+                // Try first with original name
                 if (atlas.frames[frameName]) {
                     targetAtlasId = id;
                     frameData = atlas.frames[frameName];
+                    break;
+                }
+
+                // If not found, try with extracted filename
+                if (frameName !== lookupName && atlas.frames[lookupName]) {
+                    targetAtlasId = id;
+                    frameData = atlas.frames[lookupName];
+
+                    if (this.options.debug) {
+                        console.log(`Found frame "${lookupName}" in atlas "${id}" by extracting from path "${frameName}"`);
+                    }
+
                     break;
                 }
             }
@@ -345,11 +412,11 @@ export class AtlasManager {
                 rotate: frameData.rotated ? 2 : 0 // 2 = DEGREES_90, 0 = DEGREES_0
             });
 
-            // Cache the frame texture if enabled
+            // Cache the frame texture if enabled - use the original frameName as the key for consistency
             if (this.options.cacheFrameTextures) {
                 this.frameTextures.set(cacheKey, frameTexture);
 
-                // Track with ResourceManager (not as important since it shares the base texture)
+                // Track with ResourceManager if available
                 if (this.resourceManager) {
                     // We don't directly track frame textures as they share the base texture
                     // But we could track them if needed for special cases
@@ -388,11 +455,21 @@ export class AtlasManager {
     async getTexture(imagePath: string, atlasId?: string): Promise<Texture | null> {
         // First check if we have the texture as a frame in the specified atlas or any atlas
         if (this.options.preferAtlas) {
-            // Extract the filename from the path to use as the frame name
-            const frameName = imagePath.split('/').pop() || imagePath;
+            // Try to find the frame using the full imagePath first
+            let frameTexture = this.getFrameTexture(imagePath, atlasId);
 
-            // Try to find the frame in the specified atlas or any atlas
-            const frameTexture = this.getFrameTexture(frameName, atlasId);
+            // If not found and it looks like a path, extract the filename and try again
+            if (!frameTexture && imagePath.includes('/')) {
+                const filename = this.getFilenameFromPath(imagePath);
+                frameTexture = this.getFrameTexture(filename, atlasId);
+
+                if (frameTexture && this.options.debug) {
+                    console.log(`Using atlas frame for ${imagePath} (found using filename ${filename}) ${atlasId ? `from atlas '${atlasId}'` : ''}`);
+                }
+
+                return frameTexture;
+            }
+
             if (frameTexture) {
                 this.log(`Using atlas frame for ${imagePath} ${atlasId ? `from atlas '${atlasId}'` : ''}`);
                 return frameTexture;
