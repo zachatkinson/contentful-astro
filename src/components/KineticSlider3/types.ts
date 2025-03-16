@@ -2,6 +2,7 @@ import { Application, Sprite, Container, DisplacementFilter, Filter } from 'pixi
 import { AtlasManager } from "./managers/AtlasManager";
 import type { RefObject } from "react";
 import ResourceManager from "./managers/ResourceManager";
+import { type BaseFilterConfig } from './filters/types';
 
 /**
  * Navigation element selectors for external controls
@@ -37,12 +38,12 @@ export interface FilterConfig {
 /**
  * Represents a pending filter update in the batch queue
  * @property {string} filterId - Unique identifier for the filter
- * @property {Partial<FilterConfig>} changes - The changes to apply to the filter
+ * @property {Partial<BaseFilterConfig>} changes - The changes to apply to the filter
  * @property {number} timestamp - When the update was queued
  */
 export interface PendingFilterUpdate {
     filterId: string;
-    changes: Partial<FilterConfig>;
+    changes: Partial<BaseFilterConfig>;
     timestamp: number;
 }
 
@@ -59,11 +60,11 @@ export interface FilterBatchConfig {
 /**
  * Represents the difference between two filter states
  * @property {boolean} hasChanged - Whether any properties have changed
- * @property {Partial<FilterConfig>} changedProperties - Only the properties that have changed
+ * @property {Partial<BaseFilterConfig>} changedProperties - Only the properties that have changed
  */
 export interface FilterDiff {
     hasChanged: boolean;
-    changedProperties: Partial<FilterConfig>;
+    changedProperties: Partial<BaseFilterConfig>;
 }
 
 /**
@@ -258,6 +259,9 @@ export interface HookParams {
 
     /** Component props */
     props: KineticSliderProps;
+
+    /** Callback function for slide change */
+    onSlideChange?: (index: number) => void;
 }
 
 /**

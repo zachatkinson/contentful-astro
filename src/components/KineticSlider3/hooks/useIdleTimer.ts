@@ -301,26 +301,32 @@ const useIdleTimer = ({
      */
     const resetFiltersToIdle = useCallback(() => {
         try {
-            // Only run if cursor is still active to avoid conflicts
-            if (cursorActive.current) {
-                if (isDevelopment) {
-                    console.log('Scheduling filters reset to idle state');
-                }
+            // Skip if already animating to idle state or cursor not active
+            if (!cursorActive.current || animationStateRef.current.isAnimating) return;
 
-                const scheduler = RenderScheduler.getInstance();
-
-                // Schedule the filter reset with appropriate priority
-                scheduler.scheduleTypedUpdate(
-                    'idleTimer',
-                    UpdateType.IDLE_EFFECT,
-                    () => {
-                        animateFilters(0, 0.5, () => {
-                            // Mark as not animating after reset completes
-                            animationStateRef.current.isAnimating = false;
-                        });
-                    }
-                );
+            if (isDevelopment) {
+                console.log('Scheduling filters reset to idle state');
             }
+
+            const scheduler = RenderScheduler.getInstance();
+
+            // Mark as animating before scheduling
+            animationStateRef.current.isAnimating = true;
+
+            // Schedule the filter reset with appropriate priority
+            scheduler.scheduleTypedUpdate(
+                'idleTimer',
+                UpdateType.IDLE_EFFECT,
+                () => {
+                    animateFilters(0, 0.5, () => {
+                        // Important: Reset animation state after idle animation completes
+                        animationStateRef.current.isAnimating = false;
+                        // Clear any existing timer since we're now idle
+                        clearIdleTimer();
+                        idleTimerRef.current = null;
+                    });
+                }
+            );
         } catch (error) {
             if (isDevelopment) {
                 console.error('Error resetting filters to idle state:', error);
@@ -328,8 +334,10 @@ const useIdleTimer = ({
 
             // Mark as not animating in case of errors
             animationStateRef.current.isAnimating = false;
+            clearIdleTimer();
+            idleTimerRef.current = null;
         }
-    }, [cursorActive, animateFilters]);
+    }, [cursorActive, animateFilters, clearIdleTimer]);
 
     /**
      * Reset filters to active state
@@ -337,7 +345,7 @@ const useIdleTimer = ({
      */
     const resetFiltersToActive = useCallback(() => {
         try {
-            // Only run if cursor is active
+            // Skip if cursor not active
             if (!cursorActive.current) return;
 
             if (isDevelopment) {
@@ -346,38 +354,31 @@ const useIdleTimer = ({
 
             const scheduler = RenderScheduler.getInstance();
 
+            // Mark as animating before scheduling
+            animationStateRef.current.isAnimating = true;
+
             // Schedule the filter animation with appropriate priority
             scheduler.scheduleTypedUpdate(
                 'idleTimer',
                 UpdateType.IDLE_EFFECT,
                 () => {
-                    // Mark as animating
-                    animationStateRef.current.isAnimating = true;
+                    // Clear any existing timer first
+                    clearIdleTimer();
 
                     // Animate filters to active state
-                    animateFilters(defaultBgFilterScale);
+                    animateFilters(defaultBgFilterScale, 0.5, () => {
+                        // Mark as not animating after animation completes
+                        animationStateRef.current.isAnimating = false;
+
+                        // Set new timer for idle effects
+                        if (resourceManager) {
+                            idleTimerRef.current = resourceManager.setTimeout(resetFiltersToIdle, idleTimeout);
+                        } else {
+                            idleTimerRef.current = window.setTimeout(resetFiltersToIdle, idleTimeout);
+                        }
+                    });
                 }
             );
-
-            // Set new timer for idle effects
-            clearIdleTimer();
-
-            // Use ResourceManager timeout if available
-            const setTimer = () => {
-                try {
-                    if (resourceManager) {
-                        idleTimerRef.current = resourceManager.setTimeout(resetFiltersToIdle, idleTimeout);
-                    } else {
-                        idleTimerRef.current = window.setTimeout(resetFiltersToIdle, idleTimeout);
-                    }
-                } catch (error) {
-                    if (isDevelopment) {
-                        console.error('Error setting idle timer:', error);
-                    }
-                }
-            };
-
-            setTimer();
         } catch (error) {
             if (isDevelopment) {
                 console.error('Error resetting filters to active state:', error);
@@ -432,7 +433,7 @@ const useIdleTimer = ({
                         'idleTimer',
                         UpdateType.IDLE_EFFECT,
                         () => {
-                            // Clear previous timer and reset filters to active state
+                            // Always reset filters to active state when mouse moves
                             resetFiltersToActive();
                         }
                     );

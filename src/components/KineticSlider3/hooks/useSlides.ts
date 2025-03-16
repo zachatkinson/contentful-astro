@@ -12,6 +12,8 @@ const isDevelopment = import.meta.env?.MODE === 'development';
 // Interface for the hook's return value
 interface UseSlidesResult {
     transitionToSlide: (nextIndex: number) => gsap.core.Timeline | null;
+    nextSlide: (nextIndex: number) => void;
+    prevSlide: (prevIndex: number) => void;
     isLoading: boolean;
     loadingProgress: number;
 }
@@ -20,9 +22,10 @@ interface UseSlidesResult {
  * Hook to create and manage slide sprites with atlas support
  */
 export const useSlides = (
-    { sliderRef, pixi, props, resourceManager, atlasManager }: HookParams & {
+    { sliderRef, pixi, props, resourceManager, atlasManager, onSlideChange }: HookParams & {
         resourceManager?: ResourceManager | null,
-        atlasManager?: AtlasManager | null
+        atlasManager?: AtlasManager | null,
+        onSlideChange?: (index: number) => void
     }
 ): UseSlidesResult => {
     // Debug logging of props
@@ -660,8 +663,25 @@ export const useSlides = (
         }
     }, [pixi.slides.current, pixi.textContainers.current, pixi.currentIndex, props.transitionScaleIntensity, resourceManager, sliderRef]);
 
+    // Add nextSlide and prevSlide methods
+    const nextSlide = useCallback((nextIndex: number) => {
+        const tl = transitionToSlide(nextIndex);
+        if (tl && onSlideChange) {
+            onSlideChange(nextIndex);
+        }
+    }, [transitionToSlide, onSlideChange]);
+
+    const prevSlide = useCallback((prevIndex: number) => {
+        const tl = transitionToSlide(prevIndex);
+        if (tl && onSlideChange) {
+            onSlideChange(prevIndex);
+        }
+    }, [transitionToSlide, onSlideChange]);
+
     return {
         transitionToSlide,
+        nextSlide,
+        prevSlide,
         isLoading,
         loadingProgress
     };

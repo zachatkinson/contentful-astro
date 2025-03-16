@@ -249,8 +249,47 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         useEffectsAtlas
     });
 
-    // Use filters - call this before any references to its returned functions
-    const { updateFilterIntensities, resetAllFilters } = useFilters(hookParams);
+    // Use filter effects
+    const {
+        updateFilterIntensities,
+        resetAllFilters,
+        activateFilterEffects,
+        isInitialized: filtersInitialized,
+        isActive: filtersActive
+    } = useFilters(hookParams);
+
+    // Coordinate filter states with interaction state
+    useEffect(() => {
+        if (!filtersInitialized || !isAppReady || !assetsLoaded) return;
+
+        if (isInteracting) {
+            // When interaction starts, activate both displacement and custom filters
+            showDisplacementEffects();
+            updateFilterIntensities(true);
+        } else {
+            // When interaction ends, deactivate both
+            hideDisplacementEffects();
+            updateFilterIntensities(false);
+        }
+    }, [
+        isInteracting,
+        isAppReady,
+        assetsLoaded,
+        filtersInitialized,
+        showDisplacementEffects,
+        hideDisplacementEffects,
+        updateFilterIntensities
+    ]);
+
+    // Reset filters when component unmounts or when app/assets state changes
+    useEffect(() => {
+        if (!isAppReady || !assetsLoaded) {
+            resetAllFilters();
+        }
+        return () => {
+            resetAllFilters();
+        };
+    }, [isAppReady, assetsLoaded, resetAllFilters]);
 
     // Preload assets including fonts and atlases
     useEffect(() => {
@@ -394,8 +433,39 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         };
     }, [sliderRef.current, assetsLoaded]);
 
-    // Use slides and get transition function
-    const { transitionToSlide } = useSlides(hookParams);
+    // Handle slide transitions
+    const handleSlideChange = useCallback((newIndex: number) => {
+        // Update the current index
+        currentIndexRef.current = newIndex;
+        setCurrentSlideIndex(newIndex);
+
+        // Temporarily activate filters during transition
+        if (filtersInitialized) {
+            updateFilterIntensities(true, true); // Force update
+
+            // Schedule filter deactivation if not interacting
+            if (!isInteracting) {
+                const transitionDuration = 1000; // 1 second transition
+                setTimeout(() => {
+                    if (!isInteracting) { // Check again in case interaction started during transition
+                        updateFilterIntensities(false);
+                        hideDisplacementEffects();
+                    }
+                }, transitionDuration);
+            }
+        }
+    }, [
+        filtersInitialized,
+        isInteracting,
+        updateFilterIntensities,
+        hideDisplacementEffects
+    ]);
+
+    // Use slides hook with transition handler
+    const { nextSlide, prevSlide } = useSlides({
+        ...hookParams,
+        onSlideChange: handleSlideChange
+    });
 
     // Use text containers
     useTextContainers({
@@ -456,7 +526,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             UpdateType.SLIDE_TRANSITION,
             () => {
                 // First transition the slide
-                transitionToSlide(nextIndex);
+                nextSlide(nextIndex);
                 setCurrentSlideIndex(nextIndex);
 
                 // If the cursor is currently over the slider (we're interacting),
@@ -492,7 +562,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         isAppReady,
         slidesRef,
         currentSlideIndex,
-        transitionToSlide,
+        nextSlide,
         isInteracting,
         showDisplacementEffects,
         updateFilterIntensities,
@@ -513,7 +583,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             UpdateType.SLIDE_TRANSITION,
             () => {
                 // First transition the slide
-                transitionToSlide(prevIndex);
+                prevSlide(prevIndex);
                 setCurrentSlideIndex(prevIndex);
 
                 // If the cursor is currently over the slider (we're interacting),
@@ -549,7 +619,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         isAppReady,
         slidesRef,
         currentSlideIndex,
-        transitionToSlide,
+        prevSlide,
         isInteracting,
         showDisplacementEffects,
         updateFilterIntensities,
@@ -650,13 +720,17 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             'slider',
             UpdateType.FILTER_UPDATE,
             () => {
+                // Activate filter effects and update intensities
+                if (activateFilterEffects) {
+                    activateFilterEffects();
+                }
                 // Force update all filter intensities for the active slide
                 updateFilterIntensities(true, true);
             }
         );
 
         setIsInteracting(true);
-    }, [isAppReady, showDisplacementEffects, updateFilterIntensities, scheduler]);
+    }, [isAppReady, showDisplacementEffects, updateFilterIntensities, activateFilterEffects, scheduler]);
 
     /**
      * Handles mouse leave events on the slider element
@@ -695,6 +769,40 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
         setIsInteracting(false);
     }, [isAppReady, hideDisplacementEffects, resetAllFilters, updateFilterIntensities, scheduler]);
+
+    // Handle component cleanup
+    useEffect(() => {
+        return () => {
+            // Reset all filters
+            resetAllFilters();
+
+            // Clear any pending filter updates
+            if (resourceManagerRef.current) {
+                resourceManagerRef.current.clearPendingUpdates();
+            }
+
+            // Clear any scheduled filter transitions
+            const transitionTimeouts = Array.from(document.querySelectorAll(`[data-slider-id="${sliderRef.current?.id}"]`))
+                .map(el => parseInt(el.getAttribute('data-timeout-id') || '0'))
+                .filter(id => id > 0);
+
+            transitionTimeouts.forEach(clearTimeout);
+        };
+    }, [resetAllFilters]);
+
+    // Error boundary for filter operations
+    useEffect(() => {
+        const handleError = (error: Error) => {
+            console.error('Filter system error:', error);
+            // Attempt recovery by resetting filters
+            resetAllFilters();
+            // Hide all effects
+            hideDisplacementEffects();
+        };
+
+        window.addEventListener('error', (e) => handleError(e.error));
+        return () => window.removeEventListener('error', (e) => handleError(e.error));
+    }, [resetAllFilters, hideDisplacementEffects]);
 
     // Render component
     return (

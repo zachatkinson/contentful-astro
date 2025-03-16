@@ -208,69 +208,42 @@ export const useDisplacementEffects = ({
      */
     const setupDisplacementEffects = useCallback(async () => {
         // Prevent multiple initializations
-        if (initializationStateRef.current.isInitializing ||
-            initializationStateRef.current.isInitialized) {
+        if (initializationStateRef.current.isInitializing || initializationStateRef.current.isInitialized) {
             return;
         }
 
-        // Validate app
-        if (!appRef.current || !appRef.current.stage) {
-            return;
-        }
-
+        // Mark as initializing
         initializationStateRef.current.isInitializing = true;
 
         try {
-            const app = appRef.current;
-            const stage = app.stage;
-            const canvasWidth = app.screen.width;
-            const canvasHeight = app.screen.height;
-
-            // Determine if effects atlas should be used
-            const effectsAtlasEnabled = isUseEffectsAtlasEnabled();
-            const useAtlasForEffects = atlasManager && effectsAtlas && effectsAtlasEnabled;
-
-            // Enhanced logging with more details and styled output
-            if (isDevelopment) {
-                console.log(`%c[KineticSlider] Setting up displacement effects for canvas: ${canvasWidth}x${canvasHeight}`, 'color: #2196F3');
-
-                if (useAtlasForEffects) {
-                    console.log(`%c[KineticSlider] Using effects atlas: ${effectsAtlas} for displacement textures`, 'background: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;');
-                } else {
-                    const reason = !atlasManager
-                        ? "AtlasManager not available"
-                        : !effectsAtlas
-                            ? "No effectsAtlas property specified"
-                            : !effectsAtlasEnabled
-                                ? `Atlas usage disabled by useEffectsAtlas=${useEffectsAtlas}`
-                                : "Required effect textures not found in atlas";
-                    console.log(`%c[KineticSlider] Using individual effect images (${reason})`, 'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
-                }
+            // Get stage reference
+            const stage = appRef.current?.stage;
+            if (!stage) {
+                throw new Error('Stage not available');
             }
 
-            // 1. Load background displacement texture
-            let bgTexture: Texture;
-            try {
-                bgTexture = await loadTexture(backgroundDisplacementSpriteLocation);
-            } catch (error) {
-                if (isDevelopment) {
-                    console.error("[KineticSlider] Failed to load background displacement texture:", error);
-                }
-                initializationStateRef.current.isInitializing = false;
-                return;
+            // Get canvas dimensions
+            const canvasWidth = appRef.current?.screen.width ?? 0;
+            const canvasHeight = appRef.current?.screen.height ?? 0;
+
+            if (canvasWidth === 0 || canvasHeight === 0) {
+                throw new Error('Invalid canvas dimensions');
             }
 
-            // 2. Create background displacement sprite - FORCE SPECIFIC SIZE
+            // 1. Load background displacement sprite
+            const bgTexture = await loadTexture(backgroundDisplacementSpriteLocation);
+
+            // 2. Create background displacement sprite
             const bgSprite = new Sprite(bgTexture);
-
-            // IMPORTANT: Set specific size to ensure consistent behavior
-            bgSprite.anchor.set(0.5);
-            bgSprite.position.set(canvasWidth / 2, canvasHeight / 2);
 
             // CRITICAL: Force sprite to cover the full canvas
             const bgScaleX = canvasWidth / bgTexture.width;
             const bgScaleY = canvasHeight / bgTexture.height;
             bgSprite.scale.set(bgScaleX, bgScaleY);
+
+            // Center the sprite on the canvas
+            bgSprite.anchor.set(0.5);
+            bgSprite.position.set(canvasWidth / 2, canvasHeight / 2);
 
             // Sprite should not be rendered directly
             bgSprite.renderable = false;
@@ -289,6 +262,15 @@ export const useDisplacementEffects = ({
             // 5. Add to stage
             stage.addChild(bgSprite);
 
+            // IMPORTANT: Attach the background displacement filter to the stage
+            if (!stage.filters) {
+                stage.filters = [bgFilter];
+            } else if (!Array.isArray(stage.filters)) {
+                stage.filters = [stage.filters, bgFilter];
+            } else {
+                stage.filters = [...stage.filters, bgFilter];
+            }
+
             if (isDevelopment) {
                 console.log(`[KineticSlider] Background displacement sprite created with scale: ${bgScaleX.toFixed(2)}x${bgScaleY.toFixed(2)}`);
             }
@@ -299,43 +281,20 @@ export const useDisplacementEffects = ({
                 resourceManager.trackFilter(bgFilter);
             }
 
-            // Set up cursor displacement if enabled
+            // Only set up cursor displacement if enabled
             if (cursorImgEffect) {
-                // 7. Load cursor displacement texture
-                let cursorTexture: Texture;
-                try {
-                    cursorTexture = await loadTexture(cursorDisplacementSpriteLocation);
-                } catch (error) {
-                    if (isDevelopment) {
-                        console.error("[KineticSlider] Failed to load cursor displacement texture:", error);
-                    }
-                    // Continue without cursor effect
-                    initializationStateRef.current = {
-                        isInitializing: false,
-                        isInitialized: true
-                    };
-                    return;
-                }
+                // 7. Load cursor displacement sprite
+                const cursorTexture = await loadTexture(cursorDisplacementSpriteLocation);
 
                 // 8. Create cursor displacement sprite
                 const cursorSprite = new Sprite(cursorTexture);
-                cursorSprite.anchor.set(0.5);
-                cursorSprite.position.set(canvasWidth / 2, canvasHeight / 2);
 
-                // 9. Set scale based on sizing mode
-                let cursorScaleX: number;
-                let cursorScaleY: number;
+                // 9. Set cursor sprite scale based on sizing mode
+                let cursorScaleX = 1;
+                let cursorScaleY = 1;
 
-                if (cursorDisplacementSizing === 'fullscreen') {
-                    // Fill screen
-                    cursorScaleX = canvasWidth / cursorTexture.width;
-                    cursorScaleY = canvasHeight / cursorTexture.height;
-
-                    if (isDevelopment) {
-                        console.log(`[KineticSlider] Using fullscreen mode (${canvasWidth}x${canvasHeight})`);
-                    }
-                } else if (cursorDisplacementSizing === 'custom') {
-                    // Validate custom dimensions
+                if (cursorDisplacementSizing) {
+                    // Validate dimensions if custom sizing is used
                     const validatedDimensions = validateDimensions(
                         cursorDisplacementWidth,
                         cursorDisplacementHeight,
@@ -343,31 +302,29 @@ export const useDisplacementEffects = ({
                         cursorTexture.height
                     );
 
-                    if (!validatedDimensions.isValid && isDevelopment) {
-                        console.warn('[KineticSlider] Falling back to natural dimensions due to invalid custom dimensions');
-                    }
+                    if (cursorDisplacementSizing === 'fullscreen') {
+                        // Scale to viewport dimensions
+                        cursorScaleX = canvasWidth / cursorTexture.width;
+                        cursorScaleY = canvasHeight / cursorTexture.height;
 
-                    // Handle custom dimensions with aspect ratio preservation
-                    if (validatedDimensions.width && !validatedDimensions.height) {
-                        // Height is calculated to maintain aspect ratio
-                        cursorScaleX = validatedDimensions.width / cursorTexture.width;
-                        cursorScaleY = cursorScaleX; // Preserve aspect ratio
-
-                        if (isDevelopment) {
-                            console.log(`[KineticSlider] Using custom width (${validatedDimensions.width}px) with preserved aspect ratio`);
-                        }
-                    } else if (!validatedDimensions.width && validatedDimensions.height) {
-                        // Width is calculated to maintain aspect ratio
-                        cursorScaleY = validatedDimensions.height / cursorTexture.height;
-                        cursorScaleX = cursorScaleY; // Preserve aspect ratio
+                        // Center the sprite on the canvas
+                        cursorSprite.anchor.set(0.5);
+                        cursorSprite.position.set(canvasWidth / 2, canvasHeight / 2);
 
                         if (isDevelopment) {
-                            console.log(`[KineticSlider] Using custom height (${validatedDimensions.height}px) with preserved aspect ratio`);
+                            console.log(`[KineticSlider] Using fullscreen dimensions (${canvasWidth}x${canvasHeight})`);
                         }
                     } else if (validatedDimensions.width && validatedDimensions.height) {
                         // Both dimensions specified
                         cursorScaleX = validatedDimensions.width / cursorTexture.width;
                         cursorScaleY = validatedDimensions.height / cursorTexture.height;
+
+                        // Center the sprite
+                        cursorSprite.anchor.set(0.5);
+                        cursorSprite.position.set(
+                            validatedDimensions.width / 2,
+                            validatedDimensions.height / 2
+                        );
 
                         if (isDevelopment) {
                             console.log(`[KineticSlider] Using custom dimensions (${validatedDimensions.width}x${validatedDimensions.height})`);
@@ -411,18 +368,26 @@ export const useDisplacementEffects = ({
                 cursorDisplacementSpriteRef.current = cursorSprite;
                 cursorDispFilterRef.current = cursorFilter;
 
-                // 13. Add to stage - IMPORTANT: Add at a higher index than background
+                // 13. Add to stage
                 stage.addChild(cursorSprite);
+
+                // IMPORTANT: Attach the cursor displacement filter to the stage
+                if (!stage.filters) {
+                    stage.filters = [cursorFilter];
+                } else if (!Array.isArray(stage.filters)) {
+                    stage.filters = [stage.filters, cursorFilter];
+                } else {
+                    stage.filters = [...stage.filters, cursorFilter];
+                }
+
+                if (isDevelopment) {
+                    console.log(`[KineticSlider] Cursor displacement sprite created with scale: ${cursorScaleX.toFixed(2)}x${cursorScaleY.toFixed(2)}`);
+                }
 
                 // 14. Track resources
                 if (resourceManager) {
                     resourceManager.trackDisplayObject(cursorSprite);
                     resourceManager.trackFilter(cursorFilter);
-                }
-
-                if (isDevelopment) {
-                    console.log(`[KineticSlider] Cursor displacement effect set up successfully`);
-                    console.log(`[KineticSlider] Cursor displacement sprite scaled to: ${(cursorScaleX * cursorScaleIntensity).toFixed(2)}x${(cursorScaleY * cursorScaleIntensity).toFixed(2)}`);
                 }
             }
 
@@ -433,16 +398,20 @@ export const useDisplacementEffects = ({
             };
 
             if (isDevelopment) {
-                console.log('[KineticSlider] Displacement effects initialization complete');
+                console.log('[KineticSlider] Displacement effects initialized successfully');
             }
         } catch (error) {
-            if (isDevelopment) {
-                console.error('[KineticSlider] Error setting up displacement effects:', error);
-            }
+            // Reset initialization state on error
             initializationStateRef.current = {
                 isInitializing: false,
                 isInitialized: false
             };
+
+            if (isDevelopment) {
+                console.error('[KineticSlider] Error setting up displacement effects:', error);
+            }
+
+            throw error; // Re-throw to allow caller to handle
         }
     }, [
         appRef,
@@ -453,17 +422,12 @@ export const useDisplacementEffects = ({
         cursorDisplacementSizing,
         cursorDisplacementWidth,
         cursorDisplacementHeight,
-        backgroundDisplacementSpriteRef,
-        cursorDisplacementSpriteRef,
-        bgDispFilterRef,
-        cursorDispFilterRef,
-        loadTexture,
         resourceManager,
-        validateDimensions,
         atlasManager,
         effectsAtlas,
         useEffectsAtlas,
-        isUseEffectsAtlasEnabled
+        validateDimensions,
+        loadTexture
     ]);
 
     /**

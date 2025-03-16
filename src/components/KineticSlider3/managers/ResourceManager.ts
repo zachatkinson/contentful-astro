@@ -998,6 +998,19 @@ class ResourceManager {
 
         this.log('info', 'All resources disposed');
     }
+
+    /**
+     * Clears any pending updates in the queue
+     */
+    clearPendingUpdates(): void {
+        // Clear any pending timeouts or intervals
+        this.timeouts.forEach(clearTimeout);
+        this.timeouts.clear();
+
+        // Clear any pending animation frames
+        this.intervals.forEach(clearInterval);
+        this.intervals.clear();
+    }
 }
 
 export default ResourceManager;
