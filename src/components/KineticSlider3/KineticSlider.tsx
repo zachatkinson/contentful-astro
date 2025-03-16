@@ -7,6 +7,7 @@ import {AtlasManager} from './managers/AtlasManager';
 import RenderScheduler from './managers/RenderScheduler';
 import { UpdateType } from './managers/UpdateTypes';
 import { ThrottleStrategy } from './managers/FrameThrottler';
+import AnimationCoordinator from './managers/AnimationCoordinator';
 
 // Import hooks directly
 import { useDisplacementEffects } from './hooks';
@@ -100,6 +101,12 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     // Initialize the render scheduler (singleton)
     const scheduler = RenderScheduler.getInstance();
 
+    // Create ResourceManager instance with unique ID
+    const resourceManagerRef = useRef<ResourceManager | null>(null);
+
+    // Initialize the animation coordinator and set the resource manager
+    const animationCoordinator = AnimationCoordinator.getInstance();
+
     // Configure the scheduler for optimal performance
     useEffect(() => {
         // Only run on client-side
@@ -115,9 +122,6 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             scheduler.clearQueue();
         };
     }, [scheduler]);
-
-    // Create ResourceManager instance with unique ID
-    const resourceManagerRef = useRef<ResourceManager | null>(null);
 
     // Create AtlasManager instance
     const atlasManagerRef = useRef<AtlasManager | null>(null);
@@ -152,6 +156,11 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             basePath: '/atlas'
         }, resourceManagerRef.current);
 
+        // Set the resource manager for the animation coordinator
+        if (resourceManagerRef.current) {
+            animationCoordinator.setResourceManager(resourceManagerRef.current);
+        }
+
         return () => {
             // Mark as unmounting to prevent new resource allocation
             if (resourceManagerRef.current) {
@@ -168,7 +177,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                 atlasManagerRef.current = null;
             }
         };
-    }, []);
+    }, [animationCoordinator]);
 
     // Create a pixi refs object for hooks
     const pixiRefs = {
@@ -803,6 +812,18 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         window.addEventListener('error', (e) => handleError(e.error));
         return () => window.removeEventListener('error', (e) => handleError(e.error));
     }, [resetAllFilters, hideDisplacementEffects]);
+
+    // Add a new useEffect to handle cleanup
+    useEffect(() => {
+        return () => {
+            // Clean up any resources when component unmounts
+            if (resourceManagerRef.current) {
+                // Use the existing methods instead of the non-existent 'cleanup' method
+                resourceManagerRef.current.clearPendingUpdates();
+                resourceManagerRef.current.markUnmounting();
+            }
+        };
+    }, []);
 
     // Render component
     return (

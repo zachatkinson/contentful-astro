@@ -1,7 +1,7 @@
 /**
  * @file AnimationCoordinator.ts
- * @description Coordinates animations across different hooks to ensure they start and end together.
- * Provides a central service for grouping related animations and managing their lifecycle.
+ * @description Coordinates animations across different components of the KineticSlider.
+ * Ensures animations are properly grouped, prioritized, and synchronized.
  */
 
 import { gsap } from 'gsap';
@@ -9,76 +9,105 @@ import RenderScheduler from './RenderScheduler';
 import { UpdateType, UpdatePriority } from './UpdateTypes';
 import ResourceManager from './ResourceManager';
 
-// Define TweenTarget type to match GSAP's expected types
-type TweenTarget = gsap.TweenTarget;
+// Development environment check
+const isDevelopment = import.meta.env?.MODE === 'development';
 
 /**
- * Animation group types for coordinating related animations
+ * Animation group types for categorizing related animations
  */
 export enum AnimationGroupType {
-    /** Mouse movement related animations */
-    MOUSE_MOVEMENT = 'mouse_movement',
-
-    /** Slide transition animations */
     SLIDE_TRANSITION = 'slide_transition',
-
-    /** Text effects animations */
-    TEXT_EFFECTS = 'text_effects',
-
-    /** Filter effect animations */
-    FILTER_EFFECTS = 'filter_effects',
-
-    /** Displacement effect animations */
-    DISPLACEMENT_EFFECTS = 'displacement_effects',
-
-    /** Idle animations */
-    IDLE_EFFECTS = 'idle_effects'
+    MOUSE_MOVEMENT = 'mouse_movement',
+    IDLE_EFFECT = 'idle_effect',
+    FILTER_EFFECT = 'filter_effect',
+    TEXT_ANIMATION = 'text_animation',
+    DISPLACEMENT = 'displacement',
+    INTERACTION = 'interaction'
 }
 
 /**
- * Interface for animation registration
+ * Animation priority levels
  */
-export interface AnimationRegistration {
-    /** The animation tween */
-    tween: gsap.core.Tween;
-
-    /** The animation group this belongs to */
-    group: AnimationGroupType;
-
-    /** Priority level for this animation */
-    priority: UpdatePriority;
-
-    /** Timestamp when the animation was registered */
-    timestamp: number;
-
-    /** Whether this animation is critical for the group */
-    isCritical: boolean;
+export enum AnimationPriority {
+    CRITICAL = 'critical',
+    HIGH = 'high',
+    NORMAL = 'normal',
+    LOW = 'low'
 }
 
 /**
- * Singleton service to coordinate animations across hooks
+ * Maps animation group types to their default priority
+ */
+const GROUP_PRIORITY_MAP: Record<AnimationGroupType, AnimationPriority> = {
+    [AnimationGroupType.SLIDE_TRANSITION]: AnimationPriority.CRITICAL,
+    [AnimationGroupType.MOUSE_MOVEMENT]: AnimationPriority.HIGH,
+    [AnimationGroupType.INTERACTION]: AnimationPriority.HIGH,
+    [AnimationGroupType.DISPLACEMENT]: AnimationPriority.NORMAL,
+    [AnimationGroupType.FILTER_EFFECT]: AnimationPriority.NORMAL,
+    [AnimationGroupType.TEXT_ANIMATION]: AnimationPriority.NORMAL,
+    [AnimationGroupType.IDLE_EFFECT]: AnimationPriority.LOW
+};
+
+/**
+ * Maps animation priority to RenderScheduler UpdateType
+ */
+const PRIORITY_UPDATE_TYPE_MAP: Record<AnimationPriority, UpdateType> = {
+    [AnimationPriority.CRITICAL]: UpdateType.SLIDE_TRANSITION,
+    [AnimationPriority.HIGH]: UpdateType.INTERACTION_FEEDBACK,
+    [AnimationPriority.NORMAL]: UpdateType.FILTER_UPDATE,
+    [AnimationPriority.LOW]: UpdateType.IDLE_EFFECT
+};
+
+/**
+ * Interface for animation group configuration
+ */
+export interface AnimationGroupConfig {
+    id: string;
+    type: AnimationGroupType;
+    priority?: AnimationPriority;
+    animations: gsap.core.Tween[];
+    onComplete?: () => void;
+    onStart?: () => void;
+}
+
+/**
+ * Interface for animation group tracking
+ */
+interface AnimationGroup {
+    id: string;
+    type: AnimationGroupType;
+    priority: AnimationPriority;
+    timeline: gsap.core.Timeline;
+    animations: gsap.core.Tween[];
+    isActive: boolean;
+    startTime: number;
+}
+
+/**
+ * Coordinates animations across different components of the KineticSlider.
+ * Ensures animations are properly grouped, prioritized, and synchronized.
  */
 export class AnimationCoordinator {
     /** Singleton instance */
     private static instance: AnimationCoordinator;
 
-    /** Map of animation groups */
-    private animationGroups: Map<AnimationGroupType, AnimationRegistration[]> = new Map();
+    /** Active animation groups */
+    private activeGroups: Map<string, AnimationGroup> = new Map();
 
-    /** Reference to the scheduler */
-    private scheduler: RenderScheduler;
-
-    /** Reference to the resource manager */
+    /** Resource manager for tracking animations */
     private resourceManager: ResourceManager | null = null;
 
-    /** Whether animations are currently being processed */
+    /** Render scheduler for coordinating updates */
+    private scheduler: RenderScheduler;
+
+    /** Pending animation groups to be processed */
+    private pendingGroups: AnimationGroupConfig[] = [];
+
+    /** Processing state */
     private isProcessing: boolean = false;
 
-    /** Timeout ID for batch processing */
-    private batchTimeoutId: number | null = null;
-
-    /** Batch processing delay in ms */
-    private batchDelay: number = 16; // ~60fps
+    /** Processing timeout ID */
+    private processingTimeoutId: number | null = null;
 
     /**
      * Get the singleton instance
@@ -95,183 +124,308 @@ export class AnimationCoordinator {
      */
     private constructor() {
         this.scheduler = RenderScheduler.getInstance();
-
-        // Initialize empty groups for all animation types
-        Object.values(AnimationGroupType).forEach(groupType => {
-            this.animationGroups.set(groupType as AnimationGroupType, []);
-        });
     }
 
     /**
-     * Set the resource manager reference
+     * Set the resource manager
      */
     public setResourceManager(resourceManager: ResourceManager): void {
         this.resourceManager = resourceManager;
     }
 
     /**
-     * Register an animation with a specific group
+     * Create and register an animation group
      */
-    public registerAnimation(
-        tween: gsap.core.Tween,
-        group: AnimationGroupType,
-        priority: UpdatePriority = UpdatePriority.NORMAL,
-        isCritical: boolean = false
-    ): void {
-        const animations = this.animationGroups.get(group) || [];
+    public createAnimationGroup(config: AnimationGroupConfig): gsap.core.Timeline {
+        try {
+            // Use provided priority or default for the group type
+            const priority = config.priority || GROUP_PRIORITY_MAP[config.type];
 
-        animations.push({
-            tween,
-            group,
-            priority,
-            timestamp: performance.now(),
-            isCritical
-        });
+            // Create a timeline for the group
+            const timeline = gsap.timeline({
+                onComplete: () => {
+                    this.completeGroup(config.id);
+                    if (config.onComplete) config.onComplete();
+                },
+                onStart: () => {
+                    if (config.onStart) config.onStart();
+                }
+            });
 
-        this.animationGroups.set(group, animations);
+            // Add all animations to the timeline
+            config.animations.forEach(animation => {
+                timeline.add(animation, 0);
+            });
 
-        // Track the animation with resource manager if available
-        if (this.resourceManager) {
-            this.resourceManager.trackAnimation(tween);
+            // Create the animation group
+            const group: AnimationGroup = {
+                id: config.id,
+                type: config.type,
+                priority,
+                timeline,
+                animations: config.animations,
+                isActive: true,
+                startTime: Date.now()
+            };
+
+            // Register the group
+            this.activeGroups.set(config.id, group);
+
+            // Track the timeline with resource manager
+            if (this.resourceManager) {
+                this.resourceManager.trackAnimation(timeline);
+            }
+
+            if (isDevelopment) {
+                console.log(`Created animation group: ${config.id} (${config.type}) with priority ${priority}`);
+            }
+
+            return timeline;
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error creating animation group:', error);
+            }
+            // Return an empty timeline on error
+            return gsap.timeline();
+        }
+    }
+
+    /**
+     * Queue an animation group for processing
+     */
+    public queueAnimationGroup(config: AnimationGroupConfig): void {
+        // Add to pending groups
+        this.pendingGroups.push(config);
+
+        // Schedule processing
+        this.schedulePendingGroupsProcessing();
+    }
+
+    /**
+     * Schedule processing of pending animation groups
+     */
+    private schedulePendingGroupsProcessing(): void {
+        if (this.isProcessing || this.processingTimeoutId !== null) {
+            return;
         }
 
-        // Start batch processing if not already running
-        this.startBatchProcessing();
+        this.processingTimeoutId = window.setTimeout(() => {
+            this.processingTimeoutId = null;
+            this.processPendingGroups();
+        }, 16); // Process on next frame
     }
 
     /**
-     * Create and register a GSAP animation
-     * @param target - The target object to animate (must be compatible with GSAP's TweenTarget)
-     * @param props - The animation properties
-     * @param group - The animation group this belongs to
-     * @param priority - The priority level for this animation
-     * @param isCritical - Whether this animation is critical for the group
-     * @returns The created GSAP tween
+     * Process pending animation groups
      */
-    public createAnimation(
-        target: TweenTarget,
-        props: gsap.TweenVars,
-        group: AnimationGroupType,
-        priority: UpdatePriority = UpdatePriority.NORMAL,
-        isCritical: boolean = false
-    ): gsap.core.Tween {
-        const tween = gsap.to(target, props);
-        this.registerAnimation(tween, group, priority, isCritical);
-        return tween;
-    }
+    private processPendingGroups(): void {
+        if (this.pendingGroups.length === 0) {
+            return;
+        }
 
-    /**
-     * Start batch processing of animations
-     */
-    private startBatchProcessing(): void {
-        if (this.isProcessing || this.batchTimeoutId !== null) return;
-
-        this.batchTimeoutId = window.setTimeout(() => {
-            this.batchTimeoutId = null;
-            this.processBatch();
-        }, this.batchDelay);
-    }
-
-    /**
-     * Process a batch of animations
-     */
-    private processBatch(): void {
         this.isProcessing = true;
 
         try {
-            // Process each animation group
-            this.animationGroups.forEach((animations, group) => {
-                if (animations.length === 0) return;
+            // Group pending animations by type
+            const groupedByType = new Map<AnimationGroupType, AnimationGroupConfig[]>();
 
-                // Determine the highest priority in this group
-                const highestPriority = Math.max(...animations.map(a => a.priority));
-
-                // Schedule the group execution based on highest priority
-                this.scheduler.scheduleUpdate(
-                    `animation-group-${group}`,
-                    () => this.executeAnimationGroup(group),
-                    highestPriority
-                );
+            this.pendingGroups.forEach(group => {
+                if (!groupedByType.has(group.type)) {
+                    groupedByType.set(group.type, []);
+                }
+                groupedByType.get(group.type)!.push(group);
             });
+
+            // Process each type
+            groupedByType.forEach((groups, type) => {
+                // For each type, create a single combined group
+                if (groups.length > 1) {
+                    this.combineAndCreateGroup(groups, type);
+                } else if (groups.length === 1) {
+                    this.createAnimationGroup(groups[0]);
+                }
+            });
+
+            // Clear pending groups
+            this.pendingGroups = [];
         } catch (error) {
-            console.error('Error processing animation batch:', error);
+            if (isDevelopment) {
+                console.error('Error processing pending animation groups:', error);
+            }
         } finally {
             this.isProcessing = false;
         }
     }
 
     /**
-     * Execute all animations in a group
+     * Combine multiple animation groups of the same type into a single group
      */
-    private executeAnimationGroup(group: AnimationGroupType): void {
-        const animations = this.animationGroups.get(group) || [];
-        if (animations.length === 0) return;
+    private combineAndCreateGroup(groups: AnimationGroupConfig[], type: AnimationGroupType): void {
+        try {
+            // Combine all animations
+            const allAnimations: gsap.core.Tween[] = [];
+            const onCompleteCallbacks: (() => void)[] = [];
+            const onStartCallbacks: (() => void)[] = [];
 
-        // Execute all animations in the group
-        animations.forEach(animation => {
-            // Ensure the tween is properly started
-            if (!animation.tween.isActive()) {
-                animation.tween.play();
+            groups.forEach(group => {
+                allAnimations.push(...group.animations);
+                if (group.onComplete) onCompleteCallbacks.push(group.onComplete);
+                if (group.onStart) onStartCallbacks.push(group.onStart);
+            });
+
+            // Create a combined group
+            const combinedGroup: AnimationGroupConfig = {
+                id: `combined_${type}_${Date.now()}`,
+                type,
+                animations: allAnimations,
+                onComplete: () => {
+                    onCompleteCallbacks.forEach(callback => callback());
+                },
+                onStart: () => {
+                    onStartCallbacks.forEach(callback => callback());
+                }
+            };
+
+            // Create the combined group
+            this.createAnimationGroup(combinedGroup);
+
+            if (isDevelopment) {
+                console.log(`Combined ${groups.length} animation groups of type ${type}`);
             }
-        });
-
-        // Clear the group
-        this.animationGroups.set(group, []);
-    }
-
-    /**
-     * Kill all animations in a specific group
-     */
-    public killAnimationGroup(group: AnimationGroupType): void {
-        const animations = this.animationGroups.get(group) || [];
-
-        // Kill all tweens
-        animations.forEach(animation => {
-            if (animation.tween.isActive()) {
-                animation.tween.kill();
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error combining animation groups:', error);
             }
-        });
-
-        // Clear the group
-        this.animationGroups.set(group, []);
-    }
-
-    /**
-     * Kill all animations
-     */
-    public killAllAnimations(): void {
-        Object.values(AnimationGroupType).forEach(group => {
-            this.killAnimationGroup(group as AnimationGroupType);
-        });
-    }
-
-    /**
-     * Map UpdateType to AnimationGroupType
-     */
-    public static mapUpdateTypeToAnimationGroup(updateType: UpdateType): AnimationGroupType {
-        switch (updateType) {
-            case UpdateType.MOUSE_RESPONSE:
-                return AnimationGroupType.MOUSE_MOVEMENT;
-
-            case UpdateType.SLIDE_TRANSITION:
-            case UpdateType.SLIDE_TRANSFORM:
-                return AnimationGroupType.SLIDE_TRANSITION;
-
-            case UpdateType.TEXT_POSITION:
-                return AnimationGroupType.TEXT_EFFECTS;
-
-            case UpdateType.FILTER_UPDATE:
-                return AnimationGroupType.FILTER_EFFECTS;
-
-            case UpdateType.DISPLACEMENT_EFFECT:
-                return AnimationGroupType.DISPLACEMENT_EFFECTS;
-
-            case UpdateType.IDLE_EFFECT:
-                return AnimationGroupType.IDLE_EFFECTS;
-
-            default:
-                return AnimationGroupType.MOUSE_MOVEMENT;
         }
+    }
+
+    /**
+     * Mark an animation group as complete
+     */
+    private completeGroup(groupId: string): void {
+        try {
+            const group = this.activeGroups.get(groupId);
+            if (!group) return;
+
+            // Mark as inactive
+            group.isActive = false;
+
+            // Remove from active groups
+            this.activeGroups.delete(groupId);
+
+            if (isDevelopment) {
+                const duration = Date.now() - group.startTime;
+                console.log(`Completed animation group: ${groupId} (${group.type}) after ${duration}ms`);
+            }
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error completing animation group:', error);
+            }
+        }
+    }
+
+    /**
+     * Cancel all animations of a specific type
+     */
+    public cancelAnimationsByType(type: AnimationGroupType): void {
+        try {
+            const groupsToCancel: string[] = [];
+
+            // Find all groups of the specified type
+            this.activeGroups.forEach((group, id) => {
+                if (group.type === type) {
+                    groupsToCancel.push(id);
+                }
+            });
+
+            // Cancel each group
+            groupsToCancel.forEach(id => {
+                this.cancelAnimationGroup(id);
+            });
+
+            if (isDevelopment && groupsToCancel.length > 0) {
+                console.log(`Cancelled ${groupsToCancel.length} animation groups of type ${type}`);
+            }
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error cancelling animations by type:', error);
+            }
+        }
+    }
+
+    /**
+     * Cancel a specific animation group
+     */
+    public cancelAnimationGroup(groupId: string): void {
+        try {
+            const group = this.activeGroups.get(groupId);
+            if (!group) return;
+
+            // Kill the timeline
+            group.timeline.kill();
+
+            // Remove from active groups
+            this.activeGroups.delete(groupId);
+
+            if (isDevelopment) {
+                console.log(`Cancelled animation group: ${groupId} (${group.type})`);
+            }
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error cancelling animation group:', error);
+            }
+        }
+    }
+
+    /**
+     * Schedule an animation update with the render scheduler
+     */
+    public scheduleAnimationUpdate(
+        groupType: AnimationGroupType,
+        callback: () => void,
+        identifier: string = 'animation'
+    ): void {
+        try {
+            // Get the priority for this group type
+            const priority = GROUP_PRIORITY_MAP[groupType];
+
+            // Map to update type
+            const updateType = PRIORITY_UPDATE_TYPE_MAP[priority];
+
+            // Schedule the update
+            this.scheduler.scheduleTypedUpdate(
+                identifier,
+                updateType,
+                callback
+            );
+
+            if (isDevelopment) {
+                console.log(`Scheduled animation update for ${groupType} with priority ${priority}`);
+            }
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error scheduling animation update:', error);
+            }
+        }
+    }
+
+    /**
+     * Get all active animation groups
+     */
+    public getActiveGroups(): Map<string, AnimationGroup> {
+        return new Map(this.activeGroups);
+    }
+
+    /**
+     * Check if there are any active animations of a specific type
+     */
+    public hasActiveAnimationsOfType(type: AnimationGroupType): boolean {
+        for (const group of this.activeGroups.values()) {
+            if (group.type === type && group.isActive) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 

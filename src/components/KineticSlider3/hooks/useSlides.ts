@@ -5,6 +5,7 @@ import { calculateSpriteScale } from '../utils/calculateSpriteScale';
 import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
 import { AtlasManager } from '../managers/AtlasManager';
+import AnimationCoordinator, { AnimationGroupType } from '../managers/AnimationCoordinator';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
@@ -38,6 +39,9 @@ export const useSlides = (
 
     // Ref to store active transitions
     const activeTransitionRef = useRef<gsap.core.Timeline | null>(null);
+
+    // Get the animation coordinator
+    const animationCoordinator = AnimationCoordinator.getInstance();
 
     // Get the slidesBasePath from props, defaulting to '/images/' if not provided
     const slidesBasePath = props.slidesBasePath || '/images/';
@@ -456,7 +460,7 @@ export const useSlides = (
     };
 
     /**
-     * Enhanced transition function with better resource management
+     * Enhanced transition function with better resource management and animation coordination
      */
     const transitionToSlide = useCallback((nextIndex: number): gsap.core.Timeline | null => {
         // Check if slider reference is available
@@ -491,15 +495,6 @@ export const useSlides = (
 
             if (isDevelopment) {
                 console.log(`Transitioning to slide ${nextIndex}`);
-            }
-
-            // Create new timeline
-            const tl = gsap.timeline();
-            activeTransitionRef.current = tl;
-
-            // Track the timeline with resourceManager
-            if (resourceManager) {
-                resourceManager.trackAnimation(tl);
             }
 
             const currentIndex = pixi.currentIndex.current;
@@ -543,24 +538,27 @@ export const useSlides = (
             const transitionScaleIntensity = props.transitionScaleIntensity ?? 30;
             const scaleMultiplier = 1 + transitionScaleIntensity / 100;
 
-            // Create nested timelines for better organization and control
-            const slideOutTl = gsap.timeline();
-            const slideInTl = gsap.timeline();
+            // Create animations for slide transitions
+            const slideOutAnimations: gsap.core.Tween[] = [];
+            const slideInAnimations: gsap.core.Tween[] = [];
+            const textOutAnimations: gsap.core.Tween[] = [];
+            const textInAnimations: gsap.core.Tween[] = [];
 
-            // Setup slide out animation with completion callbacks
-            slideOutTl.to(currentSlide.scale, {
-                x: currentSlide.baseScale! * scaleMultiplier,
-                y: currentSlide.baseScale! * scaleMultiplier,
-                duration: 1,
-                ease: 'power2.out',
-                onComplete: () => {
-                    // Re-track the sprite after animation
-                    if (resourceManager) {
-                        resourceManager.trackDisplayObject(currentSlide);
+            // Create slide out animations
+            slideOutAnimations.push(
+                gsap.to(currentSlide.scale, {
+                    x: currentSlide.baseScale! * scaleMultiplier,
+                    y: currentSlide.baseScale! * scaleMultiplier,
+                    duration: 1,
+                    ease: 'power2.out',
+                    onComplete: () => {
+                        // Re-track the sprite after animation
+                        if (resourceManager) {
+                            resourceManager.trackDisplayObject(currentSlide);
+                        }
                     }
-                }
-            }, 0)
-                .to(currentSlide, {
+                }),
+                gsap.to(currentSlide, {
                     alpha: 0,
                     duration: 1,
                     ease: 'power2.out',
@@ -573,14 +571,12 @@ export const useSlides = (
                             resourceManager.trackDisplayObject(currentSlide);
                         }
                     }
-                }, 0);
+                })
+            );
 
-            // Setup slide in animation with completion callbacks
-            slideInTl.set(nextSlide.scale, {
-                x: nextSlide.baseScale! * scaleMultiplier,
-                y: nextSlide.baseScale! * scaleMultiplier,
-            }, 0)
-                .to(nextSlide.scale, {
+            // Create slide in animations
+            slideInAnimations.push(
+                gsap.to(nextSlide.scale, {
                     x: nextSlide.baseScale!,
                     y: nextSlide.baseScale!,
                     duration: 1,
@@ -591,8 +587,8 @@ export const useSlides = (
                             resourceManager.trackDisplayObject(nextSlide);
                         }
                     }
-                }, 0)
-                .to(nextSlide, {
+                }),
+                gsap.to(nextSlide, {
                     alpha: 1,
                     duration: 1,
                     ease: 'power2.out',
@@ -602,66 +598,129 @@ export const useSlides = (
                             resourceManager.trackDisplayObject(nextSlide);
                         }
                     }
-                }, 0);
+                })
+            );
 
-            // Add timelines to main timeline
-            tl.add(slideOutTl, 0);
-            tl.add(slideInTl, 0);
+            // Set initial scale for next slide
+            nextSlide.scale.set(
+                nextSlide.baseScale! * scaleMultiplier,
+                nextSlide.baseScale! * scaleMultiplier
+            );
 
             // Add text container animations if available
             if (currentTextContainer && nextTextContainer) {
-                const textOutTl = gsap.timeline();
-                const textInTl = gsap.timeline();
+                textOutAnimations.push(
+                    gsap.to(currentTextContainer, {
+                        alpha: 0,
+                        duration: 1,
+                        ease: 'power2.out',
+                        onComplete: () => {
+                            // Hide previous text after transition
+                            currentTextContainer.visible = false;
 
-                textOutTl.to(currentTextContainer, {
-                    alpha: 0,
-                    duration: 1,
-                    ease: 'power2.out',
-                    onComplete: () => {
-                        // Hide previous text after transition
-                        currentTextContainer.visible = false;
-
-                        // Re-track the container after visibility change
-                        if (resourceManager) {
-                            resourceManager.trackDisplayObject(currentTextContainer);
+                            // Re-track the container after visibility change
+                            if (resourceManager) {
+                                resourceManager.trackDisplayObject(currentTextContainer);
+                            }
                         }
-                    }
-                }, 0);
+                    })
+                );
 
-                textInTl.to(nextTextContainer, {
-                    alpha: 1,
-                    duration: 1,
-                    ease: 'power2.out',
-                    onComplete: () => {
-                        // Re-track the container after animation
-                        if (resourceManager) {
-                            resourceManager.trackDisplayObject(nextTextContainer);
+                textInAnimations.push(
+                    gsap.to(nextTextContainer, {
+                        alpha: 1,
+                        duration: 1,
+                        ease: 'power2.out',
+                        onComplete: () => {
+                            // Re-track the container after animation
+                            if (resourceManager) {
+                                resourceManager.trackDisplayObject(nextTextContainer);
+                            }
                         }
-                    }
-                }, 0);
-
-                tl.add(textOutTl, 0);
-                tl.add(textInTl, 0);
+                    })
+                );
             }
 
-            // Add a callback to update current index when transition completes
-            tl.call(() => {
-                pixi.currentIndex.current = nextIndex;
-                activeTransitionRef.current = null;
+            // Use the AnimationCoordinator to create coordinated animation groups
+            const slideOutGroup = {
+                id: `slide_out_${currentIndex}_${Date.now()}`,
+                type: AnimationGroupType.SLIDE_TRANSITION,
+                animations: slideOutAnimations
+            };
 
-                if (isDevelopment) {
-                    console.log(`Slide transition to ${nextIndex} completed`);
+            const slideInGroup = {
+                id: `slide_in_${nextIndex}_${Date.now()}`,
+                type: AnimationGroupType.SLIDE_TRANSITION,
+                animations: slideInAnimations
+            };
+
+            // Create a master timeline for the entire transition
+            const masterTimeline = gsap.timeline({
+                onComplete: () => {
+                    // Update current index when transition completes
+                    pixi.currentIndex.current = nextIndex;
+                    activeTransitionRef.current = null;
+
+                    // Call the onSlideChange callback if provided
+                    if (onSlideChange) {
+                        onSlideChange(nextIndex);
+                    }
                 }
             });
 
-            return tl;
+            // Add slide animations to the master timeline
+            const slideOutTimeline = animationCoordinator.createAnimationGroup(slideOutGroup);
+            const slideInTimeline = animationCoordinator.createAnimationGroup(slideInGroup);
+
+            masterTimeline.add(slideOutTimeline, 0);
+            masterTimeline.add(slideInTimeline, 0);
+
+            // Add text animations if available
+            if (textOutAnimations.length > 0 && textInAnimations.length > 0) {
+                const textOutGroup = {
+                    id: `text_out_${currentIndex}_${Date.now()}`,
+                    type: AnimationGroupType.TEXT_ANIMATION,
+                    animations: textOutAnimations
+                };
+
+                const textInGroup = {
+                    id: `text_in_${nextIndex}_${Date.now()}`,
+                    type: AnimationGroupType.TEXT_ANIMATION,
+                    animations: textInAnimations
+                };
+
+                const textOutTimeline = animationCoordinator.createAnimationGroup(textOutGroup);
+                const textInTimeline = animationCoordinator.createAnimationGroup(textInGroup);
+
+                masterTimeline.add(textOutTimeline, 0);
+                masterTimeline.add(textInTimeline, 0);
+            }
+
+            // Store the master timeline
+            activeTransitionRef.current = masterTimeline;
+
+            // Track the master timeline with resourceManager
+            if (resourceManager) {
+                resourceManager.trackAnimation(masterTimeline);
+            }
+
+            return masterTimeline;
         } catch (error) {
             if (isDevelopment) {
-                console.error("Error during slide transition:", error);
+                console.error('Error during slide transition:', error);
             }
             return null;
         }
-    }, [pixi.slides.current, pixi.textContainers.current, pixi.currentIndex, props.transitionScaleIntensity, resourceManager, sliderRef]);
+    }, [
+        sliderRef,
+        pixi.slides,
+        pixi.textContainers,
+        pixi.currentIndex,
+        props.transitionScaleIntensity,
+        resourceManager,
+        onSlideChange,
+        animationCoordinator
+    ]);
 
     // Add nextSlide and prevSlide methods
     const nextSlide = useCallback((nextIndex: number) => {
@@ -686,3 +745,5 @@ export const useSlides = (
         loadingProgress
     };
 };
+
+export default useSlides;
