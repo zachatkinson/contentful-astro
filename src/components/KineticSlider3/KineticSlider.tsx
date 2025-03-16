@@ -74,13 +74,17 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                                                           // Atlas configuration
                                                           slidesAtlas = 'slides-atlas',
                                                           effectsAtlas = 'effects-atlas',
-
                                                           useEffectsAtlas = false,
                                                           useSlidesAtlas = false
-
-
-
                                                       }) => {
+    // Debug log the props
+    console.log("KineticSlider received props:", {
+        useSlidesAtlas,
+        useEffectsAtlas,
+        slidesAtlas,
+        effectsAtlas
+    });
+
     // Core references
     const sliderRef = useRef<HTMLDivElement>(null);
     const [isClient, setIsClient] = useState(false);
@@ -188,7 +192,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         imageFilters,
         textFilters,
         slidesAtlas,
-        effectsAtlas
+        effectsAtlas,
+        useSlidesAtlas,
+        useEffectsAtlas
     };
 
     // Enhanced hook params with resource and atlas managers

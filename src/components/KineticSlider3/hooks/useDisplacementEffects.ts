@@ -210,7 +210,7 @@ export const useDisplacementEffects = ({
 
             if (isDevelopment) {
                 console.log(`[KineticSlider] Setting up displacement effects for canvas: ${canvasWidth}x${canvasHeight}`);
-                console.log(`[KineticSlider] Atlas enabled: ${useEffectsAtlas ? 'Yes' : 'No'}`);
+                console.log(`[KineticSlider] Effects Atlas enabled: ${useEffectsAtlas ? 'Yes' : 'No'}`);
             }
 
             // 1. Load background displacement texture

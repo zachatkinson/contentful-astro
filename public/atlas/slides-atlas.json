@@ -1,6 +1,6 @@
 {
   "frames": {
-    "node src/components/KineticSlider3/scripts/generateAtlas.cjs --input=public/images/effects --name=effects-atlas --preserve-paths\n1.jpg": {
+    "images/slides/1.jpg": {
       "frame": {
         "x": 2,
         "y": 2,
@@ -14,7 +14,7 @@
         "h": 500
       }
     },
-    "2.jpg": {
+    "images/slides/2.jpg": {
       "frame": {
         "x": 2,
         "y": 504,
@@ -28,7 +28,7 @@
         "h": 500
       }
     },
-    "3.jpg": {
+    "images/slides/3.jpg": {
       "frame": {
         "x": 2,
         "y": 1006,
@@ -42,7 +42,7 @@
         "h": 500
       }
     },
-    "4.jpg": {
+    "images/slides/4.jpg": {
       "frame": {
         "x": 2,
         "y": 1508,
@@ -56,7 +56,7 @@
         "h": 500
       }
     },
-    "5.jpg": {
+    "images/slides/5.jpg": {
       "frame": {
         "x": 2,
         "y": 2010,
@@ -80,6 +80,8 @@
       "h": 4096
     },
     "scale": 1,
-    "image": "slides-atlas.png"
+    "preservePaths": true,
+    "image": "slides-atlas.png",
+    "pathPrefix": ""
   }
 }

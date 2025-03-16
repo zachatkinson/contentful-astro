@@ -25,6 +25,10 @@ export const useSlides = (
         atlasManager?: AtlasManager | null
     }
 ): UseSlidesResult => {
+    // Debug logging of props
+    console.log("useSlides received useSlidesAtlas:", props.useSlidesAtlas);
+    console.log("useSlides received props:", props);
+
     // Track loading state
     const [isLoading, setIsLoading] = useState(false);
     const [loadingProgress, setLoadingProgress] = useState(0);
@@ -35,36 +39,65 @@ export const useSlides = (
     // Get the slidesBasePath from props, defaulting to '/images/' if not provided
     const slidesBasePath = props.slidesBasePath || '/images/';
 
-    // Efficiently extract filename from path for atlas frame lookup
-    const getFrameName = (imagePath: string): string => {
-        // Check if the path is already a relative path (doesn't start with '/')
-        if (!imagePath.startsWith('/') && !imagePath.includes('://')) {
-            // Prepend the slidesBasePath to create a full path
-            const fullPath = `${slidesBasePath}${imagePath}`;
-            if (isDevelopment) {
-                console.log(`Converting relative path "${imagePath}" to full path "${fullPath}"`);
-            }
-            return fullPath;
+    // Normalize path for atlas frame lookup
+    const normalizePath = (imagePath: string): string => {
+        // For paths that start with a slash, remove it for atlas lookup
+        if (imagePath.startsWith('/')) {
+            return imagePath.substring(1);
         }
-
-        // If it's already a full path, return it as is
         return imagePath;
+    };
+
+    // Helper to check if useSlidesAtlas is enabled (handling different possible values)
+    const isUseSlidesAtlasEnabled = (): boolean => {
+        // Handle all possible representations of "true"
+        if (props.useSlidesAtlas === true) return true;
+        if (typeof props.useSlidesAtlas === 'string' && props.useSlidesAtlas === 'true') return true;
+
+        // Handle numeric representations (needs type checking)
+        if (typeof props.useSlidesAtlas === 'number' && props.useSlidesAtlas === 1) return true;
+        if (typeof props.useSlidesAtlas === 'string' && props.useSlidesAtlas === '1') return true;
+
+        // Default to false for all other cases
+        return false;
     };
 
     // Check if assets are available in atlas
     const areAssetsInAtlas = useCallback((): boolean => {
+        // First check if atlasManager and slidesAtlas are available
         if (!atlasManager || !props.slidesAtlas) {
+            if (isDevelopment) {
+                console.log(`Atlas not available: atlasManager=${!!atlasManager}, slidesAtlas=${!!props.slidesAtlas}`);
+            }
+            return false;
+        }
+
+        // Check if useSlidesAtlas is enabled
+        const useSlidesAtlasEnabled = isUseSlidesAtlasEnabled();
+        if (isDevelopment) {
+            console.log(`Atlas usage setting: useSlidesAtlas=${props.useSlidesAtlas}, enabled=${useSlidesAtlasEnabled}`);
+        }
+
+        if (!useSlidesAtlasEnabled) {
+            if (isDevelopment) {
+                console.log(`Atlas usage is disabled by useSlidesAtlas setting: ${props.useSlidesAtlas}`);
+            }
             return false;
         }
 
         // Check if all images are in the atlas
         const missingFrames: string[] = [];
         const result = props.images.every(imagePath => {
-            const frameName = getFrameName(imagePath);
-            const atlasId = atlasManager.hasFrame(frameName);
+            const normalizedPath = normalizePath(imagePath);
+
+            if (isDevelopment) {
+                console.log(`Checking if atlas has frame: "${normalizedPath}"`);
+            }
+
+            const atlasId = atlasManager.hasFrame(normalizedPath);
 
             if (!atlasId && isDevelopment) {
-                missingFrames.push(frameName);
+                missingFrames.push(normalizedPath);
             }
 
             return !!atlasId;
@@ -76,7 +109,7 @@ export const useSlides = (
         }
 
         return result;
-    }, [atlasManager, props.images, props.slidesAtlas, slidesBasePath]);
+    }, [atlasManager, props.images, props.slidesAtlas, props.useSlidesAtlas]);
 
     // Effect to create slides from atlas or individual images
     useEffect(() => {
@@ -135,10 +168,11 @@ export const useSlides = (
             });
             pixi.slides.current = [];
 
-            // Choose the loading method based on atlas availability and user preference
-            const useAtlas = atlasManager && props.slidesAtlas && areAssetsInAtlas() && props.useSlidesAtlas;
+            // Enhanced handling of the useAtlas decision
+            const useSlidesAtlasEnabled = isUseSlidesAtlasEnabled();
+            const useAtlas = atlasManager && props.slidesAtlas && areAssetsInAtlas() && useSlidesAtlasEnabled;
 
-            //if (isDevelopment) {
+            if (isDevelopment) {
                 if (useAtlas) {
                     console.log(`%c[KineticSlider] Using texture atlas: ${props.slidesAtlas} for ${props.images.length} slides`, 'background: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;');
                 } else {
@@ -146,12 +180,12 @@ export const useSlides = (
                         ? "AtlasManager not available"
                         : !props.slidesAtlas
                             ? "No slidesAtlas property specified"
-                            : !props.useSlidesAtlas
-                                ? "Atlas usage disabled by useSlidesAtlas=false"
+                            : !useSlidesAtlasEnabled
+                                ? `Atlas usage disabled by useSlidesAtlas=${props.useSlidesAtlas}`
                                 : "Not all images found in atlas";
                     console.log(`%c[KineticSlider] Using individual images (${reason})`, 'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
                 }
-            //}
+            }
 
             if (useAtlas) {
                 loadSlidesFromAtlas(slidesContainer);
@@ -164,7 +198,7 @@ export const useSlides = (
             }
             setIsLoading(false);
         }
-    }, [pixi.app.current, props.images, resourceManager, sliderRef, atlasManager, props.slidesAtlas, slidesBasePath]);
+    }, [pixi.app.current, props.images, resourceManager, sliderRef, atlasManager, props.slidesAtlas, props.useSlidesAtlas]);
 
     /**
      * Load slides from texture atlas
@@ -191,19 +225,23 @@ export const useSlides = (
             // Create sprites for each image using the atlas
             for (const [index, imagePath] of props.images.entries()) {
                 try {
-                    // Get frame name with proper path handling
-                    const frameName = getFrameName(imagePath);
+                    // Normalize path for atlas lookup
+                    const normalizedPath = normalizePath(imagePath);
+
+                    if (isDevelopment) {
+                        console.log(`Looking up atlas frame for normalized path: "${normalizedPath}"`);
+                    }
 
                     // Get texture from atlas
-                    const texture = atlasManager.getFrameTexture(frameName, props.slidesAtlas);
+                    const texture = atlasManager.getFrameTexture(normalizedPath, props.slidesAtlas);
 
                     if (!texture) {
-                        throw new Error(`Frame ${frameName} not found in atlas ${props.slidesAtlas}`);
+                        throw new Error(`Frame ${normalizedPath} not found in atlas ${props.slidesAtlas}`);
                     }
 
                     // Track texture with resource manager if available
                     if (resourceManager) {
-                        resourceManager.trackTexture(frameName, texture);
+                        resourceManager.trackTexture(imagePath, texture);
                     }
 
                     // Create the sprite with the texture from atlas
@@ -259,12 +297,7 @@ export const useSlides = (
                         console.error(`Error creating slide for ${imagePath} from atlas:`, error);
                     }
                     // Fallback to individual image loading if atlas frame not found
-                    // Construct the full path if it's a relative path
-                    const fullImagePath = !imagePath.startsWith('/') && !imagePath.includes('://')
-                        ? `${slidesBasePath}${imagePath}`
-                        : imagePath;
-
-                    const texture = await Assets.load(fullImagePath);
+                    const texture = await Assets.load(imagePath);
                     createSlideFromTexture(texture, imagePath, index, slidesContainer, app, sliderWidth, sliderHeight);
 
                     // Update progress
@@ -311,13 +344,8 @@ export const useSlides = (
                 console.log(`Slider dimensions: ${sliderWidth}x${sliderHeight}`);
             }
 
-            // Transform any relative paths to full paths with slidesBasePath
-            const imagesToLoad = props.images.map(imagePath => {
-                if (!imagePath.startsWith('/') && !imagePath.includes('://')) {
-                    return `${slidesBasePath}${imagePath}`;
-                }
-                return imagePath;
-            }).filter(image => !Assets.cache.has(image));
+            // Filter out any assets that are already in the cache
+            const imagesToLoad = props.images.filter(image => !Assets.cache.has(image));
 
             if (isDevelopment && imagesToLoad.length < props.images.length) {
                 console.log(`Using ${props.images.length - imagesToLoad.length} cached images`);
@@ -340,13 +368,8 @@ export const useSlides = (
             // Create sprites for each image
             props.images.forEach((image, index) => {
                 try {
-                    // Convert relative paths to full paths
-                    const fullImagePath = !image.startsWith('/') && !image.includes('://')
-                        ? `${slidesBasePath}${image}`
-                        : image;
-
                     // Get texture from cache
-                    const texture = Assets.get(fullImagePath);
+                    const texture = Assets.get(image);
 
                     // Create slide sprite
                     createSlideFromTexture(texture, image, index, slidesContainer, app, sliderWidth, sliderHeight);
