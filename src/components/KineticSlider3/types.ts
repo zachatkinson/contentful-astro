@@ -1,7 +1,7 @@
 import { Application, Sprite, Container, DisplacementFilter, Filter } from 'pixi.js';
 import { AtlasManager } from "./managers/AtlasManager";
 import type { RefObject } from "react";
-import ResourceManager from "./managers/ResourceManager.ts";
+import ResourceManager from "./managers/ResourceManager";
 
 /**
  * Navigation element selectors for external controls
@@ -32,6 +32,38 @@ export interface FilterConfig {
     intensity: number;
     type: string;
     options?: Record<string, any>;
+}
+
+/**
+ * Represents a pending filter update in the batch queue
+ * @property {string} filterId - Unique identifier for the filter
+ * @property {Partial<FilterConfig>} changes - The changes to apply to the filter
+ * @property {number} timestamp - When the update was queued
+ */
+export interface PendingFilterUpdate {
+    filterId: string;
+    changes: Partial<FilterConfig>;
+    timestamp: number;
+}
+
+/**
+ * Configuration for filter batching behavior
+ * @property {number} bufferMs - How long to wait before applying updates (in milliseconds)
+ * @property {number} maxBatchSize - Maximum number of updates to process in a single batch
+ */
+export interface FilterBatchConfig {
+    bufferMs: number;
+    maxBatchSize: number;
+}
+
+/**
+ * Represents the difference between two filter states
+ * @property {boolean} hasChanged - Whether any properties have changed
+ * @property {Partial<FilterConfig>} changedProperties - Only the properties that have changed
+ */
+export interface FilterDiff {
+    hasChanged: boolean;
+    changedProperties: Partial<FilterConfig>;
 }
 
 /**
