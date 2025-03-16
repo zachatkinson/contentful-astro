@@ -51,6 +51,22 @@ export const useDisplacementEffects = ({
     });
 
     /**
+     * Helper function to check if useEffectsAtlas is enabled (similar to useSlides)
+     */
+    const isUseEffectsAtlasEnabled = (): boolean => {
+        // Handle all possible representations of "true"
+        if (useEffectsAtlas === true) return true;
+        if (typeof useEffectsAtlas === 'string' && useEffectsAtlas === 'true') return true;
+
+        // Handle numeric representations (needs type checking)
+        if (typeof useEffectsAtlas === 'number' && useEffectsAtlas === 1) return true;
+        if (typeof useEffectsAtlas === 'string' && useEffectsAtlas === '1') return true;
+
+        // Default to false for all other cases
+        return false;
+    };
+
+    /**
      * Validates and sanitizes dimensions for displacement textures.
      * Handles negative or unusually large values, returning appropriate fallbacks.
      *
@@ -208,9 +224,26 @@ export const useDisplacementEffects = ({
             const canvasWidth = app.screen.width;
             const canvasHeight = app.screen.height;
 
+            // Determine if effects atlas should be used
+            const effectsAtlasEnabled = isUseEffectsAtlasEnabled();
+            const useAtlasForEffects = atlasManager && effectsAtlas && effectsAtlasEnabled;
+
+            // Enhanced logging with more details and styled output
             if (isDevelopment) {
-                console.log(`[KineticSlider] Setting up displacement effects for canvas: ${canvasWidth}x${canvasHeight}`);
-                console.log(`[KineticSlider] Effects Atlas enabled: ${useEffectsAtlas ? 'Yes' : 'No'}`);
+                console.log(`%c[KineticSlider] Setting up displacement effects for canvas: ${canvasWidth}x${canvasHeight}`, 'color: #2196F3');
+
+                if (useAtlasForEffects) {
+                    console.log(`%c[KineticSlider] Using effects atlas: ${effectsAtlas} for displacement textures`, 'background: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;');
+                } else {
+                    const reason = !atlasManager
+                        ? "AtlasManager not available"
+                        : !effectsAtlas
+                            ? "No effectsAtlas property specified"
+                            : !effectsAtlasEnabled
+                                ? `Atlas usage disabled by useEffectsAtlas=${useEffectsAtlas}`
+                                : "Required effect textures not found in atlas";
+                    console.log(`%c[KineticSlider] Using individual effect images (${reason})`, 'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
+                }
             }
 
             // 1. Load background displacement texture
@@ -424,7 +457,11 @@ export const useDisplacementEffects = ({
         cursorDispFilterRef,
         loadTexture,
         resourceManager,
-        validateDimensions
+        validateDimensions,
+        atlasManager,
+        effectsAtlas,
+        useEffectsAtlas,
+        isUseEffectsAtlasEnabled
     ]);
 
     /**
