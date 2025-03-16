@@ -138,7 +138,7 @@ export const useSlides = (
             // Choose the loading method based on atlas availability and user preference
             const useAtlas = atlasManager && props.slidesAtlas && areAssetsInAtlas() && props.useSlidesAtlas;
 
-            if (isDevelopment) {
+            //if (isDevelopment) {
                 if (useAtlas) {
                     console.log(`%c[KineticSlider] Using texture atlas: ${props.slidesAtlas} for ${props.images.length} slides`, 'background: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;');
                 } else {
@@ -151,7 +151,7 @@ export const useSlides = (
                                 : "Not all images found in atlas";
                     console.log(`%c[KineticSlider] Using individual images (${reason})`, 'background: #FFA726; color: white; padding: 2px 5px; border-radius: 3px;');
                 }
-            }
+            //}
 
             if (useAtlas) {
                 loadSlidesFromAtlas(slidesContainer);
