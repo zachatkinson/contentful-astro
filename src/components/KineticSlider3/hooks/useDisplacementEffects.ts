@@ -526,13 +526,21 @@ export const useDisplacementEffects = ({
                 bgSprite.visible = true;
                 bgSprite.renderable = false; // Important: keep this false
 
+                // Apply immediate scale to ensure filter is visible right away
+                bgFilter.scale.x = DEFAULT_BG_FILTER_SCALE;
+                bgFilter.scale.y = DEFAULT_BG_FILTER_SCALE;
+
+                if (isDevelopment) {
+                    console.log(`[KineticSlider] Immediately set background filter scale to ${DEFAULT_BG_FILTER_SCALE}`);
+                }
+
                 // Animate sprite alpha
                 const bgAlphaAnim = gsap.to(bgSprite, {
                     alpha: 1,
                     duration: 0.5
                 });
 
-                // Animate filter scale
+                // Animate filter scale (still needed for smooth transitions)
                 const bgFilterAnim = gsap.to(bgFilter.scale, {
                     x: DEFAULT_BG_FILTER_SCALE,
                     y: DEFAULT_BG_FILTER_SCALE,
@@ -556,13 +564,21 @@ export const useDisplacementEffects = ({
                     cursorSprite.visible = true;
                     cursorSprite.renderable = false; // Important: keep this false
 
+                    // Apply immediate scale to ensure filter is visible right away
+                    cursorFilter.scale.x = DEFAULT_CURSOR_FILTER_SCALE;
+                    cursorFilter.scale.y = DEFAULT_CURSOR_FILTER_SCALE;
+
+                    if (isDevelopment) {
+                        console.log(`[KineticSlider] Immediately set cursor filter scale to ${DEFAULT_CURSOR_FILTER_SCALE}`);
+                    }
+
                     // Animate sprite alpha
                     const cursorAlphaAnim = gsap.to(cursorSprite, {
                         alpha: 1,
                         duration: 0.5
                     });
 
-                    // Animate filter scale
+                    // Animate filter scale (still needed for smooth transitions)
                     const cursorFilterAnim = gsap.to(cursorFilter.scale, {
                         x: DEFAULT_CURSOR_FILTER_SCALE,
                         y: DEFAULT_CURSOR_FILTER_SCALE,
@@ -576,6 +592,18 @@ export const useDisplacementEffects = ({
                     }
                 }
             }
+
+            // Schedule an immediate render update to ensure changes are visible
+            scheduler.scheduleTypedUpdate(
+                'displacementEffects',
+                UpdateType.DISPLACEMENT_EFFECT,
+                () => {
+                    if (isDevelopment) {
+                        console.log('[KineticSlider] Immediate render update for displacement effects');
+                    }
+                },
+                'critical'
+            );
 
             // Track animations
             if (resourceManager && animations.length) {

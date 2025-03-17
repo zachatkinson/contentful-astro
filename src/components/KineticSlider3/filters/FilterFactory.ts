@@ -32,7 +32,7 @@ import { createMultiColorReplaceFilter } from "./multiColorReplaceFilter";
 import { createNoiseFilter } from "./noiseFilter";
 import { createOldFilmFilter } from "./oldFilmFilter";
 import { createOutlineFilter } from "./outlineFilter";
-import { createPixelateFilter } from "./pixelateFilter.ts";
+import { createPixelateFilter } from "./pixelateFilter";
 import { createRadialBlurFilter } from "./radialBlurFilter";
 import { createReflectionFilter } from "./reflectionFilter";
 import { createRGBSplitFilter } from "./rgbSplitFilter";
@@ -57,9 +57,8 @@ export class FilterFactory {
      * @returns Object containing the filter instance and control functions
      */
     static createFilter(config: FilterConfig): FilterResult {
-        if (!config.enabled) {
-            throw new Error('Cannot create a disabled filter');
-        }
+        // Allow creating disabled filters - they will be enabled later when needed
+        // The enabled state will be managed by the filter system
 
         // Map filter type to creator function
         switch (config.type) {

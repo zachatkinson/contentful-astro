@@ -143,20 +143,48 @@ const useIdleTimer = ({
             // Record start time for performance tracking
             lastAnimationOpRef.current = performance.now();
 
+            if (isDevelopment) {
+                console.log(`Creating filter animations with targetScale: ${targetScale}, duration: ${duration}`, {
+                    bgFilterCurrent: bgDispFilterRef.current ?
+                        { x: bgDispFilterRef.current.scale.x, y: bgDispFilterRef.current.scale.y } : 'no filter',
+                    cursorFilterCurrent: cursorDispFilterRef.current ?
+                        { x: cursorDispFilterRef.current.scale.x, y: cursorDispFilterRef.current.scale.y } : 'no filter',
+                    defaultBgFilterScale,
+                    defaultCursorFilterScale
+                });
+            }
+
             // Create animations array for batch tracking
             const animations: gsap.core.Tween[] = [];
 
             // Create background displacement filter animation
             if (bgDispFilterRef.current) {
+                // Ensure we're using the correct target scale
+                const actualTargetScale = targetScale === 0 ? 0 : defaultBgFilterScale;
+
+                // Apply immediate scale if needed for visibility
+                if (targetScale > 0 && (bgDispFilterRef.current.scale.x === 0 || bgDispFilterRef.current.scale.y === 0)) {
+                    bgDispFilterRef.current.scale.x = actualTargetScale;
+                    bgDispFilterRef.current.scale.y = actualTargetScale;
+
+                    if (isDevelopment) {
+                        console.log(`Applied immediate scale to background filter: ${actualTargetScale}`);
+                    }
+                }
+
                 const bgTween = gsap.to(bgDispFilterRef.current.scale, {
-                    x: targetScale,
-                    y: targetScale,
+                    x: actualTargetScale,
+                    y: actualTargetScale,
                     duration,
                     ease: "power2.out",
                     onComplete: () => {
                         // Re-track the filter after animation
                         if (resourceManager && bgDispFilterRef.current) {
                             resourceManager.trackFilter(bgDispFilterRef.current);
+                        }
+
+                        if (isDevelopment) {
+                            console.log(`Background filter animation complete, scale: (${actualTargetScale}, ${actualTargetScale})`);
                         }
                     }
                 });
@@ -167,6 +195,17 @@ const useIdleTimer = ({
             // Create cursor displacement filter animation if enabled
             if (cursorImgEffect && cursorDispFilterRef.current) {
                 const cursorScale = targetScale === 0 ? 0 : defaultCursorFilterScale;
+
+                // Apply immediate scale if needed for visibility
+                if (targetScale > 0 && (cursorDispFilterRef.current.scale.x === 0 || cursorDispFilterRef.current.scale.y === 0)) {
+                    cursorDispFilterRef.current.scale.x = cursorScale;
+                    cursorDispFilterRef.current.scale.y = cursorScale;
+
+                    if (isDevelopment) {
+                        console.log(`Applied immediate scale to cursor filter: ${cursorScale}`);
+                    }
+                }
+
                 const cursorTween = gsap.to(cursorDispFilterRef.current.scale, {
                     x: cursorScale,
                     y: cursorScale,
@@ -176,6 +215,10 @@ const useIdleTimer = ({
                         // Re-track the filter after animation
                         if (resourceManager && cursorDispFilterRef.current) {
                             resourceManager.trackFilter(cursorDispFilterRef.current);
+                        }
+
+                        if (isDevelopment) {
+                            console.log(`Cursor filter animation complete, scale: (${cursorScale}, ${cursorScale})`);
                         }
                     }
                 });
@@ -210,6 +253,7 @@ const useIdleTimer = ({
         cursorDispFilterRef,
         cursorImgEffect,
         defaultCursorFilterScale,
+        defaultBgFilterScale,
         resourceManager,
         animationCoordinator
     ]);
@@ -275,14 +319,22 @@ const useIdleTimer = ({
     /**
      * Restore filters to active state
      * Now uses AnimationCoordinator for better coordination
+     * @param immediate Whether to apply changes immediately without animation
      */
-    const restoreFilters = useCallback(() => {
+    const restoreFilters = useCallback((immediate = false) => {
         try {
             // Skip if unmounting
             if (isUnmountingRef.current) return;
 
             if (isDevelopment) {
-                console.log('Restoring filters to active state');
+                console.log(`Restoring filters to active state (immediate: ${immediate})`, {
+                    defaultBgFilterScale,
+                    defaultCursorFilterScale,
+                    bgFilterCurrent: bgDispFilterRef.current ?
+                        { x: bgDispFilterRef.current.scale.x, y: bgDispFilterRef.current.scale.y } : 'no filter',
+                    cursorFilterCurrent: cursorDispFilterRef.current ?
+                        { x: cursorDispFilterRef.current.scale.x, y: cursorDispFilterRef.current.scale.y } : 'no filter'
+                });
             }
 
             // Cancel any active idle timer
@@ -294,14 +346,67 @@ const useIdleTimer = ({
             // Cancel any existing animations of the same type
             animationCoordinator.cancelAnimationsByType(AnimationGroupType.INTERACTION);
 
-            // Create animations to restore filters
-            createFilterAnimations(defaultBgFilterScale, 0.5, () => {
+            // Ensure the cursor is marked as active
+            cursorActive.current = true;
+
+            // Apply immediate changes to ensure filters are visible right away
+            if (bgDispFilterRef.current) {
+                // Store original values for debugging
+                const originalX = bgDispFilterRef.current.scale.x;
+                const originalY = bgDispFilterRef.current.scale.y;
+
+                // Set to full scale values
+                bgDispFilterRef.current.scale.x = defaultBgFilterScale;
+                bgDispFilterRef.current.scale.y = defaultBgFilterScale;
+
                 if (isDevelopment) {
-                    console.log('Filters restored to active state');
+                    console.log(`Directly set background filter scale from (${originalX}, ${originalY}) to (${defaultBgFilterScale}, ${defaultBgFilterScale})`);
+                }
+            }
+
+            if (cursorImgEffect && cursorDispFilterRef.current) {
+                // Store original values for debugging
+                const originalX = cursorDispFilterRef.current.scale.x;
+                const originalY = cursorDispFilterRef.current.scale.y;
+
+                // Set to full scale values
+                cursorDispFilterRef.current.scale.x = defaultCursorFilterScale;
+                cursorDispFilterRef.current.scale.y = defaultCursorFilterScale;
+
+                if (isDevelopment) {
+                    console.log(`Directly set cursor filter scale from (${originalX}, ${originalY}) to (${defaultCursorFilterScale}, ${defaultCursorFilterScale})`);
+                }
+            }
+
+            // Schedule an immediate render update to ensure changes are visible
+            RenderScheduler.getInstance().scheduleTypedUpdate(
+                'idleTimer',
+                UpdateType.DISPLACEMENT_EFFECT,
+                () => {
+                    if (isDevelopment) {
+                        console.log('Immediate render update for filter restoration');
+                    }
+                },
+                immediate ? 'critical' : 'high' // Use critical priority for immediate restoration
+            );
+
+            // If immediate is true, we've already set the filter scales directly
+            // For smoother transitions, still create animations but with shorter duration
+            const animationDuration = immediate ? 0.2 : 0.5;
+
+            // Create animations to restore filters (for smooth transition)
+            createFilterAnimations(defaultBgFilterScale, animationDuration, () => {
+                if (isDevelopment) {
+                    console.log('Filters restored to active state - animation complete', {
+                        bgFilterFinal: bgDispFilterRef.current ?
+                            { x: bgDispFilterRef.current.scale.x, y: bgDispFilterRef.current.scale.y } : 'no filter',
+                        cursorFilterFinal: cursorDispFilterRef.current ?
+                            { x: cursorDispFilterRef.current.scale.x, y: cursorDispFilterRef.current.scale.y } : 'no filter'
+                    });
                 }
             });
 
-            // Schedule a render update
+            // Schedule a render update with appropriate priority
             animationCoordinator.scheduleAnimationUpdate(
                 AnimationGroupType.INTERACTION,
                 () => {
@@ -309,7 +414,7 @@ const useIdleTimer = ({
                         console.log('Interaction effect render update completed');
                     }
                 },
-                'idle_restore'
+                immediate ? 'critical' : 'high'
             );
         } catch (error) {
             if (isDevelopment) {
@@ -318,6 +423,11 @@ const useIdleTimer = ({
         }
     }, [
         defaultBgFilterScale,
+        defaultCursorFilterScale,
+        bgDispFilterRef,
+        cursorDispFilterRef,
+        cursorImgEffect,
+        cursorActive,
         createFilterAnimations,
         animationCoordinator
     ]);
@@ -339,20 +449,82 @@ const useIdleTimer = ({
             // Set cursor as active
             if (cursorActive.current !== true) {
                 cursorActive.current = true;
+
+                if (isDevelopment) {
+                    console.log('Mouse movement detected - setting cursor as active');
+                }
+
+                // Immediately restore filters when cursor becomes active after being inactive
+                // This ensures there's no delay in showing the displacement effect
+                const bgFilter = bgDispFilterRef.current;
+                const cursorFilter = cursorDispFilterRef.current;
+
+                if (bgFilter) {
+                    // Apply full scale immediately for instant visibility
+                    bgFilter.scale.x = defaultBgFilterScale;
+                    bgFilter.scale.y = defaultBgFilterScale;
+
+                    if (isDevelopment) {
+                        console.log(`Immediately set background filter scale to ${defaultBgFilterScale} after idle`);
+                    }
+                }
+
+                if (cursorImgEffect && cursorFilter) {
+                    // Apply full scale immediately for instant visibility
+                    cursorFilter.scale.x = defaultCursorFilterScale;
+                    cursorFilter.scale.y = defaultCursorFilterScale;
+
+                    if (isDevelopment) {
+                        console.log(`Immediately set cursor filter scale to ${defaultCursorFilterScale} after idle`);
+                    }
+                }
+
+                // Schedule an immediate render update to ensure changes are visible
+                RenderScheduler.getInstance().scheduleTypedUpdate(
+                    'idleTimer',
+                    UpdateType.DISPLACEMENT_EFFECT,
+                    () => {
+                        if (isDevelopment) {
+                            console.log('Immediate render update for filter restoration after idle');
+                        }
+                    },
+                    'critical' // Use critical priority to ensure immediate processing
+                );
+
+                // Then call restoreFilters to handle animations and other logic
+                restoreFilters(true); // Pass true to indicate immediate restoration
             }
 
-            // Restore filters if they were reset
-            if (bgDispFilterRef.current && (
-                bgDispFilterRef.current.scale.x === 0 ||
-                bgDispFilterRef.current.scale.y === 0
-            )) {
-                restoreFilters();
+            // Check if filters need to be restored
+            const bgFilter = bgDispFilterRef.current;
+            const cursorFilter = cursorDispFilterRef.current;
+
+            const bgFilterInactive = bgFilter && (bgFilter.scale.x === 0 || bgFilter.scale.y === 0);
+            const cursorFilterInactive = cursorImgEffect && cursorFilter &&
+                (cursorFilter.scale.x === 0 || cursorFilter.scale.y === 0);
+
+            if (bgFilterInactive || cursorFilterInactive) {
+                if (isDevelopment) {
+                    console.log('Filters are inactive, restoring them immediately', {
+                        bgFilterInactive,
+                        cursorFilterInactive,
+                        bgScale: bgFilter ? [bgFilter.scale.x, bgFilter.scale.y] : 'no filter',
+                        cursorScale: cursorFilter ? [cursorFilter.scale.x, cursorFilter.scale.y] : 'no filter'
+                    });
+                }
+
+                // Restore filters to active state immediately
+                restoreFilters(true); // Pass true to indicate immediate restoration
             }
 
             // Set a new idle timer
             idleTimerRef.current = window.setTimeout(() => {
                 // Set cursor as inactive
                 cursorActive.current = false;
+
+                if (isDevelopment) {
+                    console.log('Idle timeout reached - setting cursor as inactive');
+                }
 
                 // Reset filters when idle
                 resetFilters();
@@ -368,6 +540,10 @@ const useIdleTimer = ({
     }, [
         cursorActive,
         bgDispFilterRef,
+        cursorDispFilterRef,
+        cursorImgEffect,
+        defaultBgFilterScale,
+        defaultCursorFilterScale,
         idleTimeout,
         resetFilters,
         restoreFilters

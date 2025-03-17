@@ -160,23 +160,27 @@ const useMouseTracking = ({
     /**
      * Dispatch a custom event to coordinate with the filter system
      * This allows for better integration with the filter batching system
+     * @param filterId The ID of the filter to update
+     * @param intensity The intensity value to set
+     * @param priority Optional priority level for the update (defaults to 'high')
      */
-    const dispatchFilterUpdate = useCallback((filterId: string, intensity: number) => {
+    const dispatchFilterUpdate = useCallback((filterId: string, intensity: number, priority: 'normal' | 'high' | 'critical' = 'high') => {
         try {
             if (typeof window === 'undefined') return;
 
-            const detail: FilterUpdateEventDetail = {
-                filterId,
+            const detail = {
+                type: filterId,
                 intensity,
                 timestamp: Date.now(),
-                source: 'mouse-tracking'
+                source: 'mouse-tracking',
+                priority
             };
 
             const event = new CustomEvent(FILTER_COORDINATION_EVENT, { detail });
             window.dispatchEvent(event);
 
             if (isDevelopment) {
-                console.log(`Dispatched filter update for ${filterId} with intensity ${intensity}`);
+                console.log(`Dispatched filter update for ${filterId} with intensity ${intensity} (priority: ${priority})`);
             }
         } catch (error) {
             if (isDevelopment) {
@@ -207,6 +211,17 @@ const useMouseTracking = ({
             const bgFilter = backgroundDisplacementFilterRef?.current;
             const cursorFilter = cursorDisplacementFilterRef?.current;
 
+            if (isDevelopment) {
+                console.log('Animating displacement with intensity:', displacementIntensity, {
+                    hasBgSprite: !!backgroundSprite,
+                    hasCursorSprite: !!cursorSprite,
+                    hasBgFilter: !!bgFilter,
+                    hasCursorFilter: !!cursorFilter,
+                    bgFilterScale: bgFilter ? { x: bgFilter.scale.x, y: bgFilter.scale.y } : 'no filter',
+                    cursorFilterScale: cursorFilter ? { x: cursorFilter.scale.x, y: cursorFilter.scale.y } : 'no filter'
+                });
+            }
+
             // Clear existing animations
             cleanupAnimations();
 
@@ -215,6 +230,10 @@ const useMouseTracking = ({
 
             // Animate background displacement sprite
             if (backgroundSprite) {
+                // Apply immediate position update for instant visibility
+                backgroundSprite.x = mouseX;
+                backgroundSprite.y = mouseY;
+
                 const bgSpriteTween = gsap.to(backgroundSprite, {
                     x: mouseX,
                     y: mouseY,
@@ -228,8 +247,17 @@ const useMouseTracking = ({
                 if (bgFilter) {
                     const intensity = displacementIntensity * 30;
 
+                    // Ensure the filter is visible by applying immediate scale
+                    if (bgFilter.scale.x === 0 || bgFilter.scale.y === 0 || bgFilter.scale.x < intensity) {
+                        if (isDevelopment) {
+                            console.log(`Background filter was inactive or too small (${bgFilter.scale.x}, ${bgFilter.scale.y}), setting to ${intensity}`);
+                        }
+                        bgFilter.scale.x = intensity;
+                        bgFilter.scale.y = intensity;
+                    }
+
                     // Dispatch filter update event for coordination with filter system
-                    dispatchFilterUpdate('background-displacement', intensity);
+                    dispatchFilterUpdate('background-displacement', intensity, 'critical');
 
                     const bgFilterTween = gsap.to(bgFilter.scale, {
                         x: intensity,
@@ -244,6 +272,10 @@ const useMouseTracking = ({
 
             // Animate cursor displacement sprite if effect is enabled
             if (cursorImgEffect && cursorSprite) {
+                // Apply immediate position update for instant visibility
+                cursorSprite.x = mouseX;
+                cursorSprite.y = mouseY;
+
                 const cursorSpriteTween = gsap.to(cursorSprite, {
                     x: mouseX,
                     y: mouseY,
@@ -257,8 +289,17 @@ const useMouseTracking = ({
                 if (cursorFilter) {
                     const intensity = displacementIntensity * 15;
 
+                    // Ensure the filter is visible by applying immediate scale
+                    if (cursorFilter.scale.x === 0 || cursorFilter.scale.y === 0 || cursorFilter.scale.x < intensity) {
+                        if (isDevelopment) {
+                            console.log(`Cursor filter was inactive or too small (${cursorFilter.scale.x}, ${cursorFilter.scale.y}), setting to ${intensity}`);
+                        }
+                        cursorFilter.scale.x = intensity;
+                        cursorFilter.scale.y = intensity;
+                    }
+
                     // Dispatch filter update event for coordination with filter system
-                    dispatchFilterUpdate('cursor-displacement', intensity);
+                    dispatchFilterUpdate('cursor-displacement', intensity, 'critical');
 
                     const cursorFilterTween = gsap.to(cursorFilter.scale, {
                         x: intensity,
@@ -276,6 +317,18 @@ const useMouseTracking = ({
 
             // Process animations in batch
             processBatchAnimations();
+
+            // Schedule an immediate render update to ensure changes are visible
+            scheduler.scheduleTypedUpdate(
+                'mouseTracking',
+                UpdateType.DISPLACEMENT_EFFECT,
+                () => {
+                    if (isDevelopment) {
+                        console.log('Immediate render update for displacement effect');
+                    }
+                },
+                'high'
+            );
 
             // Reset pending update flag after processing
             debounceStateRef.current.pendingUpdate = false;
@@ -296,7 +349,8 @@ const useMouseTracking = ({
         cleanupAnimations,
         processBatchAnimations,
         calculateDisplacementIntensity,
-        dispatchFilterUpdate
+        dispatchFilterUpdate,
+        scheduler
     ]);
 
     /**
@@ -350,6 +404,66 @@ const useMouseTracking = ({
             const intensity = calculateDisplacementIntensity(mouseX, mouseY, rect);
             const now = Date.now();
 
+            // Check if filters are inactive and need immediate activation
+            const bgFilter = backgroundDisplacementFilterRef?.current;
+            const cursorFilter = cursorDisplacementFilterRef?.current;
+
+            const bgFilterInactive = bgFilter && (bgFilter.scale.x === 0 || bgFilter.scale.y === 0);
+            const cursorFilterInactive = cursorImgEffect && cursorFilter &&
+                (cursorFilter.scale.x === 0 || cursorFilter.scale.y === 0);
+
+            if (bgFilterInactive || cursorFilterInactive) {
+                if (isDevelopment) {
+                    console.log('[useMouseTracking] Detected inactive filters, applying immediate values', {
+                        bgFilterInactive,
+                        cursorFilterInactive,
+                        bgScale: bgFilter ? [bgFilter.scale.x, bgFilter.scale.y] : 'no filter',
+                        cursorScale: cursorFilter ? [cursorFilter.scale.x, cursorFilter.scale.y] : 'no filter'
+                    });
+                }
+
+                // Apply immediate values to ensure visibility
+                if (bgFilterInactive && bgFilter) {
+                    const bgIntensity = intensity * 30;
+                    bgFilter.scale.x = bgIntensity;
+                    bgFilter.scale.y = bgIntensity;
+
+                    // Dispatch critical filter update
+                    dispatchFilterUpdate('background-displacement', bgIntensity, 'critical');
+                }
+
+                if (cursorFilterInactive && cursorFilter) {
+                    const cursorIntensity = intensity * 15;
+                    cursorFilter.scale.x = cursorIntensity;
+                    cursorFilter.scale.y = cursorIntensity;
+
+                    // Dispatch critical filter update
+                    dispatchFilterUpdate('cursor-displacement', cursorIntensity, 'critical');
+                }
+
+                // Force an immediate update with critical priority
+                scheduler.scheduleTypedUpdate(
+                    'mouseTracking',
+                    UpdateType.MOUSE_RESPONSE,
+                    animateDisplacementScheduled,
+                    'critical'
+                );
+
+                // Also update sprites immediately
+                const bgSprite = backgroundDisplacementSpriteRef.current;
+                const cursorSprite = cursorDisplacementSpriteRef.current;
+
+                if (bgSprite) {
+                    bgSprite.x = mouseX;
+                    bgSprite.y = mouseY;
+                }
+
+                if (cursorImgEffect && cursorSprite) {
+                    cursorSprite.x = mouseX;
+                    cursorSprite.y = mouseY;
+                }
+            }
+
             // Store the mouse position and container rect for the scheduled update
             lastMousePositionRef.current = {
                 x: mouseX,
@@ -382,11 +496,12 @@ const useMouseTracking = ({
                 // For rapid movements, use debouncing to avoid too many updates
                 debouncedDisplacementUpdate();
             } else {
-                // For normal movements, schedule immediate update
+                // For normal movements, schedule immediate update with high priority
                 scheduler.scheduleTypedUpdate(
                     'mouseTracking',
                     UpdateType.MOUSE_RESPONSE,
-                    animateDisplacementScheduled
+                    animateDisplacementScheduled,
+                    'high'
                 );
 
                 // Update last debounce time
@@ -399,10 +514,16 @@ const useMouseTracking = ({
         }
     }, [
         sliderRef,
+        backgroundDisplacementFilterRef,
+        cursorDisplacementFilterRef,
+        backgroundDisplacementSpriteRef,
+        cursorDisplacementSpriteRef,
+        cursorImgEffect,
         animateDisplacementScheduled,
         debouncedDisplacementUpdate,
-        scheduler,
-        calculateDisplacementIntensity
+        calculateDisplacementIntensity,
+        dispatchFilterUpdate,
+        scheduler
     ]);
 
     // Set up mouse tracking

@@ -264,19 +264,46 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         resetAllFilters,
         activateFilterEffects,
         isInitialized: filtersInitialized,
-        isActive: filtersActive
+        isActive: filtersActive,
+        setFiltersActive
     } = useFilters(hookParams);
 
     // Coordinate filter states with interaction state
     useEffect(() => {
-        if (!filtersInitialized || !isAppReady || !assetsLoaded) return;
+        if (!isAppReady || !assetsLoaded) {
+            console.log("Skipping filter coordination - not ready", {
+                filtersInitialized,
+                isAppReady,
+                assetsLoaded
+            });
+            return;
+        }
+
+        // Try to initialize filters if they're not already initialized
+        if (!filtersInitialized && typeof activateFilterEffects === 'function') {
+            console.log("Attempting to initialize filters during coordination");
+            activateFilterEffects();
+        }
+
+        console.log(`Filter coordination - isInteracting: ${isInteracting}, filtersActive: ${filtersActive}`);
 
         if (isInteracting) {
             // When interaction starts, activate both displacement and custom filters
+            console.log("Interaction started - activating effects");
             showDisplacementEffects();
-            updateFilterIntensities(true);
+
+            // First try to use the dedicated activation function
+            if (typeof activateFilterEffects === 'function') {
+                console.log("Using activateFilterEffects");
+                activateFilterEffects();
+            } else {
+                // Fallback to updateFilterIntensities
+                console.log("Using updateFilterIntensities");
+                updateFilterIntensities(true, true);
+            }
         } else {
             // When interaction ends, deactivate both
+            console.log("Interaction ended - deactivating effects");
             hideDisplacementEffects();
             updateFilterIntensities(false);
         }
@@ -285,9 +312,11 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         isAppReady,
         assetsLoaded,
         filtersInitialized,
+        filtersActive,
         showDisplacementEffects,
         hideDisplacementEffects,
-        updateFilterIntensities
+        updateFilterIntensities,
+        activateFilterEffects
     ]);
 
     // Reset filters when component unmounts or when app/assets state changes
@@ -448,9 +477,10 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         currentIndexRef.current = newIndex;
         setCurrentSlideIndex(newIndex);
 
-        // Temporarily activate filters during transition
+        // Activate filters for the new slide
         if (filtersInitialized) {
-            updateFilterIntensities(true, true); // Force update
+            // Use activateFilterEffects to properly apply filters to the new slide
+            activateFilterEffects();
 
             // Schedule filter deactivation if not interacting
             if (!isInteracting) {
@@ -466,6 +496,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     }, [
         filtersInitialized,
         isInteracting,
+        activateFilterEffects,
         updateFilterIntensities,
         hideDisplacementEffects
     ]);
@@ -538,32 +569,30 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                 nextSlide(nextIndex);
                 setCurrentSlideIndex(nextIndex);
 
-                // If the cursor is currently over the slider (we're interacting),
-                // schedule effect reapplication after a short delay
-                if (isInteracting) {
-                    setTimeout(() => {
-                        console.log("Scheduling effects after slide change (next)");
+                // Always schedule effect reapplication after a short delay
+                // regardless of whether we're interacting or not
+                setTimeout(() => {
+                    console.log("Scheduling effects after slide change (next)");
 
-                        // Schedule displacement effects reapplication
-                        scheduler.scheduleTypedUpdate(
-                            'slider',
-                            UpdateType.DISPLACEMENT_EFFECT,
-                            () => {
-                                showDisplacementEffects();
-                            }
-                        );
+                    // Schedule displacement effects reapplication
+                    scheduler.scheduleTypedUpdate(
+                        'slider',
+                        UpdateType.DISPLACEMENT_EFFECT,
+                        () => {
+                            showDisplacementEffects();
+                        }
+                    );
 
-                        // Schedule filter update with normal priority
-                        scheduler.scheduleTypedUpdate(
-                            'slider',
-                            UpdateType.FILTER_UPDATE,
-                            () => {
-                                // Force update filter intensities
-                                updateFilterIntensities(true, true);
-                            }
-                        );
-                    }, 100); // Short delay to allow transition to start
-                }
+                    // Schedule filter update with normal priority
+                    scheduler.scheduleTypedUpdate(
+                        'slider',
+                        UpdateType.FILTER_UPDATE,
+                        () => {
+                            // Use activateFilterEffects to properly apply filters to the new slide
+                            activateFilterEffects();
+                        }
+                    );
+                }, 100); // Short delay to allow transition to start
             }
         );
     }, [
@@ -574,7 +603,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         nextSlide,
         isInteracting,
         showDisplacementEffects,
-        updateFilterIntensities,
+        activateFilterEffects,
         scheduler
     ]);
 
@@ -595,32 +624,30 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                 prevSlide(prevIndex);
                 setCurrentSlideIndex(prevIndex);
 
-                // If the cursor is currently over the slider (we're interacting),
-                // schedule effect reapplication after a short delay
-                if (isInteracting) {
-                    setTimeout(() => {
-                        console.log("Scheduling effects after slide change (prev)");
+                // Always schedule effect reapplication after a short delay
+                // regardless of whether we're interacting or not
+                setTimeout(() => {
+                    console.log("Scheduling effects after slide change (prev)");
 
-                        // Schedule displacement effects reapplication
-                        scheduler.scheduleTypedUpdate(
-                            'slider',
-                            UpdateType.DISPLACEMENT_EFFECT,
-                            () => {
-                                showDisplacementEffects();
-                            }
-                        );
+                    // Schedule displacement effects reapplication
+                    scheduler.scheduleTypedUpdate(
+                        'slider',
+                        UpdateType.DISPLACEMENT_EFFECT,
+                        () => {
+                            showDisplacementEffects();
+                        }
+                    );
 
-                        // Schedule filter update with normal priority
-                        scheduler.scheduleTypedUpdate(
-                            'slider',
-                            UpdateType.FILTER_UPDATE,
-                            () => {
-                                // Force update filter intensities
-                                updateFilterIntensities(true, true);
-                            }
-                        );
-                    }, 100); // Short delay to allow transition to start
-                }
+                    // Schedule filter update with normal priority
+                    scheduler.scheduleTypedUpdate(
+                        'slider',
+                        UpdateType.FILTER_UPDATE,
+                        () => {
+                            // Use activateFilterEffects to properly apply filters to the new slide
+                            activateFilterEffects();
+                        }
+                    );
+                }, 100); // Short delay to allow transition to start
             }
         );
     }, [
@@ -631,7 +658,7 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         prevSlide,
         isInteracting,
         showDisplacementEffects,
-        updateFilterIntensities,
+        activateFilterEffects,
         scheduler
     ]);
 
@@ -709,75 +736,143 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
      */
     const handleMouseEnter = useCallback(() => {
         if (!isAppReady) return;
-        console.log("Mouse entered the slider - scheduling effect activation");
+        console.log("Mouse entered the slider - activating effects immediately", {
+            filtersInitialized,
+            filtersActive,
+            hasActivateFunction: typeof activateFilterEffects === 'function',
+            hasUpdateFunction: typeof updateFilterIntensities === 'function',
+            currentSlideIndex
+        });
 
         // Update cursor active state
         cursorActiveRef.current = true;
 
-        // Schedule displacement effect activation
+        // Set interaction state immediately to ensure proper coordination
+        setIsInteracting(true);
+
+        // Schedule displacement effects with critical priority
         scheduler.scheduleTypedUpdate(
             'slider',
             UpdateType.DISPLACEMENT_EFFECT,
             () => {
-                // Show displacement effects first
+                // Apply displacement effects immediately
                 showDisplacementEffects();
-            }
+                console.log("Displacement effects activated");
+            },
+            'critical'
         );
 
-        // Schedule filter updates with a slight delay to avoid visual conflict
+        // Schedule filter activation with critical priority
         scheduler.scheduleTypedUpdate(
             'slider',
             UpdateType.FILTER_UPDATE,
             () => {
-                // Activate filter effects and update intensities
-                if (activateFilterEffects) {
+                // Force initialize filters if not already initialized
+                if (!filtersInitialized && typeof activateFilterEffects === 'function') {
+                    console.log("Filters not initialized, initializing now");
                     activateFilterEffects();
+                } else if (typeof activateFilterEffects === 'function') {
+                    // Use the dedicated activation function as the primary method
+                    console.log("Using activateFilterEffects function for slide", currentSlideIndex);
+                    activateFilterEffects();
+                } else if (typeof updateFilterIntensities === 'function') {
+                    // Only use updateFilterIntensities as fallback
+                    console.log("Using updateFilterIntensities function with force=true");
+                    updateFilterIntensities(true, true);
                 }
-                // Force update all filter intensities for the active slide
-                updateFilterIntensities(true, true);
-            }
+
+                // Explicitly set filters as active
+                setFiltersActive(true);
+
+                console.log("Filter activation completed with critical priority");
+            },
+            'critical'
         );
 
-        setIsInteracting(true);
-    }, [isAppReady, showDisplacementEffects, updateFilterIntensities, activateFilterEffects, scheduler]);
+        // Schedule a final render update to ensure all changes are applied
+        scheduler.scheduleTypedUpdate(
+            'slider',
+            UpdateType.FILTER_UPDATE,
+            () => {
+                console.log("Final render update after mouse enter completed");
+
+                // Double-check filter state after render
+                console.log("Filter state after render:", {
+                    filtersActive,
+                    bgDispFilterEnabled: bgDispFilterRef.current?.enabled,
+                    cursorDispFilterEnabled: cursorDispFilterRef.current?.enabled,
+                    currentSlideIndex
+                });
+            },
+            'critical'
+        );
+    }, [
+        isAppReady,
+        showDisplacementEffects,
+        updateFilterIntensities,
+        activateFilterEffects,
+        filtersInitialized,
+        filtersActive,
+        setFiltersActive,
+        currentSlideIndex,
+        scheduler
+    ]);
 
     /**
-     * Handles mouse leave events on the slider element
-     * Deactivates all displacement effects and resets all filters
-     * Now uses scheduler for batched updates
+     * Handles mouse leave event
+     * Deactivates displacement effects and filters
      */
     const handleMouseLeave = useCallback(() => {
-        if (!isAppReady) return;
-        console.log("Mouse left the slider - scheduling effect deactivation");
+        if (!appRef.current || !isAppReady) return;
+
+        console.log("Mouse left slider - deactivating effects");
+
+        // Set interaction state to false
+        setIsInteracting(false);
         cursorActiveRef.current = false;
 
-        // Schedule displacement effect deactivation (high priority)
+        // Schedule displacement effect deactivation with critical priority
         scheduler.scheduleTypedUpdate(
             'slider',
             UpdateType.DISPLACEMENT_EFFECT,
             () => {
-                // Ensure displacement effects are hidden
                 hideDisplacementEffects();
-            }
+            },
+            'critical'
         );
 
-        // Schedule filter reset (normal priority)
+        // Schedule filter deactivation with critical priority
         scheduler.scheduleTypedUpdate(
             'slider',
             UpdateType.FILTER_UPDATE,
             () => {
-                // Force immediate reset of all filters
-                if (resetAllFilters) {
-                    resetAllFilters();
-                }
+                // Force deactivate all filters with critical priority
+                // The true parameter forces update for all filters
+                updateFilterIntensities(false, true);
+                setFiltersActive(false);
 
-                // Reset the filter intensities state
-                updateFilterIntensities(false);
-            }
+                console.log("Filter deactivation scheduled with critical priority");
+            },
+            'critical'
         );
 
-        setIsInteracting(false);
-    }, [isAppReady, hideDisplacementEffects, resetAllFilters, updateFilterIntensities, scheduler]);
+        // Schedule a final render update to ensure all changes are applied
+        scheduler.scheduleTypedUpdate(
+            'slider',
+            UpdateType.FILTER_UPDATE,
+            () => {
+                console.log("Final render update after mouse leave completed");
+            },
+            'critical'
+        );
+    }, [
+        appRef,
+        isAppReady,
+        hideDisplacementEffects,
+        updateFilterIntensities,
+        setFiltersActive,
+        scheduler
+    ]);
 
     // Handle component cleanup
     useEffect(() => {
