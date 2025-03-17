@@ -1,4 +1,4 @@
-import { Application, Sprite, Container, DisplacementFilter, Filter } from 'pixi.js';
+import { Application, Sprite, Container, DisplacementFilter, Filter, Texture } from 'pixi.js';
 import { AtlasManager } from "./managers/AtlasManager";
 import type { RefObject } from "react";
 import ResourceManager from "./managers/ResourceManager";
@@ -202,6 +202,21 @@ export interface KineticSliderProps {
 export interface EnhancedSprite extends Sprite {
     /** Base scale value for the sprite, used for animations */
     baseScale?: number;
+
+    /** Flag indicating if this is a placeholder sprite */
+    _isPlaceholder?: boolean;
+
+    /** Index of the slide this placeholder represents */
+    _placeholderIndex?: number;
+
+    /** Original texture to restore when converting from placeholder back to full sprite */
+    _originalTexture?: Texture;
+
+    /** Loading state for the sprite */
+    _loadingState?: 'uninitialized' | 'loading' | 'loaded' | 'error';
+
+    /** Whether this sprite is within the current visibility window */
+    _inVisibilityWindow?: boolean;
 }
 
 /**
