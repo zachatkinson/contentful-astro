@@ -1181,14 +1181,6 @@ export const useFilters = (
                 }
             }
 
-            // Skip if already active
-            if (filtersActiveRef.current) {
-                if (isDevelopment) {
-                    console.log('[useFilters] Filter effects already active, skipping activation');
-                }
-                return;
-            }
-
             if (isDevelopment) {
                 console.log('[useFilters] Activating filter effects with critical priority');
                 console.log('[useFilters] Current filter map entries:', Object.keys(filterMapRef.current));
@@ -1200,7 +1192,8 @@ export const useFilters = (
             // Get original configurations if available
             const originalConfigs = originalConfigsRef.current;
 
-            // Get the current slide index
+            // Get the current slide index from the ref to ensure we're using the most up-to-date value
+            // This is critical during slide transitions
             const currentIndex = pixi.currentIndex.current;
 
             if (isDevelopment) {

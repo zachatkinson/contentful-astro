@@ -479,11 +479,44 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
         // Activate filters for the new slide
         if (filtersInitialized) {
-            // Use activateFilterEffects to properly apply filters to the new slide
-            activateFilterEffects();
+            // If cursor is within the canvas, apply filters immediately with critical priority
+            if (isInteracting) {
+                console.log("Cursor is within canvas - applying filters immediately with critical priority");
 
-            // Schedule filter deactivation if not interacting
-            if (!isInteracting) {
+                // Schedule displacement effects with critical priority
+                scheduler.scheduleTypedUpdate(
+                    'slider',
+                    UpdateType.DISPLACEMENT_EFFECT,
+                    () => {
+                        showDisplacementEffects();
+                    },
+                    'critical'
+                );
+
+                // Schedule filter activation with critical priority
+                // Force the filter activation to use the new slide index
+                scheduler.scheduleTypedUpdate(
+                    'slider',
+                    UpdateType.FILTER_UPDATE,
+                    () => {
+                        // Explicitly update the current index ref before activating filters
+                        currentIndexRef.current = newIndex;
+
+                        // Force filter activation for the new slide
+                        if (typeof activateFilterEffects === 'function') {
+                            activateFilterEffects();
+
+                            // Double-check that filters are active
+                            setFiltersActive(true);
+                        }
+                    },
+                    'critical'
+                );
+            } else {
+                // Use activateFilterEffects to properly apply filters to the new slide
+                activateFilterEffects();
+
+                // Schedule filter deactivation if not interacting
                 const transitionDuration = 1000; // 1 second transition
                 setTimeout(() => {
                     if (!isInteracting) { // Check again in case interaction started during transition
@@ -498,7 +531,10 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         isInteracting,
         activateFilterEffects,
         updateFilterIntensities,
-        hideDisplacementEffects
+        hideDisplacementEffects,
+        showDisplacementEffects,
+        scheduler,
+        setFiltersActive
     ]);
 
     // Use slides hook with transition handler
@@ -567,6 +603,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             () => {
                 // First transition the slide
                 nextSlide(nextIndex);
+
+                // Update the current index
+                currentIndexRef.current = nextIndex;
                 setCurrentSlideIndex(nextIndex);
 
                 // Always schedule effect reapplication after a short delay
@@ -580,17 +619,31 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                         UpdateType.DISPLACEMENT_EFFECT,
                         () => {
                             showDisplacementEffects();
-                        }
+                        },
+                        // Use critical priority if cursor is within the canvas
+                        isInteracting ? 'critical' : undefined
                     );
 
-                    // Schedule filter update with normal priority
+                    // Schedule filter update with appropriate priority based on interaction state
                     scheduler.scheduleTypedUpdate(
                         'slider',
                         UpdateType.FILTER_UPDATE,
                         () => {
+                            // Ensure current index is set correctly
+                            currentIndexRef.current = nextIndex;
+
                             // Use activateFilterEffects to properly apply filters to the new slide
-                            activateFilterEffects();
-                        }
+                            if (typeof activateFilterEffects === 'function') {
+                                activateFilterEffects();
+
+                                // If cursor is within canvas, ensure filters are active
+                                if (isInteracting) {
+                                    setFiltersActive(true);
+                                }
+                            }
+                        },
+                        // Use critical priority if cursor is within the canvas
+                        isInteracting ? 'critical' : undefined
                     );
                 }, 100); // Short delay to allow transition to start
             }
@@ -604,7 +657,8 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         isInteracting,
         showDisplacementEffects,
         activateFilterEffects,
-        scheduler
+        scheduler,
+        setFiltersActive
     ]);
 
     /**
@@ -622,6 +676,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             () => {
                 // First transition the slide
                 prevSlide(prevIndex);
+
+                // Update the current index
+                currentIndexRef.current = prevIndex;
                 setCurrentSlideIndex(prevIndex);
 
                 // Always schedule effect reapplication after a short delay
@@ -635,17 +692,31 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                         UpdateType.DISPLACEMENT_EFFECT,
                         () => {
                             showDisplacementEffects();
-                        }
+                        },
+                        // Use critical priority if cursor is within the canvas
+                        isInteracting ? 'critical' : undefined
                     );
 
-                    // Schedule filter update with normal priority
+                    // Schedule filter update with appropriate priority based on interaction state
                     scheduler.scheduleTypedUpdate(
                         'slider',
                         UpdateType.FILTER_UPDATE,
                         () => {
+                            // Ensure current index is set correctly
+                            currentIndexRef.current = prevIndex;
+
                             // Use activateFilterEffects to properly apply filters to the new slide
-                            activateFilterEffects();
-                        }
+                            if (typeof activateFilterEffects === 'function') {
+                                activateFilterEffects();
+
+                                // If cursor is within canvas, ensure filters are active
+                                if (isInteracting) {
+                                    setFiltersActive(true);
+                                }
+                            }
+                        },
+                        // Use critical priority if cursor is within the canvas
+                        isInteracting ? 'critical' : undefined
                     );
                 }, 100); // Short delay to allow transition to start
             }
@@ -659,7 +730,8 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         isInteracting,
         showDisplacementEffects,
         activateFilterEffects,
-        scheduler
+        scheduler,
+        setFiltersActive
     ]);
 
     // Apply hooks only when appRef is available and ready - NOW updateFilterIntensities is defined before being referenced
