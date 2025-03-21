@@ -1,6 +1,7 @@
 import { SimpleLightmapFilter } from 'pixi-filters';
 import { Assets, Texture } from 'pixi.js';
 import { type SimpleLightmapFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a SimpleLightmap filter that applies a lighting effect
@@ -8,11 +9,15 @@ import { type SimpleLightmapFilterConfig, type FilterResult } from './types';
  * The SimpleLightmapFilter creates a lighting effect by using a texture as a
  * lightmap source along with an ambient color. This can be used to create
  * dynamic lighting effects on images or other display objects.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the SimpleLightmap filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createSimpleLightmapFilter(config: SimpleLightmapFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create initial texture (placeholder or actual)
     let lightMapTexture: any = config.lightMap;
 
@@ -43,12 +48,24 @@ export function createSimpleLightmapFilter(config: SimpleLightmapFilterConfig): 
         }
     }
 
+    // Create a unique key for this filter configuration
+    // The filter is mostly driven by external texture so we'll use a simpler key
+    const colorHex = (colorValue || 0).toString(16);
+    const shaderKey = `simple-lightmap-filter-${colorHex}`;
+
     // Create the filter with properly typed parameters
     const filter = new SimpleLightmapFilter(
         lightMapTexture,          // lightMap texture
         colorValue || 0x000000,   // ambient color as number (default black)
         config.alpha              // alpha value
     );
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering simple lightmap filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -105,5 +122,23 @@ export function createSimpleLightmapFilter(config: SimpleLightmapFilterConfig): 
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing simple lightmap filter shader:', error);
+        }
+
+        // If we have a custom lightmap texture, we might want to dispose of it
+        // but we should be careful to only dispose of textures we create
+        // and not shared textures from the global Texture cache
+
+        // Destroy the filter
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

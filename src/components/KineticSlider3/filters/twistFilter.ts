@@ -1,16 +1,21 @@
 import { TwistFilter } from 'pixi-filters';
 import { type TwistFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a Twist filter that applies a swirl/twist effect to an object
  *
  * The TwistFilter makes display objects appear twisted in the given direction,
  * creating a swirl effect from a defined center point.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the Twist filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createTwistFilter(config: TwistFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -21,8 +26,18 @@ export function createTwistFilter(config: TwistFilterConfig): FilterResult {
     if (config.offsetX !== undefined) options.offsetX = config.offsetX;
     if (config.offsetY !== undefined) options.offsetY = config.offsetY;
 
+    // Create a unique key for this filter configuration
+    const shaderKey = 'twist-filter';
+
     // Create the filter with options
     const filter = new TwistFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering twist filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -103,5 +118,17 @@ export function createTwistFilter(config: TwistFilterConfig): FilterResult {
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing twist filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

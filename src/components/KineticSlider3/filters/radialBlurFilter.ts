@@ -1,16 +1,21 @@
 import { RadialBlurFilter } from 'pixi-filters';
 import { type RadialBlurFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a RadialBlur filter that applies a radial motion blur to an object
  *
  * The RadialBlurFilter creates a circular/radial blur effect, with controllable
  * center position, angle, and radius settings.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the RadialBlur filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createRadialBlurFilter(config: RadialBlurFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -22,8 +27,20 @@ export function createRadialBlurFilter(config: RadialBlurFilterConfig): FilterRe
     if (config.kernelSize !== undefined) options.kernelSize = config.kernelSize;
     if (config.radius !== undefined) options.radius = config.radius;
 
+    // Create a unique key for this filter configuration
+    // The kernel size is the most significant parameter that affects the shader compilation
+    const kernelSizeStr = (options.kernelSize || 5).toString();
+    const shaderKey = `radial-blur-filter-${kernelSizeStr}`;
+
     // Create the filter with options
     const filter = new RadialBlurFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering radial blur filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -106,5 +123,17 @@ export function createRadialBlurFilter(config: RadialBlurFilterConfig): FilterRe
         filter.radius = config.radius !== undefined ? config.radius : -1;
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing radial blur filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

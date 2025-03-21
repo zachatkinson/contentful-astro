@@ -1,26 +1,22 @@
 import { ShockwaveFilter } from 'pixi-filters';
 import { type ShockwaveFilterConfig, type FilterResult } from './types';
 import { gsap } from 'gsap';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a Shockwave filter that applies a ripple/wrinkle effect like a pond wave or blast
  *
  * The ShockwaveFilter creates a visual distortion that radiates from a center point,
  * simulating ripples on water or blast waves. It can be animated over time.
- *
- * @param config - Configuration for the Shockwave filter
- * @returns FilterResult with the filter instance and control functions
- */
-/**
- * Creates a Shockwave filter that applies a ripple/wrinkle effect like a pond wave or blast
- *
- * The ShockwaveFilter creates a visual distortion that radiates from a center point,
- * simulating ripples on water or blast waves. It can be animated over time.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the Shockwave filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createShockwaveFilter(config: ShockwaveFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -35,13 +31,24 @@ export function createShockwaveFilter(config: ShockwaveFilterConfig): FilterResu
     if (config.wavelength !== undefined) options.wavelength = config.wavelength;
     if (config.time !== undefined) options.time = config.time;
 
+    // Create a unique key for this filter configuration
+    const shaderKey = 'shockwave-filter';
+
     // Create the filter with options
     const filter = new ShockwaveFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering shockwave filter with shader manager:', error);
+    }
 
     // Track animation state
     let animationActive = false;
     let animationFrameId: number | null = null;
     let lastTime = 0;
+    let pulseTween: gsap.core.Tween | null = null;
 
     /**
      * Update the filter's intensity based on the configuration
@@ -149,7 +156,7 @@ export function createShockwaveFilter(config: ShockwaveFilterConfig): FilterResu
         const pulseDuration = config.pulseDuration || 1.5;
 
         // Create a pulsing animation using GSAP
-        gsap.to(filter, {
+        pulseTween = gsap.to(filter, {
             amplitude: filter.amplitude * (1 + pulseIntensity),
             duration: pulseDuration / 2,
             repeat: -1,
@@ -189,5 +196,29 @@ export function createShockwaveFilter(config: ShockwaveFilterConfig): FilterResu
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter and stop animations
+     */
+    const dispose = (): void => {
+        // Stop any active animation
+        stopAnimation();
+
+        // Kill any GSAP animations
+        if (pulseTween) {
+            pulseTween.kill();
+            pulseTween = null;
+        }
+
+        // Release shader resources
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing shockwave filter shader:', error);
+        }
+
+        // Destroy the filter
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

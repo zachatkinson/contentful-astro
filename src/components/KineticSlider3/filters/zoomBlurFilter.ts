@@ -1,16 +1,21 @@
 import { ZoomBlurFilter } from 'pixi-filters';
 import { type ZoomBlurFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a ZoomBlur filter that applies a radial blur effect
  *
  * The ZoomBlurFilter creates a zoom/radial blur effect that makes objects appear
  * as if they are zooming in or out from a center point.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the ZoomBlur filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createZoomBlurFilter(config: ZoomBlurFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -22,8 +27,20 @@ export function createZoomBlurFilter(config: ZoomBlurFilterConfig): FilterResult
     if (config.radius !== undefined) options.radius = config.radius;
     if (config.strength !== undefined) options.strength = config.strength;
 
+    // Create a unique shader key based on configuration
+    // Use innerRadius as it's the most significant parameter for shader compilation
+    const innerRadiusStr = (options.innerRadius || 0).toString();
+    const shaderKey = `zoom-blur-filter-${innerRadiusStr}`;
+
     // Create the filter with options
     const filter = new ZoomBlurFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering zoom blur filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -115,5 +132,17 @@ export function createZoomBlurFilter(config: ZoomBlurFilterConfig): FilterResult
         filter.strength = config.strength !== undefined ? config.strength : 0.1;
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing zoom blur filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

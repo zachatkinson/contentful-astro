@@ -1,16 +1,21 @@
 import { ReflectionFilter } from 'pixi-filters';
 import { type ReflectionFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a Reflection filter that applies a water-like reflection effect
  *
  * The ReflectionFilter simulates the reflection on water with waves,
  * with configurable wave properties and animation settings.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the Reflection filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createReflectionFilter(config: ReflectionFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -22,8 +27,20 @@ export function createReflectionFilter(config: ReflectionFilterConfig): FilterRe
     if (config.waveLength !== undefined) options.waveLength = config.waveLength;
     if (config.time !== undefined) options.time = config.time;
 
+    // Create a unique key for this filter configuration
+    // The mirror setting affects shader compilation
+    const mirrorStr = options.mirror === false ? 'nomirror' : 'mirror';
+    const shaderKey = `reflection-filter-${mirrorStr}`;
+
     // Create the filter with options
     const filter = new ReflectionFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering reflection filter with shader manager:', error);
+    }
 
     // Track animation state if we're using animation
     let animationActive = false;
@@ -221,5 +238,23 @@ export function createReflectionFilter(config: ReflectionFilterConfig): FilterRe
         filter.time = 0;
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter and stop animations
+     */
+    const dispose = (): void => {
+        // Stop any active animation
+        stopAnimation();
+
+        // Release shader resources
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing reflection filter shader:', error);
+        }
+
+        // Destroy the filter
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

@@ -1,16 +1,21 @@
 import { RGBSplitFilter } from 'pixi-filters';
 import { type RGBSplitFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates an RGBSplit filter that separates the RGB channels of an object
  *
  * The RGBSplitFilter offsets the red, green, and blue channels separately,
  * creating a chromatic aberration effect commonly used for glitch or retro effects.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the RGBSplit filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createRGBSplitFilter(config: RGBSplitFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -27,8 +32,20 @@ export function createRGBSplitFilter(config: RGBSplitFilterConfig): FilterResult
     if (config.blueX !== undefined) options.blueX = config.blueX;
     if (config.blueY !== undefined) options.blueY = config.blueY;
 
+    // Create a unique key for this filter configuration
+    // RGB split filter shader doesn't depend on the offset values
+    // so we can use a static key
+    const shaderKey = 'rgb-split-filter';
+
     // Create the filter with options
     const filter = new RGBSplitFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering RGB split filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -147,5 +164,17 @@ export function createRGBSplitFilter(config: RGBSplitFilterConfig): FilterResult
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing RGB split filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

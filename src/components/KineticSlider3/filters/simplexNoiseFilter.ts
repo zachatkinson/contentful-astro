@@ -1,16 +1,21 @@
 import { SimplexNoiseFilter } from 'pixi-filters';
 import { type SimplexNoiseFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a SimplexNoise filter that applies a noise pattern to the object
  *
  * The SimplexNoiseFilter multiplies simplex noise with the current texture data,
  * creating various noise effects like static, clouds, or organic textures.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the SimplexNoise filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createSimplexNoiseFilter(config: SimplexNoiseFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -22,8 +27,20 @@ export function createSimplexNoiseFilter(config: SimplexNoiseFilterConfig): Filt
     if (config.step !== undefined) options.step = config.step;
     if (config.strength !== undefined) options.strength = config.strength;
 
+    // Create a unique key for this filter configuration
+    // The step parameter is the most significant for shader compilation
+    const stepStr = (options.step || -1).toString();
+    const shaderKey = `simplex-noise-filter-${stepStr}`;
+
     // Create the filter with options
     const filter = new SimplexNoiseFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering simplex noise filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -110,5 +127,17 @@ export function createSimplexNoiseFilter(config: SimplexNoiseFilterConfig): Filt
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing simplex noise filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }
