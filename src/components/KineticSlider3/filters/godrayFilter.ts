@@ -1,16 +1,21 @@
 import { GodrayFilter } from 'pixi-filters';
 import { type GodrayFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a Godray filter that applies light ray effects
  *
  * The GodrayFilter creates crepuscular rays (light shafts) extending from a bright source
  * which can be animated and customized for intensity, direction, and density.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the Godray filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createGodrayFilter(config: GodrayFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -25,8 +30,20 @@ export function createGodrayFilter(config: GodrayFilterConfig): FilterResult {
     if (config.parallel !== undefined) options.parallel = config.parallel;
     if (config.time !== undefined) options.time = config.time;
 
+    // Create a unique key for this filter configuration
+    const angleStr = (options.angle || 30).toString();
+    const parallelStr = options.parallel ? 'parallel' : 'radial';
+    const shaderKey = `godray-filter-${angleStr}-${parallelStr}`;
+
     // Create the filter with options
     const filter = new GodrayFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering godray filter with shader manager:', error);
+    }
 
     // Keep track of animation state
     let animationActive = false;
@@ -150,5 +167,23 @@ export function createGodrayFilter(config: GodrayFilterConfig): FilterResult {
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter and stop animations
+     */
+    const dispose = (): void => {
+        // Stop any ongoing animations
+        stopAnimation();
+
+        // Release shader resources
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing godray filter shader:', error);
+        }
+
+        // Destroy the filter
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

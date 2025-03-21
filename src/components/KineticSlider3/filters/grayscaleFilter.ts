@@ -1,5 +1,6 @@
 import { GrayscaleFilter } from 'pixi-filters';
 import { type GrayscaleFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a Grayscale filter that converts the image to grayscale
@@ -7,13 +8,28 @@ import { type GrayscaleFilterConfig, type FilterResult } from './types';
  * The GrayscaleFilter is a simple filter that removes all color information,
  * resulting in a black and white image. This filter doesn't have any configurable
  * parameters - it's either on or off.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the Grayscale filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createGrayscaleFilter(config: GrayscaleFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create the filter - GrayscaleFilter has no constructor parameters
     const filter = new GrayscaleFilter();
+
+    // Create a unique key for this filter - grayscale filter has no configuration
+    // so we can use a static key
+    const shaderKey = 'grayscale-filter';
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering grayscale filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity
@@ -51,5 +67,17 @@ export function createGrayscaleFilter(config: GrayscaleFilterConfig): FilterResu
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing grayscale filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

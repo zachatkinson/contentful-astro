@@ -1,16 +1,21 @@
 import { GlowFilter } from 'pixi-filters';
 import { type GlowFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a Glow filter that applies a glow effect to an object
  *
  * The GlowFilter creates a glow effect around objects with configurable
  * inner and outer glow strengths, color, and quality settings.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the Glow filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createGlowFilter(config: GlowFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object with explicit values from config
     const options = {
         // Directly specify each option from the config
@@ -23,6 +28,11 @@ export function createGlowFilter(config: GlowFilterConfig): FilterResult {
         alpha: config.alpha ?? 1
     };
 
+    // Create a unique key for this filter configuration
+    const colorHex = options.color.toString(16);
+    const knockoutStr = options.knockout ? 'ko' : 'noko';
+    const shaderKey = `glow-filter-${colorHex}-${options.quality}-${knockoutStr}`;
+
     // Log the options being passed to the filter
     console.log('Creating GlowFilter with options:', JSON.stringify(options, (key, value) => {
         // Special handling for color to show hex value
@@ -34,6 +44,13 @@ export function createGlowFilter(config: GlowFilterConfig): FilterResult {
 
     // Create the filter with explicit options
     const filter = new GlowFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering glow filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -116,5 +133,17 @@ export function createGlowFilter(config: GlowFilterConfig): FilterResult {
         });
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing glow filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

@@ -1,14 +1,19 @@
 import { GlitchFilter } from 'pixi-filters';
 import { type GlitchFilterConfig, type FilterResult } from './types';
 import { gsap } from 'gsap';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a Glitch filter with mixed smooth and jumpy animations for a more realistic effect
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the Glitch filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createGlitchFilter(config: GlitchFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -25,8 +30,20 @@ export function createGlitchFilter(config: GlitchFilterConfig): FilterResult {
     if (config.seed !== undefined) options.seed = config.seed;
     if (config.fillMode !== undefined) options.fillMode = config.fillMode;
 
+    // Create a unique key for this filter configuration
+    const slicesStr = (options.slices || 5).toString();
+    const fillModeStr = (options.fillMode || 0).toString();
+    const shaderKey = `glitch-filter-${slicesStr}-${fillModeStr}`;
+
     // Create the filter with options
     const filter = new GlitchFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering glitch filter with shader manager:', error);
+    }
 
     // For animation
     let animationInterval: number | null = null;
@@ -253,49 +270,66 @@ export function createGlitchFilter(config: GlitchFilterConfig): FilterResult {
     // Set initial intensity
     updateIntensity(config.intensity);
 
-    // Start animation if configured
-    if (config.animated && config.refreshFrequency !== undefined) {
-        updateAnimationInterval(config.refreshFrequency, config.intensity);
-    }
-
     /**
-     * Reset the filter to default state
+     * Reset the filter to initial configuration
      */
     const reset = (): void => {
-        // Stop any running animation
+        // Clear any existing animation
         if (animationInterval !== null) {
             window.clearInterval(animationInterval);
             animationInterval = null;
         }
 
-        // Kill any active tweens
+        // Clear any existing tweens
         for (const tween of currentTweens) {
             tween.kill();
         }
         currentTweens = [];
 
-        // Reset to configured values or defaults if not specified
-        filter.slices = config.slices !== undefined ? config.slices : 5;
-        filter.offset = config.offset !== undefined ? config.offset : 100;
-        filter.direction = config.direction !== undefined ? config.direction : 0;
-        filter.seed = config.seed !== undefined ? config.seed : 0;
-
-        // Reset color channel offsets
-        filter.red = config.red !== undefined ? config.red : { x: 0, y: 0 };
-        filter.green = config.green !== undefined ? config.green : { x: 0, y: 0 };
-        filter.blue = config.blue !== undefined ? config.blue : { x: 0, y: 0 };
-
-        // Reset other properties
+        // Reset all filter properties
         filter.average = config.average !== undefined ? config.average : false;
+        filter.red = config.red || { x: 0, y: 0 };
+        filter.green = config.green || { x: 0, y: 0 };
+        filter.blue = config.blue || { x: 0, y: 0 };
+        filter.offset = config.offset !== undefined ? config.offset : 0;
+        filter.direction = config.direction !== undefined ? config.direction : 0;
+        filter.fillMode = config.fillMode !== undefined ? config.fillMode : 0;
+        filter.seed = config.seed !== undefined ? config.seed : 0;
+        filter.slices = config.slices !== undefined ? config.slices : 5;
         filter.minSize = config.minSize !== undefined ? config.minSize : 8;
         filter.sampleSize = config.sampleSize !== undefined ? config.sampleSize : 512;
-        filter.fillMode = config.fillMode !== undefined ? config.fillMode : 0; // TRANSPARENT mode (0)
 
-        // If intensity was provided in config, apply it
+        // Re-apply intensity if provided
         if (config.intensity !== undefined) {
             updateIntensity(config.intensity);
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter and stop animations
+     */
+    const dispose = (): void => {
+        // Stop animations and clear tweens
+        if (animationInterval !== null) {
+            window.clearInterval(animationInterval);
+            animationInterval = null;
+        }
+
+        for (const tween of currentTweens) {
+            tween.kill();
+        }
+        currentTweens = [];
+
+        // Release shader resources
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing glitch filter shader:', error);
+        }
+
+        // Destroy the filter
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

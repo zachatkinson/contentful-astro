@@ -1,16 +1,21 @@
 import { HslAdjustmentFilter } from 'pixi-filters';
 import { type HslAdjustmentFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates an HSL Adjustment filter for modifying hue, saturation, and lightness
  *
  * This filter allows for precise color adjustments in the HSL color space, including
  * colorization effects and individual control over hue, saturation, and lightness.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the HSL Adjustment filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createHslAdjustmentFilter(config: HslAdjustmentFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -21,8 +26,19 @@ export function createHslAdjustmentFilter(config: HslAdjustmentFilterConfig): Fi
     if (config.lightness !== undefined) options.lightness = config.lightness;
     if (config.saturation !== undefined) options.saturation = config.saturation;
 
+    // Create a unique key for this filter configuration
+    const colorizeStr = options.colorize ? 'colorize' : 'nocolorize';
+    const shaderKey = `hsl-adjustment-filter-${colorizeStr}`;
+
     // Create the filter with options
     const filter = new HslAdjustmentFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering HSL adjustment filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -82,5 +98,17 @@ export function createHslAdjustmentFilter(config: HslAdjustmentFilterConfig): Fi
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing HSL adjustment filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }
