@@ -1,16 +1,21 @@
 import { BulgePinchFilter } from 'pixi-filters';
 import { type BulgePinchFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a BulgePinch filter that applies a bulge or pinch effect in a circle
  *
  * The BulgePinchFilter creates either a bulge (magnifying glass) effect or
  * a pinch effect within a circular area of the image.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the BulgePinch filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createBulgePinchFilter(config: BulgePinchFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {
         radius: config.radius ?? 100,
@@ -24,8 +29,20 @@ export function createBulgePinchFilter(config: BulgePinchFilterConfig): FilterRe
         options.center = { x: 0.5, y: 0.5 }; // Default center (middle of the screen)
     }
 
+    // Create a unique key for this filter configuration
+    const centerX = options.center.x.toFixed(2);
+    const centerY = options.center.y.toFixed(2);
+    const shaderKey = `bulge-pinch-filter-r${options.radius}-s${options.strength}-c${centerX},${centerY}`;
+
     // Create the filter with options
     const filter = new BulgePinchFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering bulge pinch filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -111,5 +128,17 @@ export function createBulgePinchFilter(config: BulgePinchFilterConfig): FilterRe
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing bulge pinch filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

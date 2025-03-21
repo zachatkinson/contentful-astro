@@ -1,16 +1,26 @@
 import { BevelFilter } from 'pixi-filters';
 import { type BevelFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a Bevel filter that applies a bevel effect to an object
  *
  * The BevelFilter gives objects a 3D-like appearance by creating a bevel effect
  * with configurable light and shadow colors, thickness, and rotation.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the Bevel filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createBevelFilter(config: BevelFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
+    // Create a unique key for this filter configuration
+    const lightColorKey = config.lightColor ? config.lightColor.toString(16) : 'ffffff';
+    const shadowColorKey = config.shadowColor ? config.shadowColor.toString(16) : '000000';
+    const shaderKey = `bevel-filter-${config.rotation || 45}-${config.thickness || 2}-${lightColorKey}-${shadowColorKey}`;
+
     // Create options object for the filter
     const options: any = {
         rotation: config.rotation ?? 45,
@@ -23,6 +33,13 @@ export function createBevelFilter(config: BevelFilterConfig): FilterResult {
 
     // Create the filter with options
     const filter = new BevelFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering bevel filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -91,5 +108,17 @@ export function createBevelFilter(config: BevelFilterConfig): FilterResult {
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing bevel filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

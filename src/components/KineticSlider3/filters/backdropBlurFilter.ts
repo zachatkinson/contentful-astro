@@ -1,5 +1,6 @@
 import { BackdropBlurFilter } from 'pixi-filters';
 import { type BackdropBlurFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a BackdropBlur filter that applies a Gaussian blur to everything behind an object,
@@ -7,11 +8,18 @@ import { type BackdropBlurFilterConfig, type FilterResult } from './types';
  *
  * This filter is useful for creating depth effects where objects appear to have a blurred background
  * behind them, similar to a depth-of-field effect.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the BackdropBlur filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createBackdropBlurFilter(config: BackdropBlurFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
+    // Create a unique key for this filter configuration
+    const shaderKey = `backdrop-blur-filter-q${config.quality || 4}-k${config.kernelSize || 5}`;
+
     // Create the filter with options
     const filter = new BackdropBlurFilter({
         strength: config.intensity ? config.intensity * 10 : 8,
@@ -19,6 +27,13 @@ export function createBackdropBlurFilter(config: BackdropBlurFilterConfig): Filt
         kernelSize: config.kernelSize ?? 5,
         resolution: config.resolution ?? 1
     });
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering backdrop blur filter with shader manager:', error);
+    }
 
     // Set any additional properties if provided
     if (config.repeatEdgePixels !== undefined) {
@@ -73,5 +88,17 @@ export function createBackdropBlurFilter(config: BackdropBlurFilterConfig): Filt
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing backdrop blur filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }
