@@ -8,6 +8,7 @@ import RenderScheduler from './managers/RenderScheduler';
 import { UpdateType } from './managers/UpdateTypes';
 import { ThrottleStrategy } from './managers/FrameThrottler';
 import AnimationCoordinator from './managers/AnimationCoordinator';
+import SlidingWindowManager from './managers/SlidingWindowManager';
 
 // Import hooks directly
 import { useDisplacementEffects } from './hooks';
@@ -104,6 +105,9 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     // Create ResourceManager instance with unique ID
     const resourceManagerRef = useRef<ResourceManager | null>(null);
 
+    // Create SlidingWindowManager reference
+    const slidingWindowManagerRef = useRef<SlidingWindowManager | null>(null);
+
     // Initialize the animation coordinator and set the resource manager
     const animationCoordinator = AnimationCoordinator.getInstance();
 
@@ -161,6 +165,14 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             animationCoordinator.setResourceManager(resourceManagerRef.current);
         }
 
+        // Initialize SlidingWindowManager with default window size and initial index
+        slidingWindowManagerRef.current = new SlidingWindowManager({
+            totalSlides: images.length,
+            initialIndex: 0,
+            windowSize: 2, // Default: current slide ±2
+            debug: import.meta.env.NODE_ENV === 'development'
+        }, resourceManagerRef.current);
+
         return () => {
             // Mark as unmounting to prevent new resource allocation
             if (resourceManagerRef.current) {
@@ -176,8 +188,11 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
                 atlasManagerRef.current.dispose();
                 atlasManagerRef.current = null;
             }
+
+            // Clear the sliding window manager
+            slidingWindowManagerRef.current = null;
         };
-    }, [animationCoordinator]);
+    }, [images.length, animationCoordinator]);
 
     // Create a pixi refs object for hooks
     const pixiRefs = {
@@ -234,7 +249,8 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         pixi: pixiRefs,
         props: hookProps,
         resourceManager: resourceManagerRef.current,
-        atlasManager: atlasManagerRef.current
+        atlasManager: atlasManagerRef.current,
+        slidingWindowManager: slidingWindowManagerRef.current
     };
 
     // Use displacement effects

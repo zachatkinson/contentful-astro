@@ -6,6 +6,7 @@ import { gsap } from 'gsap';
 import ResourceManager from '../managers/ResourceManager';
 import { AtlasManager } from '../managers/AtlasManager';
 import AnimationCoordinator, { AnimationGroupType } from '../managers/AnimationCoordinator';
+import SlidingWindowManager from '../managers/SlidingWindowManager';
 
 // Development environment check
 const isDevelopment = import.meta.env?.MODE === 'development';
@@ -23,10 +24,9 @@ interface UseSlidesResult {
  * Hook to create and manage slide sprites with atlas support
  */
 export const useSlides = (
-    { sliderRef, pixi, props, resourceManager, atlasManager, onSlideChange }: HookParams & {
+    { sliderRef, pixi, props, resourceManager, atlasManager, onSlideChange, slidingWindowManager }: HookParams & {
         resourceManager?: ResourceManager | null,
-        atlasManager?: AtlasManager | null,
-        onSlideChange?: (index: number) => void
+        atlasManager?: AtlasManager | null
     }
 ): UseSlidesResult => {
     // Debug logging of props

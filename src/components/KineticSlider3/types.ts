@@ -2,7 +2,8 @@ import { Application, Sprite, Container, DisplacementFilter, Filter, Texture } f
 import { AtlasManager } from "./managers/AtlasManager";
 import type { RefObject } from "react";
 import ResourceManager from "./managers/ResourceManager";
-import { type BaseFilterConfig } from './filters/types';
+import { type BaseFilterConfig } from './filters/';
+import SlidingWindowManager from './managers/SlidingWindowManager';
 
 /**
  * Navigation element selectors for external controls
@@ -277,6 +278,9 @@ export interface HookParams {
 
     /** Callback function for slide change */
     onSlideChange?: (index: number) => void;
+
+    /** Sliding window manager for optimizing slide loading */
+    slidingWindowManager?: SlidingWindowManager | null;
 }
 
 /**
