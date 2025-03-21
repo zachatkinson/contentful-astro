@@ -10,6 +10,7 @@ import { ThrottleStrategy } from './managers/FrameThrottler';
 import AnimationCoordinator from './managers/AnimationCoordinator';
 import SlidingWindowManager from './managers/SlidingWindowManager';
 import { FilterFactory } from './filters';
+import { type FilterConfig, type FilterType } from './filters/types';
 
 // Import hooks directly
 import { useDisplacementEffects } from './hooks';
@@ -26,6 +27,12 @@ import { useTextTilt } from './hooks/';
 import { useResizeHandler } from './hooks/';
 import { loadKineticSliderDependencies } from './ImportHelpers';
 import { preloadKineticSliderAssets } from './utils/assetPreload';
+
+// Development environment check
+const isDevelopment = import.meta.env?.MODE === 'development';
+
+// Define the filter coordination event name
+const FILTER_COORDINATION_EVENT = 'kinetic-slider:filter-update';
 
 /**
  * Creates an interactive image slider with various displacement and transition effects
@@ -157,10 +164,17 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             logLevel: import.meta.env.NODE_ENV === 'development' ? 'debug' : 'warn'
         });
 
-        // Initialize FilterFactory with shader pooling
+        // Initialize FilterFactory with lazy loading
         FilterFactory.initialize({
             enableShaderPooling: true,
-            enableDebug: import.meta.env.NODE_ENV === 'development'
+            enableDebug: import.meta.env.NODE_ENV === 'development',
+            lazyLoadConfig: {
+                unloadTimeoutMs: 120000, // 2 minutes
+                maxCachedModules: 20,
+                enablePrefetching: true,
+                retryFailedLoads: true,
+                maxRetries: 3
+            }
         });
 
         // Initialize AtlasManager with resource manager
@@ -497,6 +511,36 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             }
         };
     }, [sliderRef.current, assetsLoaded]);
+
+    // Prefetch filters based on props
+    useEffect(() => {
+        // Only run on client-side after app is initialized and props are loaded
+        if (typeof window === 'undefined' || !isAppReady) return;
+
+        // Skip if no filter configurations
+        if (!hookProps.imageFilters && !hookProps.textFilters) return;
+
+        // Helper to extract filter types from configurations
+        const getFilterTypes = (config?: any): FilterType[] => {
+            if (!config) return [];
+
+            const configs = Array.isArray(config) ? config : [config];
+            return configs
+                .filter(c => c && c.type && c.enabled !== false)
+                .map(c => c.type as FilterType);
+        };
+
+        // Get unique filter types from both image and text filters
+        const imageFilterTypes = getFilterTypes(hookProps.imageFilters);
+        const textFilterTypes = getFilterTypes(hookProps.textFilters);
+        const allFilterTypes = [...new Set([...imageFilterTypes, ...textFilterTypes])];
+
+        // Prefetch all filter types
+        if (allFilterTypes.length > 0) {
+            console.log(`Prefetching ${allFilterTypes.length} filter types:`, allFilterTypes);
+            FilterFactory.prefetchFilterModules(allFilterTypes as any, 'high');
+        }
+    }, [isAppReady, hookProps.imageFilters, hookProps.textFilters]);
 
     // Handle slide transitions
     const handleSlideChange = useCallback((newIndex: number) => {
@@ -919,59 +963,55 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
 
     /**
      * Handles mouse leave event
-     * Deactivates displacement effects and filters
      */
     const handleMouseLeave = useCallback(() => {
-        if (!appRef.current || !isAppReady) return;
+        if (!isAppReady) return;
 
-        console.log("Mouse left slider - deactivating effects");
+        if (isDevelopment) {
+            console.log('[KineticSlider] Mouse left slider - deactivating all effects');
+        }
 
-        // Set interaction state to false
+        // Set interaction state immediately
         setIsInteracting(false);
-        cursorActiveRef.current = false;
 
-        // Schedule displacement effect deactivation with critical priority
-        scheduler.scheduleTypedUpdate(
-            'slider',
-            UpdateType.DISPLACEMENT_EFFECT,
-            () => {
-                hideDisplacementEffects();
-            },
-            'critical'
-        );
+        // Explicitly dispatch filter coordination events for both displacement filters
+        const event1 = new CustomEvent(FILTER_COORDINATION_EVENT, {
+            detail: {
+                type: 'background-displacement',
+                intensity: 0,
+                timestamp: Date.now(),
+                source: 'slider-component',
+                priority: 'critical'
+            }
+        });
+        window.dispatchEvent(event1);
 
-        // Schedule filter deactivation with critical priority
+        const event2 = new CustomEvent(FILTER_COORDINATION_EVENT, {
+            detail: {
+                type: 'cursor-displacement',
+                intensity: 0,
+                timestamp: Date.now(),
+                source: 'slider-component',
+                priority: 'critical'
+            }
+        });
+        window.dispatchEvent(event2);
+
+        // Force the filters to deactivate with critical priority
+        updateFilterIntensities(false, true);
+
+        // Schedule a final update after mouse leave to ensure everything is cleaned up
         scheduler.scheduleTypedUpdate(
             'slider',
             UpdateType.FILTER_UPDATE,
             () => {
-                // Force deactivate all filters with critical priority
-                // The true parameter forces update for all filters
-                updateFilterIntensities(false, true);
-                setFiltersActive(false);
-
-                console.log("Filter deactivation scheduled with critical priority");
+                if (isDevelopment) {
+                    console.log('[KineticSlider] Final render update after mouse leave');
+                }
             },
             'critical'
         );
-
-        // Schedule a final render update to ensure all changes are applied
-        scheduler.scheduleTypedUpdate(
-            'slider',
-            UpdateType.FILTER_UPDATE,
-            () => {
-                console.log("Final render update after mouse leave completed");
-            },
-            'critical'
-        );
-    }, [
-        appRef,
-        isAppReady,
-        hideDisplacementEffects,
-        updateFilterIntensities,
-        setFiltersActive,
-        scheduler
-    ]);
+    }, [isAppReady, setIsInteracting, updateFilterIntensities, scheduler]);
 
     // Handle component cleanup
     useEffect(() => {

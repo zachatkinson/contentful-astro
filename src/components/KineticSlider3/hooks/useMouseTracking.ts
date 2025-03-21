@@ -385,144 +385,140 @@ const useMouseTracking = ({
         }
     }, [animateDisplacementScheduled, scheduler]);
 
-    // The optimized mouse move handler with throttling & scheduling
+    /**
+     * Handle mouse movement inside the slider
+     */
     const handleMouseMove = useCallback((event: Event) => {
         try {
             if (!isMountedRef.current) return;
 
-            const e = event as MouseEvent;
+            // Cast to MouseEvent for accessing mouse-specific properties
+            const mouseEvent = event as MouseEvent;
 
-            // Only proceed if we have a slider reference
-            if (!sliderRef.current) return;
+            // Get current slider element
+            const slider = sliderRef.current;
+            if (!slider) return;
 
-            // Calculate mouse position relative to the slider
-            const rect = sliderRef.current.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
+            // Get bounding rect
+            const rect = slider.getBoundingClientRect();
 
-            // Calculate intensity once and store it
-            const intensity = calculateDisplacementIntensity(mouseX, mouseY, rect);
+            // Calculate mouse position relative to slider
+            const mouseX = mouseEvent.clientX - rect.left;
+            const mouseY = mouseEvent.clientY - rect.top;
+
+            // Store mouse position for use by scheduled updates
+            const lastPosition = lastMousePositionRef.current;
+            lastPosition.x = mouseX;
+            lastPosition.y = mouseY;
+            lastPosition.containerRect = rect;
+            lastPosition.timestamp = Date.now();
+
+            // Calculate displacement intensity only once and store it
+            lastPosition.intensity = calculateDisplacementIntensity(mouseX, mouseY, rect);
+
+            // Throttling for performance optimization
             const now = Date.now();
-
-            // Check if filters are inactive and need immediate activation
-            const bgFilter = backgroundDisplacementFilterRef?.current;
-            const cursorFilter = cursorDisplacementFilterRef?.current;
-
-            const bgFilterInactive = bgFilter && (bgFilter.scale.x === 0 || bgFilter.scale.y === 0);
-            const cursorFilterInactive = cursorImgEffect && cursorFilter &&
-                (cursorFilter.scale.x === 0 || cursorFilter.scale.y === 0);
-
-            if (bgFilterInactive || cursorFilterInactive) {
-                if (isDevelopment) {
-                    console.log('[useMouseTracking] Detected inactive filters, applying immediate values', {
-                        bgFilterInactive,
-                        cursorFilterInactive,
-                        bgScale: bgFilter ? [bgFilter.scale.x, bgFilter.scale.y] : 'no filter',
-                        cursorScale: cursorFilter ? [cursorFilter.scale.x, cursorFilter.scale.y] : 'no filter'
-                    });
-                }
-
-                // Apply immediate values to ensure visibility
-                if (bgFilterInactive && bgFilter) {
-                    const bgIntensity = intensity * 30;
-                    bgFilter.scale.x = bgIntensity;
-                    bgFilter.scale.y = bgIntensity;
-
-                    // Dispatch critical filter update
-                    dispatchFilterUpdate('background-displacement', bgIntensity, 'critical');
-                }
-
-                if (cursorFilterInactive && cursorFilter) {
-                    const cursorIntensity = intensity * 15;
-                    cursorFilter.scale.x = cursorIntensity;
-                    cursorFilter.scale.y = cursorIntensity;
-
-                    // Dispatch critical filter update
-                    dispatchFilterUpdate('cursor-displacement', cursorIntensity, 'critical');
-                }
-
-                // Force an immediate update with critical priority
-                scheduler.scheduleTypedUpdate(
-                    'mouseTracking',
-                    UpdateType.MOUSE_RESPONSE,
-                    animateDisplacementScheduled,
-                    'critical'
-                );
-
-                // Also update sprites immediately
-                const bgSprite = backgroundDisplacementSpriteRef.current;
-                const cursorSprite = cursorDisplacementSpriteRef.current;
-
-                if (bgSprite) {
-                    bgSprite.x = mouseX;
-                    bgSprite.y = mouseY;
-                }
-
-                if (cursorImgEffect && cursorSprite) {
-                    cursorSprite.x = mouseX;
-                    cursorSprite.y = mouseY;
-                }
-            }
-
-            // Store the mouse position and container rect for the scheduled update
-            lastMousePositionRef.current = {
-                x: mouseX,
-                y: mouseY,
-                containerRect: rect,
-                intensity: intensity,
-                timestamp: now
-            };
-
-            // Apply throttling for optimal performance
             const { lastThrottleTime, throttleDelay } = throttleStateRef.current;
 
-            // Mark that we have a pending update
-            debounceStateRef.current.pendingUpdate = true;
-
-            // For rapid movements, use debouncing instead of immediate updates
-            const timeSinceLastDebounce = now - debounceStateRef.current.lastDebounceTime;
-            const isRapidMovement = timeSinceLastDebounce < 50; // 50ms threshold for rapid movement
-
             if (now - lastThrottleTime < throttleDelay) {
-                // If we're throttling, queue a debounced update instead
-                debouncedDisplacementUpdate();
+                // Skip update if we're throttling
                 return;
             }
 
-            // Update throttle timestamp
+            // Update throttle time
             throttleStateRef.current.lastThrottleTime = now;
 
-            if (isRapidMovement) {
-                // For rapid movements, use debouncing to avoid too many updates
-                debouncedDisplacementUpdate();
-            } else {
-                // For normal movements, schedule immediate update with high priority
-                scheduler.scheduleTypedUpdate(
-                    'mouseTracking',
-                    UpdateType.MOUSE_RESPONSE,
-                    animateDisplacementScheduled,
-                    'high'
-                );
-
-                // Update last debounce time
-                debounceStateRef.current.lastDebounceTime = now;
-            }
+            // Schedule the update with the render scheduler
+            scheduler.scheduleTypedUpdate(
+                'mouseTracking',
+                UpdateType.MOUSE_RESPONSE,
+                animateDisplacementScheduled,
+                'high'
+            );
         } catch (error) {
             if (isDevelopment) {
-                console.error('Error in mouse move handler:', error);
+                console.error('Error handling mouse move:', error);
+            }
+        }
+    }, [sliderRef, animateDisplacementScheduled, calculateDisplacementIntensity, scheduler]);
+
+    /**
+     * Handle mouse leave event - fade out displacement effects
+     */
+    const handleMouseLeave = useCallback(() => {
+        try {
+            if (!isMountedRef.current) return;
+
+            if (isDevelopment) {
+                console.log('[useMouseTracking] Mouse left slider - fading out displacement effects');
+            }
+
+            // Get current refs
+            const backgroundSprite = backgroundDisplacementSpriteRef.current;
+            const cursorSprite = cursorDisplacementSpriteRef.current;
+            const bgFilter = backgroundDisplacementFilterRef?.current;
+            const cursorFilter = cursorDisplacementFilterRef?.current;
+
+            // Collect new animations
+            const newAnimations: gsap.core.Tween[] = [];
+
+            // Fade out background filter
+            if (bgFilter) {
+                const bgFilterTween = gsap.to(bgFilter.scale, {
+                    x: 0,
+                    y: 0,
+                    duration: 0.5,
+                    ease: "power2.out"
+                });
+                newAnimations.push(bgFilterTween);
+
+                // Dispatch filter update event for coordination with filter system
+                dispatchFilterUpdate('background-displacement', 0, 'high');
+            }
+
+            // Fade out cursor filter
+            if (cursorFilter) {
+                const cursorFilterTween = gsap.to(cursorFilter.scale, {
+                    x: 0,
+                    y: 0,
+                    duration: 0.5,
+                    ease: "power2.out"
+                });
+                newAnimations.push(cursorFilterTween);
+
+                // Dispatch filter update event for coordination with filter system
+                dispatchFilterUpdate('cursor-displacement', 0, 'high');
+            }
+
+            // Add new animations to active animations ref
+            activeAnimationsRef.current.push(...newAnimations);
+
+            // Process animations in batch
+            processBatchAnimations();
+
+            // Schedule an immediate render update
+            scheduler.scheduleTypedUpdate(
+                'mouseTracking',
+                UpdateType.DISPLACEMENT_EFFECT,
+                () => {
+                    if (isDevelopment) {
+                        console.log('[useMouseTracking] Fade-out render update for mouse leave');
+                    }
+                },
+                'high'
+            );
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('[useMouseTracking] Error handling mouse leave:', error);
             }
         }
     }, [
-        sliderRef,
         backgroundDisplacementFilterRef,
         cursorDisplacementFilterRef,
         backgroundDisplacementSpriteRef,
         cursorDisplacementSpriteRef,
-        cursorImgEffect,
-        animateDisplacementScheduled,
-        debouncedDisplacementUpdate,
-        calculateDisplacementIntensity,
         dispatchFilterUpdate,
+        processBatchAnimations,
         scheduler
     ]);
 
@@ -545,10 +541,12 @@ const useMouseTracking = ({
                 // Batch registration with ResourceManager
                 const listeners = new Map<string, EventCallback[]>();
                 listeners.set('mousemove', [handleMouseMove]);
+                listeners.set('mouseleave', [handleMouseLeave]); // Add mouseleave handler
                 resourceManager.addEventListenerBatch(node, listeners);
             } else {
                 // Direct registration
                 node.addEventListener('mousemove', handleMouseMove, { passive: true });
+                node.addEventListener('mouseleave', handleMouseLeave, { passive: true }); // Add mouseleave handler
             }
 
             // Cleanup on unmount
@@ -573,6 +571,7 @@ const useMouseTracking = ({
                     // ResourceManager handles its own cleanup
                     if (!resourceManager) {
                         node.removeEventListener('mousemove', handleMouseMove);
+                        node.removeEventListener('mouseleave', handleMouseLeave); // Remove mouseleave handler
                     }
                 } catch (cleanupError) {
                     if (isDevelopment) {
@@ -590,6 +589,7 @@ const useMouseTracking = ({
     }, [
         sliderRef,
         handleMouseMove,
+        handleMouseLeave, // Add handleMouseLeave to dependencies
         cleanupAnimations,
         resourceManager,
         scheduler

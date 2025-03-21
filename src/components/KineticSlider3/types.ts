@@ -2,8 +2,11 @@ import { Application, Sprite, Container, DisplacementFilter, Filter, Texture } f
 import { AtlasManager } from "./managers/AtlasManager";
 import type { RefObject } from "react";
 import ResourceManager from "./managers/ResourceManager";
-import { type BaseFilterConfig } from './filters/';
+import { type BaseFilterConfig, type FilterConfig, type FilterType } from './filters/types';
 import SlidingWindowManager from './managers/SlidingWindowManager';
+
+// Re-export the types from filters/types
+export { type FilterConfig, type FilterType };
 
 /**
  * Navigation element selectors for external controls
@@ -21,20 +24,6 @@ export type NavElement = {
  * @description A tuple representing [title, subtitle] text content for a slide
  */
 export type TextPair = [string, string];
-
-/**
- * Configuration for filter settings
- * @property {boolean} enabled - Whether the filter is active
- * @property {number} intensity - Strength of the filter effect
- * @property {string} type - Type of filter to apply
- * @property {Record<string, any>} [options] - Additional filter-specific options
- */
-export interface FilterConfig {
-    enabled: boolean;
-    intensity: number;
-    type: string;
-    options?: Record<string, any>;
-}
 
 /**
  * Represents a pending filter update in the batch queue
