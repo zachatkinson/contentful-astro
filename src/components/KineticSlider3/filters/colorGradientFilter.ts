@@ -1,5 +1,6 @@
 import { ColorGradientFilter } from 'pixi-filters';
 import { type ColorGradientFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a ColorGradient filter that applies a color gradient to an object
@@ -7,11 +8,15 @@ import { type ColorGradientFilterConfig, type FilterResult } from './types';
  * The ColorGradientFilter renders a colored gradient overlay that can either replace
  * the existing colors or be multiplied with them. You can provide an array of colors
  * and optional stops to control the gradient appearance.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the ColorGradient filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createColorGradientFilter(config: ColorGradientFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {
         angle: config.angle ?? 90,
@@ -34,8 +39,20 @@ export function createColorGradientFilter(config: ColorGradientFilterConfig): Fi
         options.stops = config.stops;
     }
 
+    // Create a unique key for this filter configuration
+    const colorStr = options.colors.map((c: number) => c.toString(16)).join('-');
+    const stopsStr = options.stops ? options.stops.join('-') : 'default';
+    const shaderKey = `color-gradient-filter-${options.type}-${colorStr}-${stopsStr}-${options.replace}`;
+
     // Create the filter with options
     const filter = new ColorGradientFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering color gradient filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -111,5 +128,17 @@ export function createColorGradientFilter(config: ColorGradientFilterConfig): Fi
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing color gradient filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

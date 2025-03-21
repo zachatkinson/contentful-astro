@@ -1,34 +1,34 @@
 import { ColorMapFilter } from 'pixi-filters';
 import { type ColorMapFilterConfig, type FilterResult } from './types';
 import { Assets, Texture } from 'pixi.js';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a ColorMap filter that applies a color-map effect to an object
  *
  * The ColorMapFilter applies a color-map transformation using a provided texture map.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the ColorMap filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createColorMapFilter(config: ColorMapFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create initial texture (placeholder or actual)
     let colorMapTexture: any = config.colorMap;
+    let texturePath = '';
 
     if (typeof config.colorMap === 'string') {
+        texturePath = config.colorMap;
         // For string paths, start with a placeholder
         colorMapTexture = Texture.EMPTY; // Use empty texture as placeholder
-
-        // Load the actual texture asynchronously
-        Assets.load(config.colorMap)
-            .then(texture => {
-                if (filter) {
-                    filter.colorMap = texture;
-                }
-            })
-            .catch(error => {
-                console.error(`Failed to load colorMap texture: ${config.colorMap}`, error);
-            });
     }
+
+    // Create a unique key for this filter configuration
+    const textureId = texturePath || (typeof config.colorMap === 'object' ? 'texture-object' : 'default');
+    const shaderKey = `color-map-filter-${textureId}-${config.nearest ?? false}-${config.mix ?? 0.5}`;
 
     // Create the filter - use the appropriate constructor based on documentation
     let filter: ColorMapFilter;
@@ -48,6 +48,26 @@ export function createColorMapFilter(config: ColorMapFilterConfig): FilterResult
             nearest: config.nearest
             // Note: we're not including colorSize here as it's not in the options type
         });
+    }
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering color map filter with shader manager:', error);
+    }
+
+    // If using a string path, load the texture asynchronously
+    if (texturePath) {
+        Assets.load(texturePath)
+            .then(texture => {
+                if (filter) {
+                    filter.colorMap = texture;
+                }
+            })
+            .catch(error => {
+                console.error(`Failed to load colorMap texture: ${texturePath}`, error);
+            });
     }
 
     // If colorSize is specifically provided, try to set it directly on the filter
@@ -100,5 +120,23 @@ export function createColorMapFilter(config: ColorMapFilterConfig): FilterResult
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+
+            // If the colorMap is a texture we created or loaded, destroy it
+            if (filter.colorMap && filter.colorMap !== Texture.EMPTY &&
+                filter.colorMap !== colorMapTexture && typeof config.colorMap === 'string') {
+                filter.colorMap.destroy(true);
+            }
+        } catch (error) {
+            console.warn('Error releasing color map filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

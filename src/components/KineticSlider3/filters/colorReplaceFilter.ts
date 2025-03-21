@@ -1,16 +1,21 @@
 import { ColorReplaceFilter } from 'pixi-filters';
 import { type ColorReplaceFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a ColorReplace filter that replaces a specific color with another color
  *
  * The ColorReplaceFilter replaces all instances of one color with another,
  * with a configurable tolerance/sensitivity level.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the ColorReplace filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createColorReplaceFilter(config: ColorReplaceFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {
         originalColor: config.originalColor ?? 0xff0000, // Default red
@@ -18,8 +23,20 @@ export function createColorReplaceFilter(config: ColorReplaceFilterConfig): Filt
         tolerance: config.tolerance ?? 0.4               // Default tolerance
     };
 
+    // Create a unique key for this filter configuration
+    const originalColorHex = options.originalColor.toString(16);
+    const targetColorHex = options.targetColor.toString(16);
+    const shaderKey = `color-replace-filter-${originalColorHex}-${targetColorHex}`;
+
     // Create the filter with options
     const filter = new ColorReplaceFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering color replace filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -70,5 +87,17 @@ export function createColorReplaceFilter(config: ColorReplaceFilterConfig): Filt
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing color replace filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

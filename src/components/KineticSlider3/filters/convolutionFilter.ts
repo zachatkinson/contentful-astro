@@ -1,5 +1,6 @@
 import {ConvolutionFilter, type ConvolutionMatrix} from 'pixi-filters';
 import { type ConvolutionFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Helper function to create ConvolutionMatrix from number array
@@ -16,11 +17,15 @@ function createMatrix(values: number[]): ConvolutionMatrix {
  * A convolution combines pixels in the input image with neighboring pixels to produce
  * a new image. Using different matrices, a wide variety of effects can be achieved,
  * including blurring, edge detection, sharpening, embossing, and beveling.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the Convolution filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createConvolutionFilter(config: ConvolutionFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {
         width: config.width ?? 200,      // Default width
@@ -35,8 +40,19 @@ export function createConvolutionFilter(config: ConvolutionFilterConfig): Filter
         options.matrix = defaultMatrix;
     }
 
+    // Create a unique key for this filter configuration
+    const presetKey = config.preset || 'custom';
+    const shaderKey = `convolution-filter-${presetKey}-${config.width || 200}-${config.height || 200}`;
+
     // Create the filter with options
     const filter = new ConvolutionFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering convolution filter with shader manager:', error);
+    }
 
     // Common convolution matrices for different effects
     type PresetMatrices = {
@@ -156,5 +172,17 @@ export function createConvolutionFilter(config: ConvolutionFilterConfig): Filter
         filter.matrix = new Float32Array(presetMatrices.normal);
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing convolution filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

@@ -1,5 +1,6 @@
 import { CrossHatchFilter } from 'pixi-filters';
 import { type CrossHatchFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a CrossHatch filter that applies a cross-hatch effect
@@ -7,13 +8,27 @@ import { type CrossHatchFilterConfig, type FilterResult } from './types';
  * The CrossHatchFilter simulates a traditional drawing technique where shading
  * is created by drawing intersecting sets of parallel lines. This produces an
  * effect similar to pen-and-ink illustrations or sketches.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the CrossHatch filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createCrossHatchFilter(config: CrossHatchFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
+    // Create a unique key for this filter configuration
+    const shaderKey = `cross-hatch-filter`;
+
     // Create the filter without options as per documentation
     const filter = new CrossHatchFilter();
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering cross hatch filter with shader manager:', error);
+    }
 
     // Track if filter has been activated
     let isActive = false;
@@ -65,5 +80,17 @@ export function createCrossHatchFilter(config: CrossHatchFilterConfig): FilterRe
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing cross hatch filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

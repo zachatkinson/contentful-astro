@@ -1,16 +1,21 @@
 import { CRTFilter } from 'pixi-filters';
 import { type CRTFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a CRT filter that applies a CRT (Cathode Ray Tube) effect to an object
  *
  * The CRTFilter simulates an old CRT display with features like scan lines,
  * screen curvature, vignetting, and noise.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the CRT filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createCRTFilter(config: CRTFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -27,8 +32,19 @@ export function createCRTFilter(config: CRTFilterConfig): FilterResult {
     if (config.vignettingAlpha !== undefined) options.vignettingAlpha = config.vignettingAlpha;
     if (config.vignettingBlur !== undefined) options.vignettingBlur = config.vignettingBlur;
 
+    // Create a unique key for this filter configuration
+    const primaryProp = config.primaryProperty || 'noise';
+    const shaderKey = `crt-filter-${primaryProp}-${config.verticalLine || false}`;
+
     // Create the filter with options
     const filter = new CRTFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering CRT filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -119,5 +135,17 @@ export function createCRTFilter(config: CRTFilterConfig): FilterResult {
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing CRT filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

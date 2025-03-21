@@ -1,5 +1,6 @@
 import { ColorOverlayFilter } from 'pixi-filters';
 import { type ColorOverlayFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a ColorOverlay filter that applies a color overlay to an object
@@ -7,16 +8,31 @@ import { type ColorOverlayFilterConfig, type FilterResult } from './types';
  * The ColorOverlayFilter applies a single color across the entire display object
  * with configurable alpha. It's useful for tinting images, creating color washes,
  * or applying color effects.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the ColorOverlay filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createColorOverlayFilter(config: ColorOverlayFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
+    // Create a unique key for this filter configuration
+    const colorHex = (config.color ?? 0xFF5500).toString(16);
+    const shaderKey = `color-overlay-filter-${colorHex}`;
+
     // Create the filter with options
     const filter = new ColorOverlayFilter({
         color: config.color ?? 0xFF5500, // Use a default orange color
         alpha: config.alpha ?? 1         // Default alpha is 1 (fully opaque)
     });
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering color overlay filter with shader manager:', error);
+    }
 
     // Make sure the color property is set correctly
     if (config.color !== undefined) {
@@ -77,5 +93,17 @@ export function createColorOverlayFilter(config: ColorOverlayFilterConfig): Filt
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing color overlay filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }
