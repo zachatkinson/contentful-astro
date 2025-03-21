@@ -448,4 +448,57 @@ export class ShaderResourceManager {
 
         return stats;
     }
+
+    /**
+     * Registers a filter with the shader manager for tracking and optimization
+     *
+     * @param filter - The filter to register
+     * @param key - Optional unique key to identify this filter's shader
+     * @returns True if registration was successful
+     */
+    public registerFilter(filter: Filter, key?: string): boolean {
+        if (!filter) {
+            this.log('Cannot register null or undefined filter');
+            return false;
+        }
+
+        try {
+            // If no key provided, we'll generate one from the filter's shader when needed
+            if (key) {
+                this.filterShaderMap.set(filter, key);
+                this.log(`Filter registered with key: ${key}`);
+            } else {
+                // The key will be generated when getShaderProgram is called
+                this.log('Filter registered without key (will be auto-generated)');
+            }
+            return true;
+        } catch (error) {
+            this.log(`Error registering filter: ${error}`);
+            return false;
+        }
+    }
+
+    /**
+     * Releases a filter from the shader manager
+     *
+     * @param filter - The filter to release
+     * @param key - Optional key that was used to register the filter
+     */
+    public releaseFilter(filter: Filter, key?: string): void {
+        if (!filter) {
+            this.log('Cannot release null or undefined filter');
+            return;
+        }
+
+        try {
+            if (key) {
+                this.filterShaderMap.delete(filter);
+                this.log(`Filter with key ${key} released`);
+            } else {
+                this.releaseShaderByFilter(filter);
+            }
+        } catch (error) {
+            this.log(`Error releasing filter: ${error}`);
+        }
+    }
 }

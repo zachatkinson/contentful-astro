@@ -3,18 +3,34 @@
 import { AsciiFilter } from 'pixi-filters';
 import { type AsciiFilterConfig, type FilterResult } from './types';
 import type { ColorSource } from "pixi.js";
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates an AsciiFilter that renders the image as ASCII characters
  *
  * The AsciiFilter applies an ASCII art effect to the rendered object.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the ASCII filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createAsciiFilter(config: AsciiFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
+    // Create a unique key for this filter configuration
+    const colorKey = config.color ? JSON.stringify(config.color) : 'default';
+    const shaderKey = `ascii-filter-${config.size || 8}-${colorKey}-${config.replaceColor || false}`;
+
     // Create the filter with basic options
     const filter = new AsciiFilter();
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering ASCII filter with shader manager:', error);
+    }
 
     // Store config values for consistent use
     const configSize = config.size !== undefined ? config.size : 8;
@@ -138,7 +154,25 @@ export function createAsciiFilter(config: AsciiFilterConfig): FilterResult {
         console.log('AsciiFilter reset to initial state');
     };
 
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        // Clear any pending timeout
+        if (pendingTimeout !== null) {
+            clearTimeout(pendingTimeout);
+            pendingTimeout = null;
+        }
+
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing ASCII filter shader:', error);
+        }
+        filter.destroy();
+    };
+
     // No initial updateIntensity call here - wait for first active call
 
-    return { filter, updateIntensity, reset };
+    return { filter, updateIntensity, reset, dispose };
 }

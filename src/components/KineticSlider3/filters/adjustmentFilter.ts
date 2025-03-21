@@ -1,5 +1,6 @@
 import { AdjustmentFilter } from 'pixi-filters';
 import { type AdjustmentFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates an Adjustment filter that allows controlling gamma, contrast, saturation, brightness,
@@ -7,11 +8,15 @@ import { type AdjustmentFilterConfig, type FilterResult } from './types';
  *
  * This filter is faster and simpler than ColorMatrixFilter as it doesn't use a matrix.
  * It provides direct control over common image adjustments.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the Adjustment filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createAdjustmentFilter(config: AdjustmentFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create the filter with options
     const options: any = {
         gamma: config.gamma ?? 1,
@@ -24,8 +29,18 @@ export function createAdjustmentFilter(config: AdjustmentFilterConfig): FilterRe
         alpha: config.alpha ?? 1
     };
 
+    // Create a unique key for this filter configuration
+    const shaderKey = `adjustment-filter-${config.primaryProperty || 'default'}`;
+
     // Create the filter with options
     const filter = new AdjustmentFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering adjustment filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -100,5 +115,17 @@ export function createAdjustmentFilter(config: AdjustmentFilterConfig): FilterRe
         filter.alpha = 1;
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing adjustment filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }
