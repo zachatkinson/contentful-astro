@@ -388,4 +388,17 @@ export default class SlidingWindowManager {
     public getLastDirection(): number {
         return this.lastDirection;
     }
+
+    /**
+     * Alias for updateActiveIndex to maintain naming consistency
+     *
+     * @param newIndex - New current slide index
+     * @returns Object containing arrays of indices that entered and left the window
+     */
+    public updateCurrentIndex(newIndex: number): {
+        entered: number[],
+        left: number[]
+    } {
+        return this.updateActiveIndex(newIndex);
+    }
 }

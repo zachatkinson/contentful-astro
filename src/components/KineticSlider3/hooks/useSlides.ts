@@ -219,6 +219,10 @@ export const useSlides = (
 
             if (isDevelopment) {
                 console.log(`%c[KineticSlider] Loading ${props.images.length} slide images from atlas: ${props.slidesAtlas}`, 'color: #2196F3');
+
+                if (slidingWindowManager) {
+                    console.log(`%c[KineticSlider] Using sliding window approach with window size ±${slidingWindowManager.getWindowSize()}`, 'color: #4CAF50');
+                }
             }
 
             const app = pixi.app.current;
@@ -229,76 +233,143 @@ export const useSlides = (
             const totalImages = props.images.length;
             let loadedCount = 0;
 
+            // Get visibility window indices if sliding window manager is available
+            const visibilityWindowIndices = slidingWindowManager
+                ? slidingWindowManager.getWindowIndices()
+                : [];
+
+            if (isDevelopment && slidingWindowManager) {
+                console.log(`%c[KineticSlider] Visibility window: [${visibilityWindowIndices.join(', ')}]`, 'color: #4CAF50');
+            }
+
             // Create sprites for each image using the atlas
             for (const [index, imagePath] of props.images.entries()) {
                 try {
-                    // Normalize path for atlas lookup
-                    const normalizedPath = normalizePath(imagePath);
+                    // Check if this slide is in the visibility window
+                    const isInVisibilityWindow = !slidingWindowManager ||
+                        visibilityWindowIndices.includes(index);
 
-                    if (isDevelopment) {
-                        console.log(`Looking up atlas frame for normalized path: "${normalizedPath}"`);
+                    if (isDevelopment && slidingWindowManager) {
+                        console.log(`Slide ${index}: ${isInVisibilityWindow ? 'In visibility window' : 'Outside visibility window'}`);
                     }
 
-                    // Get texture from atlas
-                    const texture = atlasManager.getFrameTexture(normalizedPath, props.slidesAtlas);
+                    if (isInVisibilityWindow) {
+                        // Fully load the slide if it's within the visibility window
+                        // Normalize path for atlas lookup
+                        const normalizedPath = normalizePath(imagePath);
 
-                    if (!texture) {
-                        throw new Error(`Frame ${normalizedPath} not found in atlas ${props.slidesAtlas}`);
-                    }
-
-                    // Track texture with resource manager if available
-                    if (resourceManager) {
-                        resourceManager.trackTexture(imagePath, texture);
-                    }
-
-                    // Create the sprite with the texture from atlas
-                    const sprite = new Sprite(texture) as EnhancedSprite;
-                    sprite.anchor.set(0.5);
-                    sprite.x = app.screen.width / 2;
-                    sprite.y = app.screen.height / 2;
-
-                    // Set initial state - only show the first slide
-                    sprite.alpha = index === 0 ? 1 : 0;
-                    sprite.visible = index === 0;
-
-                    // Calculate and apply scale
-                    try {
-                        const { scale, baseScale } = calculateSpriteScale(
-                            texture.width,
-                            texture.height,
-                            sliderWidth,
-                            sliderHeight
-                        );
-
-                        sprite.scale.set(scale);
-                        sprite.baseScale = baseScale;
-                    } catch (scaleError) {
                         if (isDevelopment) {
-                            console.warn(`Error calculating scale for slide ${index}:`, scaleError);
+                            console.log(`Looking up atlas frame for normalized path: "${normalizedPath}"`);
                         }
 
-                        // Fallback scaling
-                        sprite.scale.set(1);
-                        sprite.baseScale = 1;
-                    }
+                        // Get texture from atlas
+                        const texture = atlasManager.getFrameTexture(normalizedPath, props.slidesAtlas);
 
-                    // Track the sprite with resource manager if available
-                    if (resourceManager) {
-                        resourceManager.trackDisplayObject(sprite);
-                    }
+                        if (!texture) {
+                            throw new Error(`Frame ${normalizedPath} not found in atlas ${props.slidesAtlas}`);
+                        }
 
-                    // Add to container and store reference
-                    slidesContainer.addChild(sprite);
-                    pixi.slides.current.push(sprite);
+                        // Track texture with resource manager if available
+                        if (resourceManager) {
+                            resourceManager.trackTexture(imagePath, texture);
+                        }
+
+                        // Create the sprite with the texture from atlas
+                        const sprite = new Sprite(texture) as EnhancedSprite;
+                        sprite.anchor.set(0.5);
+                        sprite.x = app.screen.width / 2;
+                        sprite.y = app.screen.height / 2;
+
+                        // Set initial state - only show the first slide
+                        sprite.alpha = index === 0 ? 1 : 0;
+                        sprite.visible = index === 0;
+
+                        // Calculate and apply scale
+                        try {
+                            const { scale, baseScale } = calculateSpriteScale(
+                                texture.width,
+                                texture.height,
+                                sliderWidth,
+                                sliderHeight
+                            );
+
+                            sprite.scale.set(scale);
+                            sprite.baseScale = baseScale;
+                        } catch (scaleError) {
+                            if (isDevelopment) {
+                                console.warn(`Error calculating scale for slide ${index}:`, scaleError);
+                            }
+
+                            // Fallback scaling
+                            sprite.scale.set(1);
+                            sprite.baseScale = 1;
+                        }
+
+                        // Mark as being in the visibility window
+                        sprite._inVisibilityWindow = true;
+
+                        // Track the sprite with resource manager if available
+                        if (resourceManager) {
+                            resourceManager.trackDisplayObject(sprite);
+                        }
+
+                        // Add to container and store reference
+                        slidesContainer.addChild(sprite);
+                        pixi.slides.current.push(sprite);
+
+                        if (isDevelopment) {
+                            console.log(`Created full slide ${index} for ${imagePath} from atlas`);
+                        }
+                    } else {
+                        // Create a placeholder for slides outside the visibility window
+                        const placeholderOptions = {
+                            width: sliderWidth,
+                            height: sliderHeight,
+                            color: 0x333333,
+                            showIndex: isDevelopment, // Show index in development mode
+                            index,
+                            trackWithResourceManager: true,
+                            resourceManager,
+                            renderer: app.renderer
+                        };
+
+                        // Import the createPlaceholderSprite function dynamically to avoid circular dependencies
+                        const { createPlaceholderSprite } = await import('../utils/placeholderUtils');
+
+                        // Create the placeholder sprite
+                        const placeholderSprite = createPlaceholderSprite(placeholderOptions);
+
+                        // Position the placeholder at the center
+                        placeholderSprite.x = app.screen.width / 2;
+                        placeholderSprite.y = app.screen.height / 2;
+
+                        // Set initial state - only show the first slide
+                        placeholderSprite.alpha = index === 0 ? 1 : 0;
+                        placeholderSprite.visible = index === 0;
+
+                        // Set scale similar to real sprites
+                        placeholderSprite.scale.set(1);
+                        placeholderSprite.baseScale = 1;
+
+                        // Mark as placeholder and outside visibility window
+                        placeholderSprite._isPlaceholder = true;
+                        placeholderSprite._placeholderIndex = index;
+                        placeholderSprite._inVisibilityWindow = false;
+
+                        // Add to container and store reference
+                        slidesContainer.addChild(placeholderSprite);
+                        pixi.slides.current.push(placeholderSprite);
+
+                        if (isDevelopment) {
+                            console.log(`Created placeholder for slide ${index} (outside visibility window)`);
+                        }
+                    }
 
                     // Update progress
                     loadedCount++;
                     const progress = (loadedCount / totalImages) * 100;
                     setLoadingProgress(progress);
 
-                    if (isDevelopment) {
-                        console.log(`Created slide ${index} for ${imagePath} from atlas (progress: ${progress.toFixed(1)}%)`);
-                    }
                 } catch (error) {
                     if (isDevelopment) {
                         console.error(`Error creating slide for ${imagePath} from atlas:`, error);
@@ -340,6 +411,10 @@ export const useSlides = (
 
             if (isDevelopment) {
                 console.log(`%c[KineticSlider] Loading ${props.images.length} slide images individually (atlas not available or incomplete)`, 'color: #FF9800');
+
+                if (slidingWindowManager) {
+                    console.log(`%c[KineticSlider] Using sliding window approach with window size ±${slidingWindowManager.getWindowSize()}`, 'color: #4CAF50');
+                }
             }
 
             // Prepare the list of images to load
@@ -351,11 +426,25 @@ export const useSlides = (
                 console.log(`Slider dimensions: ${sliderWidth}x${sliderHeight}`);
             }
 
-            // Filter out any assets that are already in the cache
-            const imagesToLoad = props.images.filter(image => !Assets.cache.has(image));
+            // Get visibility window indices if sliding window manager is available
+            const visibilityWindowIndices = slidingWindowManager
+                ? slidingWindowManager.getWindowIndices()
+                : [];
 
-            if (isDevelopment && imagesToLoad.length < props.images.length) {
-                console.log(`Using ${props.images.length - imagesToLoad.length} cached images`);
+            if (isDevelopment && slidingWindowManager) {
+                console.log(`%c[KineticSlider] Visibility window: [${visibilityWindowIndices.join(', ')}]`, 'color: #4CAF50');
+            }
+
+            // Filter out images that are not in the visibility window
+            const imagesToLoad = props.images
+                .filter((_, index) => !slidingWindowManager || visibilityWindowIndices.includes(index))
+                .filter(image => !Assets.cache.has(image));
+
+            if (isDevelopment) {
+                console.log(`Preparing to load ${imagesToLoad.length} images (${props.images.length - imagesToLoad.length} skipped or cached)`);
+                if (slidingWindowManager) {
+                    console.log(`${props.images.length - visibilityWindowIndices.length} slides outside visibility window will use placeholders`);
+                }
             }
 
             // Add assets to a bundle for batch loading and progress tracking
@@ -373,19 +462,82 @@ export const useSlides = (
             }
 
             // Create sprites for each image
-            props.images.forEach((image, index) => {
+            for (const [index, image] of props.images.entries()) {
                 try {
-                    // Get texture from cache
-                    const texture = Assets.get(image);
+                    // Check if this slide is in the visibility window
+                    const isInVisibilityWindow = !slidingWindowManager ||
+                        visibilityWindowIndices.includes(index);
 
-                    // Create slide sprite
-                    createSlideFromTexture(texture, image, index, slidesContainer, app, sliderWidth, sliderHeight);
+                    if (isDevelopment && slidingWindowManager) {
+                        console.log(`Slide ${index}: ${isInVisibilityWindow ? 'In visibility window' : 'Outside visibility window'}`);
+                    }
+
+                    if (isInVisibilityWindow) {
+                        // Fully load the slide if it's within the visibility window
+                        // Get texture from cache
+                        const texture = Assets.get(image);
+
+                        // Create slide sprite
+                        const sprite = createSlideFromTexture(texture, image, index, slidesContainer, app, sliderWidth, sliderHeight);
+
+                        // Mark as being in the visibility window
+                        if (sprite) {
+                            sprite._inVisibilityWindow = true;
+                        }
+
+                        if (isDevelopment) {
+                            console.log(`Created full slide ${index} for ${image}`);
+                        }
+                    } else {
+                        // Create a placeholder for slides outside the visibility window
+                        const placeholderOptions = {
+                            width: sliderWidth,
+                            height: sliderHeight,
+                            color: 0x333333,
+                            showIndex: isDevelopment, // Show index in development mode
+                            index,
+                            trackWithResourceManager: true,
+                            resourceManager,
+                            renderer: app.renderer
+                        };
+
+                        // Import the createPlaceholderSprite function dynamically to avoid circular dependencies
+                        const { createPlaceholderSprite } = await import('../utils/placeholderUtils');
+
+                        // Create the placeholder sprite
+                        const placeholderSprite = createPlaceholderSprite(placeholderOptions);
+
+                        // Position the placeholder at the center
+                        placeholderSprite.x = app.screen.width / 2;
+                        placeholderSprite.y = app.screen.height / 2;
+
+                        // Set initial state - only show the first slide
+                        placeholderSprite.alpha = index === 0 ? 1 : 0;
+                        placeholderSprite.visible = index === 0;
+
+                        // Set scale similar to real sprites
+                        placeholderSprite.scale.set(1);
+                        placeholderSprite.baseScale = 1;
+
+                        // Mark as placeholder and outside visibility window
+                        placeholderSprite._isPlaceholder = true;
+                        placeholderSprite._placeholderIndex = index;
+                        placeholderSprite._inVisibilityWindow = false;
+
+                        // Add to container and store reference
+                        slidesContainer.addChild(placeholderSprite);
+                        pixi.slides.current.push(placeholderSprite);
+
+                        if (isDevelopment) {
+                            console.log(`Created placeholder for slide ${index} (outside visibility window)`);
+                        }
+                    }
                 } catch (error) {
                     if (isDevelopment) {
                         console.error(`Error creating slide for ${image}:`, error);
                     }
                 }
-            });
+            }
 
             setIsLoading(false);
             setLoadingProgress(100);
@@ -408,54 +560,176 @@ export const useSlides = (
         app: any,
         sliderWidth: number,
         sliderHeight: number
-    ) => {
-        // Track texture with resource manager if available
-        if (resourceManager) {
-            resourceManager.trackTexture(imagePath, texture);
-        }
-
-        // Create the sprite
-        const sprite = new Sprite(texture) as EnhancedSprite;
-        sprite.anchor.set(0.5);
-        sprite.x = app.screen.width / 2;
-        sprite.y = app.screen.height / 2;
-
-        // Set initial state - only show the first slide
-        sprite.alpha = index === 0 ? 1 : 0;
-        sprite.visible = index === 0;
-
-        // Calculate and apply scale
+    ): EnhancedSprite | null => {
         try {
-            const { scale, baseScale } = calculateSpriteScale(
-                texture.width,
-                texture.height,
-                sliderWidth,
-                sliderHeight
-            );
-
-            sprite.scale.set(scale);
-            sprite.baseScale = baseScale;
-        } catch (scaleError) {
-            if (isDevelopment) {
-                console.warn(`Error calculating scale for slide ${index}:`, scaleError);
+            // Track texture with resource manager if available
+            if (resourceManager) {
+                resourceManager.trackTexture(imagePath, texture);
             }
 
-            // Fallback scaling
-            sprite.scale.set(1);
-            sprite.baseScale = 1;
+            // Create the sprite
+            const sprite = new Sprite(texture) as EnhancedSprite;
+            sprite.anchor.set(0.5);
+            sprite.x = app.screen.width / 2;
+            sprite.y = app.screen.height / 2;
+
+            // Set initial state - only show the first slide
+            sprite.alpha = index === 0 ? 1 : 0;
+            sprite.visible = index === 0;
+
+            // Calculate and apply scale
+            try {
+                const { scale, baseScale } = calculateSpriteScale(
+                    texture.width,
+                    texture.height,
+                    sliderWidth,
+                    sliderHeight
+                );
+
+                sprite.scale.set(scale);
+                sprite.baseScale = baseScale;
+            } catch (scaleError) {
+                if (isDevelopment) {
+                    console.warn(`Error calculating scale for slide ${index}:`, scaleError);
+                }
+
+                // Fallback scaling
+                sprite.scale.set(1);
+                sprite.baseScale = 1;
+            }
+
+            // Track the sprite with resource manager if available
+            if (resourceManager) {
+                resourceManager.trackDisplayObject(sprite);
+            }
+
+            // Add to container and store reference
+            slidesContainer.addChild(sprite);
+            pixi.slides.current.push(sprite);
+
+            if (isDevelopment) {
+                console.log(`Created slide ${index} for ${imagePath}`);
+            }
+
+            return sprite;
+        } catch (error) {
+            if (isDevelopment) {
+                console.error(`Error in createSlideFromTexture for slide ${index}:`, error);
+            }
+            return null;
         }
+    };
 
-        // Track the sprite with resource manager if available
-        if (resourceManager) {
-            resourceManager.trackDisplayObject(sprite);
-        }
+    /**
+     * Utility function to load a slide at a specific index
+     * @param index Index of the slide to load
+     * @returns Promise that resolves when the slide is loaded
+     */
+    const loadSlideAtIndex = async (index: number): Promise<boolean> => {
+        try {
+            // Validate index
+            if (index < 0 || index >= props.images.length) {
+                if (isDevelopment) {
+                    console.warn(`Invalid slide index for loading: ${index}`);
+                }
+                return false;
+            }
 
-        // Add to container and store reference
-        slidesContainer.addChild(sprite);
-        pixi.slides.current.push(sprite);
+            // Get the current slide sprite
+            const sprite = pixi.slides.current[index];
 
-        if (isDevelopment) {
-            console.log(`Created slide ${index} for ${imagePath}`);
+            // Skip if sprite doesn't exist or is not a placeholder or already loaded
+            if (!sprite || !sprite._isPlaceholder || sprite._loadingState === 'loaded') {
+                return true;
+            }
+
+            if (isDevelopment) {
+                console.log(`Loading slide at index ${index}`);
+            }
+
+            // Update loading state
+            sprite._loadingState = 'loading';
+
+            // Get image path
+            const imagePath = props.images[index];
+
+            // Determine loading method based on atlas availability
+            const useAtlas = atlasManager && props.slidesAtlas && areAssetsInAtlas() && isUseSlidesAtlasEnabled();
+            let texture: Texture;
+
+            if (useAtlas) {
+                // Load from atlas
+                const normalizedPath = normalizePath(imagePath);
+                const atlasTexture = atlasManager.getFrameTexture(normalizedPath, props.slidesAtlas!);
+
+                if (!atlasTexture) {
+                    throw new Error(`Frame ${normalizedPath} not found in atlas ${props.slidesAtlas}`);
+                }
+
+                texture = atlasTexture;
+            } else {
+                // Load from individual image
+                texture = await Assets.load(imagePath);
+            }
+
+            // Store original texture for potential reuse
+            sprite._originalTexture = texture;
+
+            // Apply the texture
+            sprite.texture = texture;
+
+            // Calculate and apply scale
+            if (sliderRef.current) {
+                const sliderWidth = sliderRef.current.clientWidth;
+                const sliderHeight = sliderRef.current.clientHeight;
+
+                try {
+                    const { scale, baseScale } = calculateSpriteScale(
+                        texture.width,
+                        texture.height,
+                        sliderWidth,
+                        sliderHeight
+                    );
+
+                    sprite.scale.set(scale);
+                    sprite.baseScale = baseScale;
+                } catch (scaleError) {
+                    if (isDevelopment) {
+                        console.warn(`Error calculating scale for loaded slide ${index}:`, scaleError);
+                    }
+
+                    // Fallback scaling
+                    sprite.scale.set(1);
+                    sprite.baseScale = 1;
+                }
+            }
+
+            // Update flags
+            sprite._isPlaceholder = false;
+            sprite._inVisibilityWindow = true;
+            sprite._loadingState = 'loaded';
+
+            // Track the texture and update sprite in resource manager
+            if (resourceManager) {
+                resourceManager.trackTexture(imagePath, texture);
+                resourceManager.trackDisplayObject(sprite);
+            }
+
+            if (isDevelopment) {
+                console.log(`Successfully loaded slide at index ${index}`);
+            }
+
+            return true;
+        } catch (error) {
+            if (isDevelopment) {
+                console.error(`Error loading slide at index ${index}:`, error);
+            }
+            // Update loading state to error
+            const sprite = pixi.slides.current[index];
+            if (sprite) {
+                sprite._loadingState = 'error';
+            }
+            return false;
         }
     };
 
@@ -501,6 +775,95 @@ export const useSlides = (
             const currentSlide = pixi.slides.current[currentIndex];
             const nextSlide = pixi.slides.current[nextIndex];
 
+            // Update sliding window when changing slides
+            if (slidingWindowManager) {
+                // Update the central index in the sliding window
+                slidingWindowManager.updateCurrentIndex(nextIndex);
+
+                // Get the new visibility window
+                const visibilityIndices = slidingWindowManager.getWindowIndices();
+
+                if (isDevelopment) {
+                    console.log(`Sliding window updated. New visibility window: [${visibilityIndices.join(', ')}]`);
+                }
+
+                // Preload all slides in the visibility window
+                // We do this asynchronously but don't wait for it
+                Promise.all(
+                    visibilityIndices.map(async (index) => {
+                        // If the slide is a placeholder, load it
+                        const slideSprite = pixi.slides.current[index];
+                        if (slideSprite && slideSprite._isPlaceholder) {
+                            return loadSlideAtIndex(index);
+                        }
+                        return Promise.resolve(true);
+                    })
+                ).then((results) => {
+                    if (isDevelopment) {
+                        const successCount = results.filter(result => result).length;
+                        console.log(`Preloaded ${successCount}/${visibilityIndices.length} slides in visibility window`);
+                    }
+                });
+            }
+
+            // Check if the next slide is a placeholder, and if so, load it first
+            const isNextSlideAPlaceholder = nextSlide._isPlaceholder === true;
+
+            if (isNextSlideAPlaceholder) {
+                if (isDevelopment) {
+                    console.log(`Next slide (${nextIndex}) is a placeholder. Loading it now...`);
+                }
+
+                // Return a promise that resolves with the timeline after loading
+                return new Promise(async (resolve) => {
+                    try {
+                        // Load the slide
+                        const loadSuccess = await loadSlideAtIndex(nextIndex);
+
+                        if (!loadSuccess) {
+                            console.error(`Failed to load next slide at index ${nextIndex}`);
+                            resolve(null);
+                            return;
+                        }
+
+                        // Continue with the transition
+                        const timeline = performTransition(currentIndex, nextIndex);
+                        resolve(timeline);
+                    } catch (error) {
+                        console.error('Error loading next slide:', error);
+                        resolve(null);
+                    }
+                }) as unknown as gsap.core.Timeline;
+            }
+
+            // If next slide is already loaded, directly perform the transition
+            return performTransition(currentIndex, nextIndex);
+        } catch (error) {
+            if (isDevelopment) {
+                console.error('Error during slide transition:', error);
+            }
+            return null;
+        }
+    }, [
+        sliderRef,
+        pixi.slides,
+        pixi.textContainers,
+        pixi.currentIndex,
+        props.transitionScaleIntensity,
+        resourceManager,
+        onSlideChange,
+        animationCoordinator,
+        slidingWindowManager
+    ]);
+
+    /**
+     * Helper function to perform the actual transition animation between slides
+     */
+    const performTransition = (currentIndex: number, nextIndex: number): gsap.core.Timeline | null => {
+        try {
+            const currentSlide = pixi.slides.current[currentIndex];
+            const nextSlide = pixi.slides.current[nextIndex];
+
             // Handle text containers if available
             const textContainersAvailable =
                 pixi.textContainers.current &&
@@ -514,14 +877,6 @@ export const useSlides = (
             const nextTextContainer = textContainersAvailable
                 ? pixi.textContainers.current[nextIndex]
                 : null;
-
-            // Ensure next slide is loaded
-            if (!nextSlide || !nextSlide.texture) {
-                if (isDevelopment) {
-                    console.warn(`Slide ${nextIndex} is not ready for transition`);
-                }
-                return null;
-            }
 
             // IMPORTANT: Make both slides visible during transition
             currentSlide.visible = true;
@@ -665,6 +1020,11 @@ export const useSlides = (
                     if (onSlideChange) {
                         onSlideChange(nextIndex);
                     }
+
+                    // If using sliding window, check if any slides should be unloaded
+                    if (slidingWindowManager) {
+                        handleSlidingWindowUnload(nextIndex);
+                    }
                 }
             });
 
@@ -707,20 +1067,113 @@ export const useSlides = (
             return masterTimeline;
         } catch (error) {
             if (isDevelopment) {
-                console.error('Error during slide transition:', error);
+                console.error('Error during slide transition animation:', error);
             }
             return null;
         }
-    }, [
-        sliderRef,
-        pixi.slides,
-        pixi.textContainers,
-        pixi.currentIndex,
-        props.transitionScaleIntensity,
-        resourceManager,
-        onSlideChange,
-        animationCoordinator
-    ]);
+    };
+
+    /**
+     * Helper function to handle unloading slides that are far outside the visibility window
+     */
+    const handleSlidingWindowUnload = (currentIndex: number) => {
+        if (!slidingWindowManager) return;
+
+        // Get current visibility window
+        const visibilityIndices = slidingWindowManager.getWindowIndices();
+
+        // Check all loaded slides and unload those that are far outside the visibility window
+        pixi.slides.current.forEach((sprite, index) => {
+            // Skip if sprite is already a placeholder or uninitialized
+            if (sprite._isPlaceholder || sprite._loadingState === 'uninitialized') {
+                return;
+            }
+
+            // If this slide is outside the visibility window and not the current slide
+            if (!visibilityIndices.includes(index) && index !== currentIndex) {
+                // How far outside the window is this slide?
+                const distanceFromWindow = Math.min(
+                    ...visibilityIndices.map(visIndex => Math.abs(index - visIndex))
+                );
+
+                // Only unload if it's far enough away (e.g., more than 2 slides away from any visible slide)
+                const unloadThreshold = slidingWindowManager.getWindowSize() + 1;
+                if (distanceFromWindow > unloadThreshold) {
+                    // Don't unload slides that are very close to the current index
+                    const distanceFromCurrent = Math.abs(index - currentIndex);
+                    if (distanceFromCurrent <= unloadThreshold) {
+                        return;
+                    }
+
+                    if (isDevelopment) {
+                        console.log(`Unloading slide ${index} (distance from window: ${distanceFromWindow})`);
+                    }
+
+                    // Import placeholder utilities
+                    import('../utils/placeholderUtils').then(({ createPlaceholderSprite }) => {
+                        // Create placeholder to replace the loaded sprite
+                        if (sliderRef.current && pixi.app.current) {
+                            const sliderWidth = sliderRef.current.clientWidth;
+                            const sliderHeight = sliderRef.current.clientHeight;
+
+                            const placeholderOptions = {
+                                width: sliderWidth,
+                                height: sliderHeight,
+                                color: 0x333333,
+                                showIndex: isDevelopment,
+                                index,
+                                trackWithResourceManager: true,
+                                resourceManager,
+                                renderer: pixi.app.current.renderer
+                            };
+
+                            // Create a placeholder
+                            const placeholderSprite = createPlaceholderSprite(placeholderOptions);
+
+                            // Copy position and other properties
+                            placeholderSprite.x = sprite.x;
+                            placeholderSprite.y = sprite.y;
+                            placeholderSprite.alpha = sprite.alpha;
+                            placeholderSprite.visible = sprite.visible;
+                            placeholderSprite.baseScale = sprite.baseScale;
+                            placeholderSprite.scale.set(sprite.scale.x, sprite.scale.y);
+
+                            // Mark as outside visibility window
+                            placeholderSprite._inVisibilityWindow = false;
+
+                            // Store original texture for potential reuse
+                            placeholderSprite._originalTexture = sprite.texture;
+
+                            // Replace in the container
+                            if (sprite.parent) {
+                                const parent = sprite.parent;
+                                const spriteIndex = parent.getChildIndex(sprite);
+                                parent.addChildAt(placeholderSprite, spriteIndex);
+                                parent.removeChild(sprite);
+                            }
+
+                            // Replace in the slides array
+                            pixi.slides.current[index] = placeholderSprite;
+
+                            // Properly dispose the sprite (but keep the texture)
+                            if (resourceManager) {
+                                // First, remove from ResourceManager's tracking
+                                resourceManager.trackDisplayObject(sprite);
+
+                                // Then destroy the sprite, but keep the texture
+                                sprite.destroy({ children: true, texture: false });
+
+                                // At this point, the sprite is gone and ResourceManager won't find it during cleanup
+                            } else {
+                                // If no resource manager, just destroy
+                                sprite.destroy({ children: true, texture: false });
+                            }
+                        }
+                    });
+                }
+            }
+        });
+    };
 
     // Add nextSlide and prevSlide methods
     const nextSlide = useCallback((nextIndex: number) => {
