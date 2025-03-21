@@ -156,7 +156,7 @@ export interface KineticSliderProps {
     /** Letter spacing of the subtitle text */
     textSubTitleLetterspacing?: number;
 
-    /** Vertical offset for the subtitle text in pixels */
+    /** Vertical offset for the subtitle text from the title */
     textSubTitleOffsetTop?: number;
 
     /** Vertical offset for the subtitle text on mobile devices */
@@ -165,35 +165,35 @@ export interface KineticSliderProps {
     /** Font family for the subtitle text */
     textSubTitleFontFamily?: string;
 
-    /** Maximum fraction of container size to shift when applying effects */
+    /** Maximum fraction of container width/height to shift during mouse interaction */
     maxContainerShiftFraction?: number;
 
-    /** Intensity of the swipe effect when transitioning between slides */
+    /** Intensity of the displacement effect during swipe */
     swipeScaleIntensity?: number;
 
-    /** Intensity of the transition effect between slides */
+    /** Intensity of the displacement effect during transitions */
     transitionScaleIntensity?: number;
 
-    /** Whether to use external navigation controls */
+    /** Whether to use external navigation elements instead of built-in navigation */
     externalNav?: boolean;
 
-    /** CSS selectors for external navigation elements */
+    /** Selectors for external navigation elements */
     navElement?: NavElement;
 
-    /** Whether to enable button mode for text containers */
+    /** Whether to show the cursor as a pointer over slides */
     buttonMode?: boolean;
 
-    /** Name of the atlas for slide images */
+    /** Atlas name for slide textures */
     slidesAtlas?: string;
 
-    /** Name of the atlas for effect textures */
+    /** Atlas name for effect textures */
     effectsAtlas?: string;
 
-    /** Whether to use atlas for slides instead of individual images */
-    useSlidesAtlas?: boolean;
-
-    /** Whether to use atlas for effects instead of individual images */
+    /** Whether to use atlas for effect textures */
     useEffectsAtlas?: boolean;
+
+    /** Whether to use atlas for slide textures */
+    useSlidesAtlas?: boolean;
 }
 
 /**

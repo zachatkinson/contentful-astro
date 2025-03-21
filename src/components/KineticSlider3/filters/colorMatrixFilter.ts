@@ -1,5 +1,9 @@
 import { ColorMatrixFilter } from 'pixi.js';
 import { type ColorMatrixFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
+
+// Get the shader manager singleton
+const shaderManager = ShaderResourceManager.getInstance();
 
 /**
  * Creates a ColorMatrix filter that applies a 5x4 matrix transformation on RGBA values
@@ -7,12 +11,24 @@ import { type ColorMatrixFilterConfig, type FilterResult } from './types';
  * This filter can be used for various effects like changing brightness, contrast,
  * saturation, hue rotation, grayscale conversion, sepia tone, and many other effects.
  *
+ * Uses shader pooling via ShaderResourceManager for improved performance.
+ *
  * @param config - Configuration for the ColorMatrix filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createColorMatrixFilter(config: ColorMatrixFilterConfig): FilterResult {
     // Create the filter
     const filter = new ColorMatrixFilter();
+
+    // Generate a unique key for this filter configuration
+    const shaderKey = `colormatrix-${config.preset || 'custom'}-${config.alpha || 1}`;
+
+    // Register filter with shader manager for reuse
+    try {
+        shaderManager.getShaderProgram(shaderKey, filter);
+    } catch (error) {
+        console.warn('Failed to register colorMatrix filter with shader manager:', error);
+    }
 
     // Set initial alpha value if provided
     if (config.alpha !== undefined) {
@@ -56,7 +72,29 @@ export function createColorMatrixFilter(config: ColorMatrixFilterConfig): Filter
         filter.alpha = config.alpha ?? 1;
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Cleanup function to release shader when filter is no longer used
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseShader(shaderKey);
+        } catch (error) {
+            console.warn('Failed to release colorMatrix filter shader:', error);
+        }
+
+        if (filter.destroy) {
+            filter.destroy();
+        }
+    };
+
+    // Create a properly typed FilterResult object
+    const result: FilterResult = {
+        filter,
+        updateIntensity,
+        reset,
+        dispose
+    };
+    return result;
 }
 
 /**

@@ -1,8 +1,14 @@
 import { DropShadowFilter } from 'pixi-filters';
 import { type DropShadowFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
+
+// Get the shader manager singleton
+const shaderManager = ShaderResourceManager.getInstance();
 
 /**
  * Creates a DropShadow filter that applies a shadow effect to objects
+ *
+ * Uses shader pooling via ShaderResourceManager for improved performance.
  *
  * @param config - Configuration for the DropShadow filter
  * @returns FilterResult with the filter instance and control functions
@@ -26,6 +32,16 @@ export function createDropShadowFilter(config: DropShadowFilterConfig): FilterRe
 
     // Create the filter with options
     const filter = new DropShadowFilter(options);
+
+    // Generate a unique key for this filter configuration
+    const shaderKey = `dropshadow-${config.quality || 3}-${config.blur || 2}-${config.alpha || 1}`;
+
+    // Register filter with shader manager for reuse
+    try {
+        shaderManager.getShaderProgram(shaderKey, filter);
+    } catch (error) {
+        console.warn('Failed to register dropShadow filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -90,5 +106,27 @@ export function createDropShadowFilter(config: DropShadowFilterConfig): FilterRe
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Cleanup function to release shader when filter is no longer used
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseShader(shaderKey);
+        } catch (error) {
+            console.warn('Failed to release dropShadow filter shader:', error);
+        }
+
+        if (filter.destroy) {
+            filter.destroy();
+        }
+    };
+
+    // Create a properly typed FilterResult object
+    const result: FilterResult = {
+        filter,
+        updateIntensity,
+        reset,
+        dispose
+    };
+    return result;
 }

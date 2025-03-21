@@ -1,11 +1,17 @@
 import { AdvancedBloomFilter } from 'pixi-filters';
 import { type AdvancedBloomFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
+
+// Get the shader manager singleton
+const shaderManager = ShaderResourceManager.getInstance();
 
 /**
  * Creates an AdvancedBloomFilter that applies a bloom effect with advanced controls
  *
  * The AdvancedBloomFilter applies a bloom effect to an object with more control options
  * than the standard BloomFilter, at the cost of performance.
+ *
+ * Uses shader pooling via ShaderResourceManager for improved performance.
  *
  * @param config - Configuration for the AdvancedBloom filter
  * @returns FilterResult with the filter instance and control functions
@@ -27,6 +33,16 @@ export function createAdvancedBloomFilter(config: AdvancedBloomFilterConfig): Fi
 
     // Create the filter with options
     const filter = new AdvancedBloomFilter(options);
+
+    // Generate a unique key for this filter configuration
+    const shaderKey = `advbloom-${config.quality || 4}-${config.threshold || 0.5}`;
+
+    // Register filter with shader manager for reuse
+    try {
+        shaderManager.getShaderProgram(shaderKey, filter);
+    } catch (error) {
+        console.warn('Failed to register advancedBloom filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration's primaryProperty
@@ -89,5 +105,27 @@ export function createAdvancedBloomFilter(config: AdvancedBloomFilterConfig): Fi
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Cleanup function to release shader when filter is no longer used
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseShader(shaderKey);
+        } catch (error) {
+            console.warn('Failed to release advancedBloom filter shader:', error);
+        }
+
+        if (filter.destroy) {
+            filter.destroy();
+        }
+    };
+
+    // Create a properly typed FilterResult object
+    const result: FilterResult = {
+        filter,
+        updateIntensity,
+        reset,
+        dispose
+    };
+    return result;
 }

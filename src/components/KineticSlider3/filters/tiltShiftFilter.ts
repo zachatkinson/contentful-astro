@@ -1,5 +1,9 @@
 import { TiltShiftFilter } from 'pixi-filters';
 import { type TiltShiftFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
+
+// Get singleton instance of the shader manager
+const shaderManager = ShaderResourceManager.getInstance();
 
 /**
  * Creates a TiltShift filter that applies a tilt-shift camera effect
@@ -7,6 +11,8 @@ import { type TiltShiftFilterConfig, type FilterResult } from './types';
  * The TiltShiftFilter creates a photography-like tilt-shift effect that makes scenes
  * look like miniature models by applying a gradient blur. The effect keeps a horizontal
  * or vertical strip in focus while blurring the rest.
+ *
+ * Uses shader pooling via ShaderResourceManager for improved performance.
  *
  * @param config - Configuration for the TiltShift filter
  * @returns FilterResult with the filter instance and control functions
@@ -31,6 +37,16 @@ export function createTiltShiftFilter(config: TiltShiftFilterConfig): FilterResu
 
     // Create the filter with options
     const filter = new TiltShiftFilter(options);
+
+    // Generate a unique key for this filter configuration
+    const shaderKey = `tiltshift-${config.blur || 8}-${config.gradientBlur || 600}`;
+
+    // Register filter with shader manager for reuse
+    try {
+        shaderManager.getShaderProgram(shaderKey, filter);
+    } catch (error) {
+        console.warn('Failed to register tiltShift filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -124,5 +140,27 @@ export function createTiltShiftFilter(config: TiltShiftFilterConfig): FilterResu
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Cleanup function to release shader when filter is no longer used
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseShader(shaderKey);
+        } catch (error) {
+            console.warn('Failed to release tiltShift filter shader:', error);
+        }
+
+        if (filter.destroy) {
+            filter.destroy();
+        }
+    };
+
+    // Create a properly typed FilterResult object
+    const result: FilterResult = {
+        filter,
+        updateIntensity,
+        reset,
+        dispose
+    };
+    return result;
 }

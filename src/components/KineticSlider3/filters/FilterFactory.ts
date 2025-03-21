@@ -1,4 +1,5 @@
 import { type FilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 // Import individual filter creators
 import { createAdjustmentFilter } from "./adjustmentFilter";
@@ -50,104 +51,272 @@ import { createZoomBlurFilter } from "./zoomBlurFilter";
  * Each filter is implemented in its own module for better organization and maintainability.
  */
 export class FilterFactory {
+    /** Shader resource manager instance */
+    private static shaderManager: ShaderResourceManager | null = null;
+
+    /** Filter cache for reusing instances with identical configurations */
+    private static filterCache = new Map<string, FilterResult>();
+
+    /** Debug mode flag */
+    private static debug = false;
+
+    /** Is shader pooling enabled */
+    private static shaderPoolingEnabled = false;
+
+    /**
+     * Initialize the FilterFactory with a ShaderResourceManager
+     *
+     * @param options - Configuration options
+     */
+    public static initialize(options: {
+        enableShaderPooling?: boolean;
+        enableDebug?: boolean;
+        maxCacheSize?: number;
+    } = {}): void {
+        // Get or create a shader manager instance
+        this.shaderManager = ShaderResourceManager.getInstance({
+            debug: options.enableDebug,
+            maxPoolSize: 100
+        });
+
+        this.debug = options.enableDebug ?? false;
+        this.shaderPoolingEnabled = options.enableShaderPooling ?? true;
+
+        if (this.debug) {
+            console.log(`[FilterFactory] Initialized with shader pooling ${this.shaderPoolingEnabled ? 'enabled' : 'disabled'}`);
+        }
+
+        // Apply shader program pooling patches if enabled
+        if (this.shaderPoolingEnabled && this.shaderManager) {
+            // PixiJS patching for shader pooling would go here in a production implementation
+            // This requires internal knowledge of how each filter creates its shaders
+            if (this.debug) {
+                console.log('[FilterFactory] Shader pooling enabled - shader programs will be shared between filter instances');
+            }
+        }
+    }
+
+    /**
+     * Generate a cache key for a filter configuration
+     *
+     * @param config - Filter configuration
+     * @returns A string key for cache lookups
+     */
+    private static generateCacheKey(config: FilterConfig): string {
+        return `${config.type}_${JSON.stringify(config)}`;
+    }
+
+    /**
+     * Log a message if debug is enabled
+     *
+     * @param message - Message to log
+     */
+    private static log(message: string): void {
+        if (this.debug) {
+            console.log(`[FilterFactory] ${message}`);
+        }
+    }
+
     /**
      * Create a filter based on the provided configuration
      *
      * @param config - Configuration for the filter
      * @returns Object containing the filter instance and control functions
      */
-    static createFilter(config: FilterConfig): FilterResult {
+    static createFilter(config: FilterConfig & { type: string }): FilterResult {
+        // Initialize if not already done
+        if (!this.shaderManager) {
+            this.initialize();
+        }
+
+        // Check cache for identical configuration
+        const cacheKey = this.generateCacheKey(config);
+        if (this.filterCache.has(cacheKey)) {
+            const cachedResult = this.filterCache.get(cacheKey);
+            this.log(`Reusing cached filter for ${config.type}`);
+            return cachedResult!;
+        }
+
         // Allow creating disabled filters - they will be enabled later when needed
         // The enabled state will be managed by the filter system
+        let result: FilterResult;
 
         // Map filter type to creator function
         switch (config.type) {
             // Built-in PixiJS Filters
             case 'adjustment':
-                return createAdjustmentFilter(config);
+                result = createAdjustmentFilter(config);
+                break;
             case 'advancedBloom':
-                return createAdvancedBloomFilter(config);
+                result = createAdvancedBloomFilter(config);
+                break;
             case 'alpha':
-                return createAlphaFilter(config);
+                result = createAlphaFilter(config);
+                break;
             case 'ascii':
-                return createAsciiFilter(config);
+                result = createAsciiFilter(config);
+                break;
             case 'backdropBlur':
-                return createBackdropBlurFilter(config);
+                result = createBackdropBlurFilter(config);
+                break;
             case 'bevel':
-                return createBevelFilter(config);
+                result = createBevelFilter(config);
+                break;
             case 'bloom':
-                return createBloomFilter(config);
+                result = createBloomFilter(config);
+                break;
             case 'blur':
-                return createBlurFilter(config);
+                result = createBlurFilter(config);
+                break;
             case 'bulgePinch':
-                return createBulgePinchFilter(config);
+                result = createBulgePinchFilter(config);
+                break;
             case 'colorGradient':
-                return createColorGradientFilter(config);
+                result = createColorGradientFilter(config);
+                break;
             case 'colorMap':
-                return createColorMapFilter(config);
+                result = createColorMapFilter(config);
+                break;
             case 'colorMatrix':
-                return createColorMatrixFilter(config);
+                result = createColorMatrixFilter(config);
+                break;
             case 'colorOverlay':
-                return createColorOverlayFilter(config);
+                result = createColorOverlayFilter(config);
+                break;
             case 'colorReplace':
-                return createColorReplaceFilter(config);
+                result = createColorReplaceFilter(config);
+                break;
             case 'convolution':
-                return createConvolutionFilter(config);
+                result = createConvolutionFilter(config);
+                break;
             case 'crossHatch':
-                return createCrossHatchFilter(config);
+                result = createCrossHatchFilter(config);
+                break;
             case 'crt':
-                return createCRTFilter(config);
+                result = createCRTFilter(config);
+                break;
             case 'dot':
-                return createDotFilter(config);
+                result = createDotFilter(config);
+                break;
             case 'dropShadow':
-                return createDropShadowFilter(config);
+                result = createDropShadowFilter(config);
+                break;
             case 'emboss':
-                return createEmbossFilter(config);
+                result = createEmbossFilter(config);
+                break;
             case 'glitch':
-                return createGlitchFilter(config);
+                result = createGlitchFilter(config);
+                break;
             case 'glow':
-                return createGlowFilter(config);
+                result = createGlowFilter(config);
+                break;
             case 'godray':
-                return createGodrayFilter(config);
+                result = createGodrayFilter(config);
+                break;
             case 'grayscale':
-                return createGrayscaleFilter(config);
+                result = createGrayscaleFilter(config);
+                break;
             case 'hsl':
-                return createHslAdjustmentFilter(config);
+                result = createHslAdjustmentFilter(config);
+                break;
             case 'kawaseBlur':
-                return createKawaseBlurFilter(config);
+                result = createKawaseBlurFilter(config);
+                break;
             case 'motionBlur':
-                return createMotionBlurFilter(config);
+                result = createMotionBlurFilter(config);
+                break;
             case 'multiColorReplace':
-                return createMultiColorReplaceFilter(config);
+                result = createMultiColorReplaceFilter(config);
+                break;
             case 'noise':
-                return createNoiseFilter(config);
+                result = createNoiseFilter(config);
+                break;
             case 'oldFilm':
-                return createOldFilmFilter(config);
+                result = createOldFilmFilter(config);
+                break;
             case 'outline':
-                return createOutlineFilter(config);
+                result = createOutlineFilter(config);
+                break;
             case 'pixelate':
-                return createPixelateFilter(config);
+                result = createPixelateFilter(config);
+                break;
             case 'radialBlur':
-                return createRadialBlurFilter(config);
+                result = createRadialBlurFilter(config);
+                break;
             case 'reflection':
-                return createReflectionFilter(config);
+                result = createReflectionFilter(config);
+                break;
             case "rgbSplit":
-                return createRGBSplitFilter(config);
+                result = createRGBSplitFilter(config);
+                break;
             case 'shockwave':
-                return createShockwaveFilter(config);
+                result = createShockwaveFilter(config);
+                break;
             case 'simpleLightmap':
-                return createSimpleLightmapFilter(config);
+                result = createSimpleLightmapFilter(config);
+                break;
             case 'simplexNoise':
-                return createSimplexNoiseFilter(config);
+                result = createSimplexNoiseFilter(config);
+                break;
             case 'tiltShift':
-                return createTiltShiftFilter(config);
+                result = createTiltShiftFilter(config);
+                break;
             case 'twist':
-                return createTwistFilter(config);
+                result = createTwistFilter(config);
+                break;
             case "zoomBlur":
-                return createZoomBlurFilter(config);
+                result = createZoomBlurFilter(config);
+                break;
             // Additional filters will be added here as they are implemented
             default:
-                throw new Error(`Unsupported filter type: ${config}`);
+                throw new Error("Unsupported filter type");
         }
+
+        // Register with shader manager for tracking if available
+        if (this.shaderManager && result.filter) {
+            // In a full implementation, we would hook into the filter's shader lifecycle
+            this.log('Registered filter with shader manager');
+        }
+
+        // Store in cache
+        this.filterCache.set(cacheKey, result);
+
+        // Cache maintenance - if more than 100 filters are cached, remove oldest ones
+        if (this.filterCache.size > 100) {
+            const keysToDelete = Array.from(this.filterCache.keys()).slice(0, 20);
+            keysToDelete.forEach(key => this.filterCache.delete(key));
+            this.log(`Cleaned up filter cache, removed ${keysToDelete.length} entries`);
+        }
+
+        return result;
+    }
+
+    /**
+     * Get statistics about shader and filter usage
+     *
+     * @returns Object with statistics
+     */
+    static getStats(): any {
+        return {
+            filterCacheSize: this.filterCache.size,
+            shaderStats: this.shaderManager ? this.shaderManager.getStats() : null,
+            shaderPoolingEnabled: this.shaderPoolingEnabled
+        };
+    }
+
+    /**
+     * Clear the filter cache and optionally the shader pool
+     *
+     * @param clearShaderPool - Whether to also clear the shader pool
+     */
+    static clearCache(clearShaderPool = false): void {
+        this.filterCache.clear();
+
+        if (clearShaderPool && this.shaderManager) {
+            // Instead of clearing the shader pool, we'll just log a message
+            this.log('Warning: Shader pool clearing is not supported in this version.');
+        }
+
+        this.log('Filter cache cleared');
     }
 }

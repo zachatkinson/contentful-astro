@@ -852,4 +852,7 @@ export interface FilterResult {
 
     /** Function to reset the filter to its default state */
     reset: () => void;
+
+    /** Function to clean up resources when filter is no longer needed */
+    dispose?: () => void;
 }

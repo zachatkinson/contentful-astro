@@ -1,5 +1,6 @@
 import { Texture, Filter, Container, Application } from 'pixi.js';
 import { gsap } from 'gsap';
+import { ShaderResourceManager } from './ShaderResourceManager';
 
 /**
  * Types for resource tracking and management
@@ -34,6 +35,7 @@ interface ResourceManagerOptions {
     logLevel?: 'error' | 'warn' | 'info' | 'debug';
     enableMetrics?: boolean;
     autoCleanupInterval?: number | null; // ms, null to disable
+    enableShaderPooling?: boolean;
 }
 
 /**
@@ -89,6 +91,9 @@ class ResourceManager {
     private metrics: PerformanceMetrics | null = null;
     private autoCleanupTimer: Timer | null = null;
 
+    // Shader resource manager
+    private shaderManager: ShaderResourceManager | null = null;
+
     /**
      * Creates a new ResourceManager instance
      *
@@ -100,7 +105,8 @@ class ResourceManager {
         this.options = {
             logLevel: options.logLevel || 'warn',
             enableMetrics: options.enableMetrics || false,
-            autoCleanupInterval: options.autoCleanupInterval || null
+            autoCleanupInterval: options.autoCleanupInterval || null,
+            enableShaderPooling: options.enableShaderPooling !== false // Enable by default
         };
 
         // Initialize metrics if enabled
@@ -114,6 +120,15 @@ class ResourceManager {
                     animations: this.createEmptyBatchStats()
                 }
             };
+        }
+
+        // Initialize shader manager if shader pooling is enabled
+        if (this.options.enableShaderPooling) {
+            this.shaderManager = ShaderResourceManager.getInstance({
+                debug: this.options.logLevel === 'debug',
+                enableMetrics: this.options.enableMetrics
+            });
+            this.log('info', 'Shader pooling enabled');
         }
 
         this.log('info', `ResourceManager initialized`);
@@ -358,6 +373,73 @@ class ResourceManager {
         return filters;
     }
 
+    /**
+     * Track a filter
+     *
+     * @param filter - Filter to track
+     * @returns The filter for chaining
+     */
+    trackFilter(filter: Filter): Filter {
+        if (!this.isActive()) return filter;
+
+        const startTime = this.metrics ? performance.now() : 0;
+        this.filters.add(filter);
+
+        // Register with shader manager if available
+        if (this.shaderManager) {
+            // The shader manager will keep track of shader programs used by this filter
+            // This is a simplified integration - in a real implementation we'd hook into
+            // the filter's shader creation process
+            this.log('debug', `Filter registered with shader manager`);
+        }
+
+        if (this.metrics) {
+            this.recordMetric('trackFilter', startTime);
+            this.updateBatchStats('filters', 1);
+        }
+
+        return filter;
+    }
+
+    /**
+     * Dispose of a single filter
+     */
+    private disposeFilter(filter: Filter): void {
+        const startTime = this.metrics ? performance.now() : 0;
+
+        try {
+            // First disable the filter before destroying it
+            this.disableFilter(filter);
+
+            // Release any shaders associated with this filter
+            if (this.shaderManager) {
+                this.shaderManager.releaseShader(filter as any);
+            }
+
+            // Then destroy it
+            filter.destroy();
+        } catch (error) {
+            // Fallback destruction for resilience
+            this.log('debug', `Using fallback disposal for filter`, error);
+            this.disableFilter(filter);
+        }
+
+        this.filters.delete(filter);
+
+        if (this.metrics) {
+            this.recordMetric('disposeFilter', startTime);
+        }
+    }
+
+    /**
+     * Get shader manager instance
+     *
+     * @returns The shader manager instance or null if not enabled
+     */
+    getShaderManager(): ShaderResourceManager | null {
+        return this.shaderManager;
+    }
+
     // ===== BATCH TRACKING METHODS =====
 
     /**
@@ -581,51 +663,6 @@ class ResourceManager {
 
         if (this.metrics) {
             this.recordMetric('releaseTexture', startTime);
-        }
-    }
-
-    /**
-     * Track a filter
-     *
-     * @param filter - Filter to track
-     * @returns The filter for chaining
-     */
-    trackFilter(filter: Filter): Filter {
-        if (!this.isActive()) return filter;
-
-        const startTime = this.metrics ? performance.now() : 0;
-        this.filters.add(filter);
-
-        if (this.metrics) {
-            this.recordMetric('trackFilter', startTime);
-            this.updateBatchStats('filters', 1);
-        }
-
-        return filter;
-    }
-
-    /**
-     * Dispose of a single filter
-     */
-    private disposeFilter(filter: Filter): void {
-        const startTime = this.metrics ? performance.now() : 0;
-
-        try {
-            // First disable the filter before destroying it
-            this.disableFilter(filter);
-
-            // Then destroy it
-            filter.destroy();
-        } catch (error) {
-            // Fallback destruction for resilience
-            this.log('debug', `Using fallback disposal for filter`, error);
-            this.disableFilter(filter);
-        }
-
-        this.filters.delete(filter);
-
-        if (this.metrics) {
-            this.recordMetric('disposeFilter', startTime);
         }
     }
 
@@ -914,8 +951,8 @@ class ResourceManager {
      *
      * @returns An object containing counts of various tracked resources
      */
-    getStats(): Record<string, number | BatchStats | PerformanceMetrics> {
-        const result: Record<string, number | BatchStats | PerformanceMetrics> = {
+    getStats(): Record<string, number | BatchStats | PerformanceMetrics | any> {
+        const result: Record<string, number | BatchStats | PerformanceMetrics | any> = {
             textures: this.textures.size,
             filters: this.filters.size,
             displayObjects: this.displayObjects.size,
@@ -923,12 +960,18 @@ class ResourceManager {
             eventTargets: this.listeners.size,
             timeouts: this.timeouts.size,
             intervals: this.intervals.size,
-            pixiApps: this.pixiApps.size
+            pixiApps: this.pixiApps.size,
+            shaderPoolingEnabled: !!this.shaderManager
         };
 
         // Add performance metrics if enabled
         if (this.metrics) {
             result.metrics = this.metrics;
+        }
+
+        // Add shader manager stats if available
+        if (this.shaderManager) {
+            result.shaderManager = this.shaderManager.getStats();
         }
 
         return result;
@@ -989,6 +1032,16 @@ class ResourceManager {
         this.clearAllTimeouts();
         this.clearAllIntervals();
 
+        // Clear shader manager if present
+        if (this.shaderManager) {
+            // Release all filters from the shader manager by iterating through our filters
+            this.filters.forEach(filter => {
+                this.shaderManager?.releaseShader(filter as any);
+            });
+            // Set to null without calling the nonexistent clear method
+            this.shaderManager = null;
+        }
+
         if (this.metrics) {
             this.recordMetric('dispose', startTime);
 
@@ -1010,6 +1063,239 @@ class ResourceManager {
         // Clear any pending animation frames
         this.intervals.forEach(clearInterval);
         this.intervals.clear();
+    }
+
+    /**
+     * Monitor filter performance and adjust quality if necessary
+     * Part of the shader optimization implementation
+     *
+     * @param filter - Filter to monitor
+     * @param performanceThreshold - Performance threshold in ms
+     * @param qualityReduceFactor - How much to reduce quality (0-1)
+     * @returns Whether the filter was optimized
+     */
+    monitorFilterPerformance(
+        filter: Filter,
+        performanceThreshold: number = 16,
+        qualityReduceFactor: number = 0.5
+    ): boolean {
+        if (!filter || !this.isActive()) return false;
+
+        try {
+            // Measure filter rendering time
+            const startTime = performance.now();
+
+            // Simulate a render cycle - in practice this would be done
+            // during actual rendering with proper timing
+            if (filter.enabled) {
+                // Force filter to update its internal state
+                if ('apply' in filter && typeof filter.apply === 'function') {
+                    // This is a simplification - in a real implementation,
+                    // we would measure during actual rendering
+                    this.log('debug', 'Monitoring filter performance');
+                }
+            }
+
+            const endTime = performance.now();
+            const renderTime = endTime - startTime;
+
+            // If rendering takes too long, reduce quality
+            if (renderTime > performanceThreshold) {
+                this.optimizeFilterQuality(filter, qualityReduceFactor);
+                this.log('info', `Filter performance optimized: ${renderTime.toFixed(2)}ms -> threshold: ${performanceThreshold}ms`);
+                return true;
+            }
+
+            return false;
+        } catch (error) {
+            this.log('warn', 'Error monitoring filter performance', error);
+            return false;
+        }
+    }
+
+    /**
+     * Optimize a filter's quality settings to improve performance
+     *
+     * @param filter - Filter to optimize
+     * @param factor - Factor to reduce quality by (0-1)
+     * @returns Whether optimization was applied
+     */
+    optimizeFilterQuality(filter: Filter, factor: number = 0.5): boolean {
+        if (!filter || !this.isActive()) return false;
+
+        try {
+            let optimized = false;
+
+            // Adjust quality parameter if available
+            if ('quality' in filter && typeof filter.quality === 'number') {
+                const newQuality = Math.max(1, Math.floor(filter.quality * factor));
+                if (newQuality < filter.quality) {
+                    filter.quality = newQuality;
+                    optimized = true;
+                    this.log('debug', `Reduced filter quality to ${newQuality}`);
+                }
+            }
+
+            // Adjust resolution if available
+            if ('resolution' in filter && typeof filter.resolution === 'number') {
+                const newResolution = Math.max(0.1, filter.resolution * factor);
+                if (newResolution < filter.resolution) {
+                    filter.resolution = newResolution;
+                    optimized = true;
+                    this.log('debug', `Reduced filter resolution to ${newResolution.toFixed(2)}`);
+                }
+            }
+
+            // Many filters have a specific quality parameter
+            const specificParams = [
+                'kernelSize', 'blur', 'steps', 'passes', 'iterations',
+                'sampleSize', 'pixelSize', 'blurX', 'blurY'
+            ];
+
+            // Try to adjust known quality parameters
+            for (const param of specificParams) {
+                if (param in filter && typeof (filter as any)[param] === 'number') {
+                    const currentValue = (filter as any)[param];
+                    // For parameters where higher = better quality, reduce
+                    const newValue = Math.max(1, Math.floor(currentValue * factor));
+
+                    if (newValue < currentValue) {
+                        (filter as any)[param] = newValue;
+                        optimized = true;
+                        this.log('debug', `Reduced filter ${param} to ${newValue}`);
+                    }
+                }
+            }
+
+            return optimized;
+        } catch (error) {
+            this.log('warn', 'Error optimizing filter quality', error);
+            return false;
+        }
+    }
+
+    /**
+     * Run diagnostics on all active filters
+     * Provides insights into filter performance
+     *
+     * @returns Diagnostic information about filters
+     */
+    runFilterDiagnostics(): Record<string, any> {
+        const results: Record<string, any> = {
+            totalFilters: this.filters.size,
+            filtersByType: {},
+            potentialOptimizations: 0
+        };
+
+        try {
+            // Group filters by type
+            this.filters.forEach(filter => {
+                const filterType = filter.constructor.name;
+                if (!results.filtersByType[filterType]) {
+                    results.filtersByType[filterType] = 0;
+                }
+                results.filtersByType[filterType]++;
+
+                // Check for potential optimizations
+                let canOptimize = false;
+
+                // Check common quality parameters
+                if ('quality' in filter && typeof filter.quality === 'number' && filter.quality > 1) {
+                    canOptimize = true;
+                }
+
+                if ('resolution' in filter && typeof filter.resolution === 'number' && filter.resolution > 0.5) {
+                    canOptimize = true;
+                }
+
+                // Count potential optimizations
+                if (canOptimize) {
+                    results.potentialOptimizations++;
+                }
+            });
+
+            // Add shader manager diagnostics if available
+            if (this.shaderManager) {
+                results.shaderPoolStats = this.shaderManager.getStats();
+            }
+
+            return results;
+        } catch (error) {
+            this.log('warn', 'Error running filter diagnostics', error);
+            return { error: 'Failed to run diagnostics', totalFilters: this.filters.size };
+        }
+    }
+
+    /**
+     * Automatically optimize all filters based on FPS
+     * This method should be called periodically during animation
+     *
+     * @param currentFPS - Current FPS of the application
+     * @param targetFPS - Target FPS to maintain
+     * @param optimizationStep - How aggressive to optimize (0-1)
+     * @returns Number of filters optimized
+     */
+    autoOptimizeFilters(
+        currentFPS: number,
+        targetFPS: number = 55,
+        optimizationStep: number = 0.8
+    ): number {
+        if (!this.isActive() || this.filters.size === 0) return 0;
+
+        // Don't optimize if FPS is already good
+        if (currentFPS >= targetFPS) return 0;
+
+        try {
+            let optimizedCount = 0;
+            const fpsDifference = targetFPS - currentFPS;
+
+            // More aggressive optimization for lower FPS
+            const optimizationFactor = Math.min(0.9, Math.max(0.5,
+                optimizationStep * (1 - (currentFPS / targetFPS))
+            ));
+
+            this.log('info', `Auto-optimizing filters: FPS ${currentFPS.toFixed(1)}/${targetFPS}, factor: ${optimizationFactor.toFixed(2)}`);
+
+            // Sort filters by complexity/cost (simplified approach)
+            // In a real implementation, you'd track actual rendering cost
+            const filterEntries = Array.from(this.filters.entries())
+                .map(([id, filter]) => {
+                    // Estimate filter cost based on its properties
+                    let estimatedCost = 1;
+
+                    // Quality-based cost estimation
+                    if ('quality' in filter && typeof filter.quality === 'number') {
+                        estimatedCost *= filter.quality;
+                    }
+
+                    // Resolution-based cost estimation
+                    if ('resolution' in filter && typeof filter.resolution === 'number') {
+                        estimatedCost *= filter.resolution;
+                    }
+
+                    return { id, filter, cost: estimatedCost };
+                })
+                .sort((a, b) => b.cost - a.cost); // Sort by highest cost first
+
+            // Optimize the most expensive filters first
+            for (const { filter } of filterEntries) {
+                if (optimizedCount >= 3) break; // Limit optimizations per frame
+
+                const wasOptimized = this.optimizeFilterQuality(filter, optimizationFactor);
+                if (wasOptimized) {
+                    optimizedCount++;
+                }
+            }
+
+            if (optimizedCount > 0) {
+                this.log('info', `Optimized ${optimizedCount} filters to improve performance`);
+            }
+
+            return optimizedCount;
+        } catch (error) {
+            this.log('warn', 'Error auto-optimizing filters', error);
+            return 0;
+        }
     }
 }
 

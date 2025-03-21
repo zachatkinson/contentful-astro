@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import styles from './KineticSlider.module.css';
-import { type KineticSliderProps } from './types';
+import type { KineticSliderProps } from './types';
 import { Application, Sprite, Container, DisplacementFilter } from 'pixi.js';
 import ResourceManager from './managers/ResourceManager';
 import {AtlasManager} from './managers/AtlasManager';
@@ -9,6 +9,7 @@ import { UpdateType } from './managers/UpdateTypes';
 import { ThrottleStrategy } from './managers/FrameThrottler';
 import AnimationCoordinator from './managers/AnimationCoordinator';
 import SlidingWindowManager from './managers/SlidingWindowManager';
+import { FilterFactory } from './filters';
 
 // Import hooks directly
 import { useDisplacementEffects } from './hooks';
@@ -150,7 +151,17 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
         const componentId = `kinetic-slider-${Math.random().toString(36).substring(2, 9)}`;
 
         // Initialize ResourceManager
-        resourceManagerRef.current = new ResourceManager(componentId);
+        resourceManagerRef.current = new ResourceManager(componentId, {
+            enableMetrics: true,
+            enableShaderPooling: true,
+            logLevel: import.meta.env.NODE_ENV === 'development' ? 'debug' : 'warn'
+        });
+
+        // Initialize FilterFactory with shader pooling
+        FilterFactory.initialize({
+            enableShaderPooling: true,
+            enableDebug: import.meta.env.NODE_ENV === 'development'
+        });
 
         // Initialize AtlasManager with resource manager
         atlasManagerRef.current = new AtlasManager({
@@ -1007,6 +1018,46 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
             }
         };
     }, []);
+
+    // FPS monitoring for filter optimization
+    useEffect(() => {
+        if (!resourceManagerRef.current) return;
+
+        let frameCount = 0;
+        let lastTime = performance.now();
+        let fps = 60;
+
+        // Function to calculate FPS and optimize filters
+        const monitorPerformance = () => {
+            frameCount++;
+            const currentTime = performance.now();
+            const elapsed = currentTime - lastTime;
+
+            // Update FPS approximately every second
+            if (elapsed > 1000) {
+                fps = (frameCount * 1000) / elapsed;
+                frameCount = 0;
+                lastTime = currentTime;
+
+                // Auto-optimize filters based on current FPS
+                if (resourceManagerRef.current && fps < 55) {
+                    resourceManagerRef.current.autoOptimizeFilters(fps, 55);
+                }
+            }
+
+            performanceMonitorId = requestAnimationFrame(monitorPerformance);
+        };
+
+        // Start performance monitoring
+        let performanceMonitorId = requestAnimationFrame(monitorPerformance);
+
+        // Cleanup
+        return () => {
+            if (performanceMonitorId) {
+                cancelAnimationFrame(performanceMonitorId);
+            }
+        };
+    }, [resourceManagerRef]);
 
     // Render component
     return (
