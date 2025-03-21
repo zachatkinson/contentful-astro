@@ -1,16 +1,21 @@
 import { KawaseBlurFilter } from 'pixi-filters';
 import { type KawaseBlurFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a KawaseBlur filter that applies a faster blur algorithm
  *
  * The KawaseBlurFilter is a much faster alternative to Gaussian blur,
  * but with slightly different visual characteristics.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the KawaseBlur filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createKawaseBlurFilter(config: KawaseBlurFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -23,8 +28,20 @@ export function createKawaseBlurFilter(config: KawaseBlurFilterConfig): FilterRe
     if (config.quality !== undefined) options.quality = config.quality;
     if (config.strength !== undefined) options.strength = config.strength;
 
+    // Create a unique key for this filter configuration
+    const qualityStr = (options.quality || 3).toString();
+    const clampStr = options.clamp ? 'clamp' : 'noclamp';
+    const shaderKey = `kawase-blur-filter-${qualityStr}-${clampStr}`;
+
     // Create the filter with options
     const filter = new KawaseBlurFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering kawase blur filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -96,5 +113,17 @@ export function createKawaseBlurFilter(config: KawaseBlurFilterConfig): FilterRe
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing kawase blur filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

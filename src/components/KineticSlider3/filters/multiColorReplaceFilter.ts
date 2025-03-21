@@ -1,17 +1,22 @@
 import { MultiColorReplaceFilter } from 'pixi-filters';
 import { type MultiColorReplaceFilterConfig, type FilterResult } from './types';
 import type { ColorSource } from 'pixi.js';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a MultiColorReplace filter that replaces multiple colors with specified target colors
  *
  * The MultiColorReplaceFilter replaces multiple colors with different target colors,
  * with a configurable tolerance/sensitivity level.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the MultiColorReplace filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createMultiColorReplaceFilter(config: MultiColorReplaceFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {
         replacements: config.replacements || [],
@@ -19,8 +24,20 @@ export function createMultiColorReplaceFilter(config: MultiColorReplaceFilterCon
         maxColors: config.maxColors
     };
 
+    // Create a unique key for this filter configuration
+    const toleranceStr = (options.tolerance || 0.05).toString();
+    const maxColorsStr = (options.maxColors || 0).toString();
+    const shaderKey = `multi-color-replace-filter-${toleranceStr}-${maxColorsStr}`;
+
     // Create the filter with options
     const filter = new MultiColorReplaceFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering multi-color replace filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -92,5 +109,17 @@ export function createMultiColorReplaceFilter(config: MultiColorReplaceFilterCon
         filter.refresh();
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing multi-color replace filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

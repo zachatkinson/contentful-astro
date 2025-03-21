@@ -1,16 +1,21 @@
 import { OldFilmFilter } from 'pixi-filters';
 import { type OldFilmFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates an OldFilm filter that applies a vintage film effect
  *
  * The OldFilmFilter adds noise, scratches, sepia tone, and vignetting effects
  * to simulate the look of old film footage.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the OldFilm filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createOldFilmFilter(config: OldFilmFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     const options: any = {};
 
@@ -26,8 +31,21 @@ export function createOldFilmFilter(config: OldFilmFilterConfig): FilterResult {
     if (config.vignettingAlpha !== undefined) options.vignettingAlpha = config.vignettingAlpha;
     if (config.vignettingBlur !== undefined) options.vignettingBlur = config.vignettingBlur;
 
+    // Create a unique key for this filter configuration based on key parameters
+    // Noise size and vignetting blur are the most significant for shader compilation
+    const noiseSizeStr = (options.noiseSize || 1).toString();
+    const vignettingBlurStr = (options.vignettingBlur || 1).toString();
+    const shaderKey = `old-film-filter-${noiseSizeStr}-${vignettingBlurStr}`;
+
     // Create the filter with options
     const filter = new OldFilmFilter(options);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering old film filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -119,5 +137,17 @@ export function createOldFilmFilter(config: OldFilmFilterConfig): FilterResult {
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing old film filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }

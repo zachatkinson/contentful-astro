@@ -1,16 +1,21 @@
 import { PixelateFilter } from 'pixi-filters';
 import { type PixelateFilterConfig, type FilterResult } from './types';
+import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * Creates a Pixelate filter that applies a pixelate effect making display objects appear 'blocky'
  *
  * The PixelateFilter reduces the image resolution, making it appear pixelated or "8-bit" style.
  * The size parameter controls the size of the pixels, with larger values creating a more pixelated effect.
+ * Uses shader pooling for better performance.
  *
  * @param config - Configuration for the Pixelate filter
  * @returns FilterResult with the filter instance and control functions
  */
 export function createPixelateFilter(config: PixelateFilterConfig): FilterResult {
+    // Get shader manager instance
+    const shaderManager = ShaderResourceManager.getInstance();
+
     // Create options object for the filter
     let size: number | [number, number] = config.size || 10;
 
@@ -21,8 +26,20 @@ export function createPixelateFilter(config: PixelateFilterConfig): FilterResult
         size = [x, y];
     }
 
+    // Create a unique key for this filter configuration
+    // Pixelate filter shader compilation doesn't change based on size parameters,
+    // so we can use a static key
+    const shaderKey = 'pixelate-filter';
+
     // Create the filter with the size option
     const filter = new PixelateFilter(size);
+
+    // Register filter with shader manager
+    try {
+        shaderManager.registerFilter(filter, shaderKey);
+    } catch (error) {
+        console.warn('Error registering pixelate filter with shader manager:', error);
+    }
 
     /**
      * Update the filter's intensity based on the configuration
@@ -86,5 +103,17 @@ export function createPixelateFilter(config: PixelateFilterConfig): FilterResult
         }
     };
 
-    return { filter, updateIntensity, reset };
+    /**
+     * Release any WebGL resources used by this filter
+     */
+    const dispose = (): void => {
+        try {
+            shaderManager.releaseFilter(filter, shaderKey);
+        } catch (error) {
+            console.warn('Error releasing pixelate filter shader:', error);
+        }
+        filter.destroy();
+    };
+
+    return { filter, updateIntensity, reset, dispose };
 }
