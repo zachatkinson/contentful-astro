@@ -24,6 +24,7 @@
     "gsap": "^3.12.7",
     "isomorphic-dompurify": "^2.19.0",
     "jsdom": "^25.0.1",
+    "kinetic-slider": "^1.0.5",
     "node-html-parser": "^7.0.1",
     "pixi-filters": "^6.1.0",
     "pixi.js": "^8.8.0",
