@@ -1,4 +1,4 @@
-// src/components/KineticSlider3/managers/FrameThrottler.ts
+// src/components/KineticSlider/managers/FrameThrottler.ts
 
 /**
  * @file FrameThrottler.ts

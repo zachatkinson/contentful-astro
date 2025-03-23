@@ -1,4 +1,4 @@
-// src/components/KineticSlider3/filters/outlineFilter.ts
+// src/components/KineticSlider/filters/outlineFilter.ts
 import { OutlineFilter } from 'pixi-filters';
 import { type OutlineFilterConfig, type FilterResult } from './types';
 import { ShaderResourceManager } from '../managers/ShaderResourceManager';

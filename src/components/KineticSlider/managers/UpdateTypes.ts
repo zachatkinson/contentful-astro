@@ -1,4 +1,4 @@
-// src/components/KineticSlider3/managers/UpdateTypes.ts
+// src/components/KineticSlider/managers/UpdateTypes.ts
 
 /**
  * @file UpdateTypes.ts

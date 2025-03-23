@@ -4,9 +4,9 @@ import {contentfulClient} from "../lib/contentful";
 import type {BlogPost} from "../lib/blogPost";
 import Hero from '../components/Hero/Hero.astro';
 import AnimatedCallToAction from "../components/AnimatedCallToAction/AnimatedCallToAction.astro";
-import KineticSlider3 from "../components/KineticSlider3/KineticSlider";
+import KineticSlider from "../components/KineticSlider/KineticSlider";
 
-import {type TextPair} from "../components/KineticSlider3/filters";
+import {type TextPair} from "../components/KineticSlider/filters";
 const images = [
     "/images/slides/1.jpg",
     "/images/slides/2.jpg",
@@ -62,7 +62,7 @@ const posts = entries.items.map((entry) => {
     <AnimatedCallToAction/>
 
 
-    <KineticSlider3
+    <KineticSlider
             client:load
             images={images}
             texts={texts}

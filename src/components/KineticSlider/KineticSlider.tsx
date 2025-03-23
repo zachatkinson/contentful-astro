@@ -37,7 +37,7 @@ const FILTER_COORDINATION_EVENT = 'kinetic-slider:filter-update';
 /**
  * Creates an interactive image slider with various displacement and transition effects
  */
-const KineticSlider3: React.FC<KineticSliderProps> = ({
+const KineticSlider: React.FC<KineticSliderProps> = ({
                                                           // Content sources
                                                           images = [],
                                                           texts = [],
@@ -1132,4 +1132,4 @@ const KineticSlider3: React.FC<KineticSliderProps> = ({
     );
 };
 
-export default KineticSlider3;
+export default KineticSlider;

@@ -4,7 +4,7 @@ import { ShaderResourceManager } from '../managers/ShaderResourceManager';
 
 /**
  * This file should be placed at:
- * src/components/KineticSlider3/filters/bloomFilter.ts
+ * src/components/KineticSlider/filters/bloomFilter.ts
  */
 
 /**

@@ -1,4 +1,4 @@
-// src/components/KineticSlider3/filters/asciiFilter.ts
+// src/components/KineticSlider/filters/asciiFilter.ts
 
 import { AsciiFilter } from 'pixi-filters';
 import { type AsciiFilterConfig, type FilterResult } from './types';
